@@ -138,7 +138,7 @@ public:
   void ppl_vertex_transform(const tv_mesh& mesh);
 
 
-  _tv_ppl_executor(){context=NULL;}
+  _tv_ppl_executor(){context=NULL; n_ppls=1;}
 
 protected:
   /* number of active concurrent processing pipelines */

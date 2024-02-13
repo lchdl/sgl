@@ -16,7 +16,6 @@ struct tv_mesh {
   std::vector<tv_u32_t> i_buf;  /* triangle vertex indices */
 };
 
-
 /*
 defines how to interpolate two vertices `v0` and `v1` given mix weight `w`,
 returns the interpolated vertex.

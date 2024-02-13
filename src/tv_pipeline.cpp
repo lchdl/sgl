@@ -1,8 +1,18 @@
 #include "tv_pipeline_impl.h"
 #include "tv_model_impl.h"
-#include "tv_context_impl.h"
+#include "tv_context.h"
 
 _tv_ppl_executor _tv_ppl_exe;
+
+void tv_pipeline_init(int n_ppls)
+{
+  _tv_ppl_exe.set_active_ppls(n_ppls);
+}
+
+void _tv_ppl_executor::set_active_ppls(tv_u32_t n_ppls)
+{
+  this->n_ppls = n_ppls;
+}
 
 void _tv_ppl_executor::ppl_init(const tv_context& context, const tv_mat4x4& world)
 {
@@ -25,7 +35,7 @@ void _tv_ppl_executor::ppl_vertex_transform(const tv_mesh& mesh)
   */
   std::vector<tv_vertex> v_NDC = mesh.v_buf; /* copy buffer */
   {
-    tv_u32_t n_vert = mesh.v_buf.size() / 3;
+    tv_u32_t n_vert = mesh.v_buf.size();
     tv_u32_t n_vert_per_ppl = (n_vert / n_ppls) + 1;
     
     #pragma omp parallel num_threads(n_ppls)
@@ -118,14 +128,29 @@ _tv_ppl::~_tv_ppl()
 void _tv_ppl::init(const tv_context& context, const tv_u32_t& n_ppls)
 {
   /* view matrix */
-  tv_vec3 front = tv_normalize(context.look - context.eye);
-  tv_vec3 right = tv_normalize(tv_cross(front, context.up));
-  tv_vec3 up = tv_normalize(tv_cross(right, front));
-  tv_mat4x4 _view(right.x, right.y, right.z, tv_float(0.0), up.x, up.y, up.z,
-                  tv_float(0.0), front.x, front.y, front.z, tv_float(0.0),
-                  context.eye.x, context.eye.y, context.eye.z,
-                  tv_float(1.0));
-  this->uniforms.eyedir = front;
+  /*
+  NOTE: OpenGL uses a fairly strange axis system, the +z axis
+  is pointing towards the camera, +x axis is pointing to the right,
+  +y axis is pointing upwards, in this way, +x, +y, and +z axis
+  is in a RHS coordinate system.
+  */
+  tv_vec3 front = tv_normalize(context.eye - context.look);
+  tv_vec3 left = tv_normalize(tv_cross(context.up, front));
+  tv_vec3 up = tv_normalize(tv_cross(front, left));
+  tv_vec3& F = front, &L = left, &U = up;
+  const tv_float& ex = context.eye.x, 
+                & ey = context.eye.y, 
+                & ez = context.eye.z;
+  tv_mat4x4 _rot(L.x, L.y, L.z, 0.0, 
+                 U.x, U.y, U.z, 0.0, 
+                 F.x, F.y, F.z, 0.0,
+                 0.0, 0.0, 0.0, 1.0);
+  tv_mat4x4 _off(1.0, 0.0, 0.0, -ex, 
+                 0.0, 1.0, 0.0, -ey, 
+                 0.0, 0.0, 1.0, -ez,
+                 0.0, 0.0, 0.0, 1.0);  
+  tv_mat4x4 _view = _rot & _off;
+  this->uniforms.eyedir = -front;
   this->uniforms.view = _view;
   /* projection matrix */
   if (context.perspective.enabled) {
@@ -140,9 +165,10 @@ void _tv_ppl::init(const tv_context& context, const tv_u32_t& n_ppls)
     tv_float r = -l;
     tv_float t = inv_aspect * r;
     tv_float b = -t;
-    tv_mat4x4 _proj(2 * n / (r - l), 0, (r + l) / (r - l), 0, 0,
-                    2 * n / (t - b), (t + b) / (t - n), 0, 0, 0,
-                    -(f + n) / (f - n), -2 * f * n / (f - n), 0, 0, -1.0, 0);
+    tv_mat4x4 _proj(2 * n / (r - l), 0, (r + l) / (r - l), 0, 
+                    0, 2 * n / (t - b), (t + b) / (t - b), 0, 
+                    0, 0, -(f + n) / (f - n), -2 * f * n / (f - n), 
+                    0, 0, -1.0, 0);
     this->uniforms.proj = _proj;
     _tv_view_frustum frustum;
     /* near plane */
@@ -158,11 +184,11 @@ void _tv_ppl::init(const tv_context& context, const tv_u32_t& n_ppls)
     frustum.faces[3].origin = tv_vec3(+1, 0, 0);
     frustum.faces[3].normal = tv_vec3(-1, 0, 0);
     /* top plane */
-    frustum.faces[3].origin = tv_vec3(0, +1, 0);
-    frustum.faces[3].normal = tv_vec3(0, -1, 0);
+    frustum.faces[4].origin = tv_vec3(0, +1, 0);
+    frustum.faces[4].normal = tv_vec3(0, -1, 0);
     /* bottom plane */
-    frustum.faces[3].origin = tv_vec3(0, -1, 0);
-    frustum.faces[3].normal = tv_vec3(0, +1, 0);
+    frustum.faces[5].origin = tv_vec3(0, -1, 0);
+    frustum.faces[5].normal = tv_vec3(0, +1, 0);
     this->frustum = frustum;
   } else { /* context.orthographic.enabled */
            /* TODO: add implementation here */
@@ -198,9 +224,9 @@ void _tv_ppl::clip_triangle(const tv_vertex& v1, const tv_vertex& v2, const tv_v
                             tv_vertex& q1, tv_vertex& q2, tv_vertex& q3, tv_vertex& q4,
                             tv_u32_t& n_tri)
 {
-  tv_u8_t p1_sign = tv_dot(v1.p - o, n) < 0 ? -1 : 1;
-  tv_u8_t p2_sign = tv_dot(v2.p - o, n) < 0 ? -1 : 1;
-  tv_u8_t p3_sign = tv_dot(v3.p - o, n) < 0 ? -1 : 1;
+  tv_i8_t p1_sign = tv_dot(v1.p - o, n) < 0 ? -1 : 1;
+  tv_i8_t p2_sign = tv_dot(v2.p - o, n) < 0 ? -1 : 1;
+  tv_i8_t p3_sign = tv_dot(v3.p - o, n) < 0 ? -1 : 1;
 
   if (p1_sign < 0 && p2_sign < 0 && p3_sign < 0) {
     /* all triangles are clipped out */
@@ -266,6 +292,7 @@ void _tv_ppl::clip_triangle(const _tv_ppl_tri& t_in,
     for (tv_u32_t j=0;j<Qcur->size();j++){
       _tv_ppl_tri& tri = Qcur->at(j);
       tv_u32_t n_tri;
+      if (i==4) __debugbreak();
       clip_triangle(tri.v[0], tri.v[1], tri.v[2], 
                     f.faces[i].origin, f.faces[i].normal, 
                     q[0], q[1], q[2], q[3], n_tri);
@@ -302,15 +329,15 @@ void _tv_ppl::set_uniform_mat4x4(const std::string& name, const tv_mat4x4& m)
 void _tv_ppl::vertex_shader(const tv_vertex& v_in, tv_vertex& v_out)
 {
   tv_vec3 p_in = v_in.p;
-  tv_vec4 p_out = uniforms.proj & uniforms.view & uniforms.world & tv_vec4(p_in, 1.0);
+  tv_vec4 p_out = uniforms.transform & tv_vec4(p_in, 1.0);
   gl_Position = p_out;
   v_out.n = v_in.n;
   v_out.t = v_in.t;
 }
 
 /* draw `mesh` using `context`, mesh transform is given in `world` matrix */
-void tv_draw_mesh(const tv_context *context, tv_mesh *mesh, tv_mat4x4 *world) 
+void tv_draw_mesh(tv_context* context, tv_mesh* mesh, const tv_mat4x4& world)
 {
-  _tv_ppl_exe.ppl_init(*context, *world);
+  _tv_ppl_exe.ppl_init(*context, world);
   _tv_ppl_exe.ppl_vertex_transform(*mesh);
 }

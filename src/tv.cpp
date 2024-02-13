@@ -1,52 +1,42 @@
 #include <stdio.h>
-
 #include "tv_SDL.h"
-#include "tv_types.h"
+
 #include "tv_math.h"
-
-void rgen_m4(tv_mat4x4* a){
-    for (int i=0;i<16;i++){
-        a->x[i] = tv_float(rand()) / tv_float(RAND_MAX) - 0.5;
-    }
-}
-
-void mmt(tv_mat4x4* out, tv_mat4x4* a, tv_mat4x4* b)
-{
-    tv_mat4x4 c = *b;
-    c = tv_transpose(c);
-    for(int i=0;i<4;i++) {
-        for(int j=0;j<4;j++){
-            tv_float sum = 0.0;
-            for(int k=0;k<4;k++){
-                sum += a->x[i*4+k] * c.x[j*4+k];
-            }
-            out->x[i*4+j] = sum;
-        }
-    }
-}
+#include "tv_model.h"
+#include "tv_context.h"
+#include "tv_surface.h"
+#include "tv_pipeline.h"
 
 void bench()
 {
-    srand(169);
-    tv_mat4x4 a[1024], b[1024], c;
-    for (int i =0; i<1024;i++) {rgen_m4(&a[i]); rgen_m4(&b[i]);}
-    const int tests = 100000 * 100;
+    tv_mesh* mesh = tv_mesh_create();
+    int ind[3], f;
+    double d = 1;
+    ind[0] = tv_mesh_add_vertex(mesh, tv_vec3(0,0,-d),tv_vec3(0,0,1),tv_vec2(0,0));
+    ind[1] = tv_mesh_add_vertex(mesh, tv_vec3(1,0,-d),tv_vec3(0,0,1),tv_vec2(0,1));
+    ind[2] = tv_mesh_add_vertex(mesh, tv_vec3(1,2,-d),tv_vec3(0,0,1),tv_vec2(1,1));
+    f = tv_mesh_add_triangle(mesh, ind[0], ind[1], ind[2]);
+    tv_context* context = tv_context_create();
+    context->eye = tv_vec3(0,0,0);
+    context->look = tv_vec3(0,0,-1);
+    context->up = tv_vec3(0,1,0);
+    context->perspective.near=0.1;
+    context->perspective.far=10.0;
+    int w=256, h=256;
+    tv_surface* surf0 = tv_surface_create(w,h,4);
+    tv_surface* surf1 = tv_surface_create(w,h,4);
+    tv_surface* surf2 = tv_surface_create(w,h,4);
+    context->color_surface = surf0;
+    context->depth_surface = surf1;
+    context->stencil_surface = surf2;
 
-    {
-        tv_float V = 0.0;
-        tv_timespec tobj;
-        tv_float dt = 0.0;
-        for (int i=0;i<tests;i++){
-            rgen_m4(&a[0]);
-            rgen_m4(&b[0]);
-            tv_time_record_start(&tobj);
-            c = a[0] & b[0];
-            V += c.i11 + c.i44;
-            dt += tv_time_record_end(&tobj);
-        }
-        printf("%.4f ms | V=%.4f\n", dt * 1000.0, V);
-    }
+    tv_draw_mesh(context, mesh, tv_mat4x4::identity());
 
+    tv_surface_destroy(surf0);
+    tv_surface_destroy(surf1);
+    tv_surface_destroy(surf2);
+    tv_mesh_destroy(mesh);
+    tv_context_destroy(context);
 }
 
 int main()

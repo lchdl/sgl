@@ -11,28 +11,20 @@ template <typename T> T min(T _a, T _b) { return (_a < _b) ? _a : _b; }
 template <typename T> T max(T _a, T _b) { return (_a > _b) ? _a : _b; }
 
 struct tv_vec2 {
-  union {
-    struct { tv_float x, y; };
-    struct { tv_float u, v; };
-  };
+  tv_float x, y;
+
   tv_vec2() { x = y = tv_float(0.0); }
   tv_vec2(tv_float _x, tv_float _y) { x = _x, y = _y; }
 };
 struct tv_vec3 {
-  union {
-    struct { tv_float x, y, z; };
-    struct { tv_float r, g, b; };
-  };
+  tv_float x, y, z;
 
   tv_vec3() { x = y = z = 0.0f; }
   tv_vec3(tv_float _x, tv_float _y, tv_float _z) { x = _x, y = _y, z = _z; }
 };
 struct tv_vec4 {
-  union {
-    struct { tv_float x, y, z, w; };
-    struct { tv_float r, g, b, a; };
-  };
-    
+  tv_float x, y, z, w;   
+  
   tv_vec4() { x = y = z = 0.0f; }
   tv_vec4(tv_float _x, tv_float _y, tv_float _z, tv_float _w) {
     x = _x, y = _y, z = _z;
@@ -114,6 +106,15 @@ struct tv_mat4x4 {
     i21 = _21; i22 = _22; i23 = _23; i24 = _24;
     i31 = _31; i32 = _32; i33 = _33; i34 = _34;
     i41 = _41; i42 = _42; i43 = _43; i44 = _44;
+  }
+  static tv_mat4x4 identity()
+  {
+    return tv_mat4x4(
+      1,0,0,0,
+      0,1,0,0,
+      0,0,1,0,
+      0,0,0,1
+    );
   }
 };
 

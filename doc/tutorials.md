@@ -18,6 +18,10 @@ Some tutorials that I found useful on the internet.
   https://lazyfoo.net/tutorials/SDL/
 
 ### Software Rasterizer Tutorial
+
+* The **view matrix** in OpenGL:
+  http://www.songho.ca/opengl/gl_camera.html
+
 * The **perspective matrix** in OpenGL:
   http://www.songho.ca/opengl/gl_projectionmatrix.html
 

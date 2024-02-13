@@ -17,17 +17,6 @@ struct tv_timespec {
     timeval t_start, t_end;
 };
 
-struct tv_surface {
-    /* 
-    Render surface with arbitrary pixel formats,
-    with data stored on RAM and can be randomly
-    accessed by CPU. Surface object can also store
-    loaded image texture data. 
-    */
-    tv_i32_t h, w;     /* size of the surface */
-    void* pixels;  /* pixel data pointer */
-};
-
 void tv_time_record_start(tv_timespec* tobj);
 tv_float tv_time_record_end(tv_timespec* tobj);
 
