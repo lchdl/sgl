@@ -2,6 +2,17 @@ cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# preprocessor macro
+if(WIN32)
+    add_compile_definitions(WINDOWS)
+    message(STATUS "[*] Compile on Windows." )
+elseif(UNIX)
+    add_compile_definitions(LINUX)
+    message(STATUS "[*] Compile on Linux.")
+else()
+    message(FATAL_ERROR "CMake cannot determine the platform thay you are using.")
+endif()
+
 project(tinyvis VERSION 0.0.1)
 file(GLOB_RECURSE ALL_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 add_executable(tinyvis ${ALL_SRC_FILES})

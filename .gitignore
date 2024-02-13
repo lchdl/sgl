@@ -1,6 +1,8 @@
 # [*] Project specific
 ext/
 build/
+temp/
+legacy/
 
 # [C++] For the following git ignored items, see:
 # https://github.com/github/gitignore/blob/main/C%2B%2B.gitignore
