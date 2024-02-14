@@ -71,6 +71,16 @@ public:
                      std::vector<_tv_ppl_tri>& t_out
   );
   /*
+  Clip a triangle in homogeneous space, 
+  so that for every vertex in clip space (x_c, y_c, z_c, w_c),
+  -w_c <= x_c <= +w_c,
+  -w_c <= y_c <= +w_c,
+  -w_c <= z_c <= +w_c.
+  */
+  void clip_triangle_homogeneous(const tv_vertex& v1, const tv_vertex& v2, const tv_vertex& v3,
+                    tv_vertex& q1, tv_vertex& q2, tv_vertex& q3, tv_vertex& q4,
+                    tv_u32_t& n_tri);
+  /*
   Main vertex shader process.
   Transform vertex `v_in` to `v_out`.
   - NOTE: this->`gl_Position` must be properly set after calling this function.
@@ -105,13 +115,6 @@ protected:
     /* pipeline ID, number of concurrent pipelines */
     tv_u32_t i_ppl, n_ppls;
   } uniforms; /* fragment shader temoprary storage */
-
-  /*
-  internal variables
-  */
-  tv_vec4 gl_Position; /* should be properly set by vertex shader */
-  tv_vec4 gl_FragCoord; /* can be used in fragment shader */
-  tv_float gl_FragDepth; /* a value between [0, 1] */
 
 }; /* supports 64 concurrent pipelines at maximum */
 

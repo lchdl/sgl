@@ -33,7 +33,7 @@ void _tv_ppl_executor::ppl_vertex_transform(const tv_mesh& mesh)
   Run vertex shader
   local model space -> world space -> view space -> clip space -> NDC space
   */
-  std::vector<tv_vertex> v_NDC = mesh.v_buf; /* copy buffer */
+  std::vector<tv_vertex> v_clip = mesh.v_buf; /* copy buffer */
   {
     tv_u32_t n_vert = mesh.v_buf.size();
     tv_u32_t n_vert_per_ppl = (n_vert / n_ppls) + 1;
@@ -47,16 +47,12 @@ void _tv_ppl_executor::ppl_vertex_transform(const tv_mesh& mesh)
       for (tv_u32_t i_vert=vi_start; i_vert<vi_end; i_vert++){
         tv_vertex v_in = mesh.v_buf[i_vert];
         tv_vertex v_out;
-        /* run vertex shader here, and we expect `gl_Position` 
-        is properly set after running this */
         ppl.vertex_shader(v_in, v_out);
-        /* `v_out` is in clipped space, divide by `w_c` to obtain NDC 
-        (normalized device coordinates) */
-        v_out.p = tv_vec3(ppl.gl_Position.x, ppl.gl_Position.y, ppl.gl_Position.z) / ppl.gl_Position.w;
-        v_NDC[i_vert] = v_out;
+        v_clip[i_vert] = v_out;
       }
     }
   }
+
 
   /*
   Backface culling & clipping & prepare for rasterization
@@ -82,7 +78,7 @@ void _tv_ppl_executor::ppl_vertex_transform(const tv_mesh& mesh)
           if (tv_dot(facedir, ppl.uniforms.eyedir) > tv_float(0.0))
             continue;
         }
-        _tv_ppl_tri t_in_NDC(v_NDC[i_tri*3], v_NDC[i_tri*3+1], v_NDC[i_tri*3+2]);
+        _tv_ppl_tri t_in_NDC(v_clip[i_tri*3], v_clip[i_tri*3+1], v_clip[i_tri*3+2]);
         ppl.clip_triangle(t_in_NDC, ppl.frustum, t_frag_ppl[i_ppl]);
       }
       for(tv_u32_t i_tri = 0; i_tri<t_frag_ppl[i_ppl].size(); i_tri++){
@@ -292,7 +288,6 @@ void _tv_ppl::clip_triangle(const _tv_ppl_tri& t_in,
     for (tv_u32_t j=0;j<Qcur->size();j++){
       _tv_ppl_tri& tri = Qcur->at(j);
       tv_u32_t n_tri;
-      if (i==4) __debugbreak();
       clip_triangle(tri.v[0], tri.v[1], tri.v[2], 
                     f.faces[i].origin, f.faces[i].normal, 
                     q[0], q[1], q[2], q[3], n_tri);
@@ -329,10 +324,14 @@ void _tv_ppl::set_uniform_mat4x4(const std::string& name, const tv_mat4x4& m)
 void _tv_ppl::vertex_shader(const tv_vertex& v_in, tv_vertex& v_out)
 {
   tv_vec3 p_in = v_in.p;
+  tv_vec3 n_in = v_in.n;
   tv_vec4 p_out = uniforms.transform & tv_vec4(p_in, 1.0);
-  gl_Position = p_out;
-  v_out.n = v_in.n;
+  tv_vec4 n_out = uniforms.view & uniforms.world & tv_vec4(n_in, 1.0);
+  v_out.inv_ze = 1.0 / p_out.z;
+  v_out.p = tv_vec3(p_out.x, p_out.y, p_out.z);
+  v_out.n = tv_vec3(n_out.x, n_out.y, n_out.z);;
   v_out.t = v_in.t;
+  v_out.c = v_in.c;
 }
 
 /* draw `mesh` using `context`, mesh transform is given in `world` matrix */

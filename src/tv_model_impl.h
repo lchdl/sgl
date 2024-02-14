@@ -8,6 +8,8 @@ struct tv_vertex {
   tv_vec3 p; /* position */
   tv_vec3 n; /* normal */
   tv_vec2 t; /* texture coordinate */
+  tv_vec3 c; /* vertex color */
+  tv_float inv_ze;
 };
 
 struct tv_mesh {
@@ -29,6 +31,7 @@ inline tv_vertex tv_lerp(const tv_vertex &v0, const tv_vertex &v1, const tv_floa
   v.p = (tv_float(1.0) - w) * v0.p + tv_float(w) * v1.p;
   v.n = (tv_float(1.0) - w) * v0.n + tv_float(w) * v1.n;
   v.t = (tv_float(1.0) - w) * v0.t + tv_float(w) * v1.t;
+  v.c = (tv_float(1.0) - w) * v0.c + tv_float(w) * v1.c;
   v.n = tv_normalize(v.n);
   return v;
 }
