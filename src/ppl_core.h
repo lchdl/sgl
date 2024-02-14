@@ -15,13 +15,6 @@
 
 namespace ppl {
 
-struct RasterRect {
-  double x_s, y_s, x_e, y_e;
-  RasterRect() { x_s = y_s = x_e = y_e = 0.0; }
-  RasterRect(double _x_s, double _y_s, double _x_e, double _y_e) {
-    x_s = _x_s, y_s = _y_s, x_e = _x_e, y_e = _y_e;
-  }
-};
 class Pipeline {
 public:
   /**
@@ -128,14 +121,15 @@ protected:
   @param p0, p1, p2: Window space coordinate (x,y,z,1/w), where (x,y) is the
   relative pixel location, z is the mapped NDC depth (see glFragDepth()), w is
   the real depth value in view space.
+  @return: Minimum rectangle (x_s, y_s, x_e, y_e) that contains the triangle.
   **/
-  RasterRect get_rect(const Vec4 &p0, const Vec4 &p1, const Vec4 &p2) {
+  Vec4 get_minimum_rect(const Vec4 &p0, const Vec4 &p1, const Vec4 &p2) {
     Vec2 bl, tr;
     bl.x = min(min(p0.x, p1.x), p2.x);
     bl.y = min(min(p0.y, p1.y), p2.y);
     tr.x = max(max(p0.x, p1.x), p2.x);
     tr.y = max(max(p0.y, p1.y), p2.y);
-    return RasterRect(bl.x, bl.y, tr.x, tr.y);
+    return Vec4(bl.x, bl.y, tr.x, tr.y);
   }
   double edge_function(const Vec4 &p0, const Vec4 &p1, const Vec4 &p) {
     return (p0.y - p1.y) * p.x + (p1.x - p0.x) * p.y +

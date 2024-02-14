@@ -113,14 +113,14 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
     const Vec4 &p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
     /** @note: p0, p1, p2 are actually gl_FragCoord. **/
     /* Step 3.3: Rasterization. */
-    RasterRect raster_rect = get_rect(p0, p1, p2);
-    Vec4 p                 = Vec4(raster_rect.x_s, raster_rect.y_s, 0.0, 0.0);
+    Vec4 rect = get_minimum_rect(p0, p1, p2);
     /* precomupte: divide by real z */
     tri_gl.v[0] *= iz.i[0];
     tri_gl.v[1] *= iz.i[1];
     tri_gl.v[2] *= iz.i[2];
-    for (p.y = raster_rect.y_s; p.y < raster_rect.y_e; p.y += 1.0) {
-      for (p.x = raster_rect.x_s; p.x < raster_rect.x_e; p.x += 1.0) {
+    Vec4 p; /* raster scan coordinate */
+    for (p.y = rect.i[1]; p.y < rect.i[3]; p.y += 1.0) {
+      for (p.x = rect.i[0]; p.x < rect.i[2]; p.x += 1.0) {
         /* clang-format off */
         /** @note: winding order is important.  **/
         double area = edge_function(p0, p1, p2);
