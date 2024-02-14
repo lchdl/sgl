@@ -38,25 +38,25 @@ public:
   void setup_camera(const Vec3 &position, const Vec3 &look_at,
                     const Vec3 &up_dir, const Vec3 &volume);
   /**
-  Clear surfaces.
-  @param color_surface: Color surface to be cleared.
-  @param depth_surface: Depth surface to be cleared.
-  @param clear_color: Color that will be filled to the color surface.
+  Clear textures.
+  @param color_texture: Color texture to be cleared.
+  @param depth_texture: Depth texture to be cleared.
+  @param clear_color: Color that will be filled to the color texture.
   **/
-  void clear_surfaces(Surface &color_surface, Surface &depth_surface,
+  void clear_textures(Texture &color_texture, Texture &depth_texture,
                       const Vec4 &clear_color);
   /**
   Rasterize a single triangle.
   @param vertex_buffer, index_buffer: The buffers describe the model.
   @param model_matrix: The model transformation applied before rendering.
-  @param color_surface: The color buffer, surface format should be RGBA8.
-  @param depth_surface: The depth buffer, surface format should be float64.
+  @param color_texture: The color buffer, texture format should be RGBA8.
+  @param depth_texture: The depth buffer, texture format should be float64.
   @note: the size of the color and depth buffer should be the same.
   **/
   void rasterize(const std::vector<Vertex> &vertex_buffer,
                  const std::vector<int32_t> &index_buffer,
-                 const Mat4x4 &model_matrix, Surface &color_surface,
-                 Surface &depth_surface);
+                 const Mat4x4 &model_matrix, Texture &color_texture,
+                 Texture &depth_texture, const Texture *texture_in);
 
 protected:
   /**
@@ -148,12 +148,12 @@ protected:
     A = uint8_t(min(max(int(color.w * 255.0), 0), 255));
   }
   /**
-  Surface read/write functionalities.
+  texture read/write functionalities.
   @param p: Window coordinate (x, y), origin is at lower-left corner.
   @param fragment_out: Output of fragment shader.
   @param z: Depth value in window space [0, +1], 0/1: near/far.
   **/
-  void write_surfaces(const Vec2 &p, const Vec4 &fragment_out, const double &z);
+  void write_textures(const Vec2 &p, const Vec4 &fragment_out, const double &z);
 
 protected:
   struct {
@@ -163,16 +163,14 @@ protected:
   } eye;
   struct {
     /* not owned */
-    Surface *color_surface;
-    Surface *depth_surface;
-  } surfaces;
+    Texture *color_texture;
+    Texture *depth_texture;
+  } textures;
   struct {
     /* vertices after vertex processing */
     std::vector<Vertex_gl> Vertices;
     /* geometry generated after vertex post-processing */
     std::vector<Triangle_gl> Triangles;
-    /* fragment unit generated after rasterization */
-    std::vector<Fragment_gl> Fragments;
   } ppl;
 
 public:

@@ -19,6 +19,8 @@ vertex_shader(const Vertex &vertex_in, const Uniforms &uniforms,
 void
 fragment_shader(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                 Vec4 &fragment_out) {
-  fragment_out = Vec4(1.0, 1.0, 1.0, 1.0);
+  Vec2 uv       = fragment_in.t;
+  Vec4 textured = uniforms.in_texture->texture_RGBA8(uv);
+  fragment_out  = Vec4(textured.xyz(), 1.0);
 }
 };   // namespace ppl

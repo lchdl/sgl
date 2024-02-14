@@ -1,6 +1,8 @@
 #include "tv_SDL.h"
 #include <stdio.h>
 
+#include "unistd.h"
+
 #include "ppl_core.h"
 
 SDL_Window *pWindow;
@@ -14,8 +16,8 @@ run_pipeline() {
   /* Step 1: Setup resources. */
   int render_width  = w;
   int render_height = h;
-  ppl::Surface color_surface;
-  ppl::Surface depth_surface;
+  ppl::Texture color_surface;
+  ppl::Texture depth_surface;
   color_surface.create(render_width, render_height, 4); /* RGBA8 per pixel */
   depth_surface.create(render_width, render_height, 8); /* float64 per pixel */
 
@@ -53,11 +55,14 @@ run_pipeline() {
   ppl::Mat4x4 model_matrix;
   model_matrix = ppl::Mat4x4::identity();
 
+  ppl::Texture in_texture = ppl::load_image_as_texture(
+      "C:/Users/1/Desktop/LCH/tiny_vision/bin/checker.png");
+
   /* Step 3: Run pipeline */
-  pipeline.clear_surfaces(color_surface, depth_surface,
-                          ppl::Vec4(0.0, 0.0, 0.0, 0.0));
+  pipeline.clear_textures(color_surface, depth_surface,
+                          ppl::Vec4(0.5, 0.5, 0.5, 1.0));
   pipeline.rasterize(vertex_buffer, index_buffer, model_matrix, color_surface,
-                     depth_surface);
+                     depth_surface, &in_texture);
 
   /* Step 4: Update rendered surfaces. */
   memcpy(pWindowSurface->pixels, color_surface.pixels, 4 * w * h);

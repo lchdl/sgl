@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ppl_math.h"
+#include "ppl_texture.h"
 
 namespace ppl {
 
@@ -83,6 +84,7 @@ public:
   Mat4x4 model;
   Mat4x4 view;
   Mat4x4 projection;
+  const Texture *in_texture;
 };
 
 /**

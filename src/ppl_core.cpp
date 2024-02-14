@@ -5,8 +5,8 @@ namespace ppl {
 
 Pipeline::Pipeline() {
   eye.projection_mode    = "perspective";
-  surfaces.color_surface = NULL;
-  surfaces.depth_surface = NULL;
+  textures.color_texture = NULL;
+  textures.depth_texture = NULL;
 }
 Pipeline::~Pipeline() {}
 void
@@ -32,21 +32,21 @@ Pipeline::setup_camera(const Vec3 &position, const Vec3 &look_at,
 void
 Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
                     const std::vector<int32_t> &index_buffer,
-                    const Mat4x4 &model_matrix, Surface &color_surface,
-                    Surface &depth_surface) {
+                    const Mat4x4 &model_matrix, Texture &color_texture,
+                    Texture &depth_texture, const Texture *in_texture) {
 
   /* Clear data from last frame. */
   ppl.Vertices.clear();
   ppl.Triangles.clear();
-  ppl.Fragments.clear();
 
-  /* Register surfaces and fill uniform variables */
-  this->surfaces.color_surface = &color_surface;
-  this->surfaces.depth_surface = &depth_surface;
+  /* Register textures and fill uniform variables */
+  this->textures.color_texture = &color_texture;
+  this->textures.depth_texture = &depth_texture;
   Uniforms uniforms;
   uniforms.model      = model_matrix;
   uniforms.view       = get_view_matrix();
   uniforms.projection = get_projection_matrix();
+  uniforms.in_texture = in_texture;
 
   /* Step 1: Vertex processing. */
   for (int i_vert = 0; i_vert < vertex_buffer.size(); i_vert++) {
@@ -101,8 +101,8 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
     with +x axis pointing to the right and +y axis pointing to the top.
     **/
     /* clang-format off */
-    const double render_width  = double(this->surfaces.color_surface->w);
-    const double render_height = double(this->surfaces.color_surface->h);
+    const double render_width  = double(this->textures.color_texture->w);
+    const double render_height = double(this->textures.color_texture->h);
     const Vec3 scale_factor    = Vec3(render_width, render_height, 1.0);
     const Vec3 iz = Vec3(1.0 / tri_gl.v[0].gl_Position.w, 
                          1.0 / tri_gl.v[1].gl_Position.w,
@@ -111,6 +111,9 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
     const Vec4 &p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
     const Vec4 &p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
     const Vec4 &p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
+    double area    = edge_function(p0, p1, p2);
+    if (area < 0.0001)
+      continue;
     /** @note: p0, p1, p2 are actually gl_FragCoord. **/
     /* Step 3.3: Rasterization. */
     Vec4 rect = get_minimum_rect(p0, p1, p2);
@@ -123,7 +126,6 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
       for (p.x = rect.i[0]; p.x < rect.i[2]; p.x += 1.0) {
         /* clang-format off */
         /** @note: winding order is important.  **/
-        double area = edge_function(p0, p1, p2);
         Vec3 w = Vec3(edge_function(p1, p2, p),
                       edge_function(p2, p0, p),
                       edge_function(p0, p1, p));
@@ -153,7 +155,7 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
         fragment_shader(fragment, uniforms, fragment_out);
         /* clang-format on */
         /* Step 3.5: Fragment processing */
-        write_surfaces(fragment.gl_FragCoord.xy(), fragment_out,
+        write_textures(fragment.gl_FragCoord.xy(), fragment_out,
                        fragment.gl_FragCoord.z);
       }
     }
@@ -161,18 +163,18 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
 }
 
 void
-Pipeline::write_surfaces(const Vec2 &p, const Vec4 &fragment_out,
+Pipeline::write_textures(const Vec2 &p, const Vec4 &fragment_out,
                          const double &z) {
-  int w  = this->surfaces.color_surface->w;
-  int h  = this->surfaces.color_surface->h;
+  int w  = this->textures.color_texture->w;
+  int h  = this->textures.color_texture->h;
   int ix = int(p.x);
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
   int pixel_id    = iy * w + ix;
-  uint8_t *pixels = (uint8_t *) this->surfaces.color_surface->pixels;
+  uint8_t *pixels = (uint8_t *) this->textures.color_texture->pixels;
   /* depth test */
-  double *depths = (double *) this->surfaces.depth_surface->pixels;
+  double *depths = (double *) this->textures.depth_texture->pixels;
   double z_orig  = depths[pixel_id];
   double z_new   = min(max(z, 0.0), 1.0);
   if (z_orig < z_new)
@@ -184,6 +186,8 @@ Pipeline::write_surfaces(const Vec2 &p, const Vec4 &fragment_out,
   pixels[pixel_id * 4 + 1] = G;
   pixels[pixel_id * 4 + 2] = B;
   pixels[pixel_id * 4 + 3] = A;
+  // printf("write (ix=%d, iy=%d) = (%d, %d, %d, %d)\n", ix, iy, int(R), int(G),
+  //        int(B), int(A));
 }
 
 void
@@ -318,13 +322,13 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
   }
 }
 void
-Pipeline::clear_surfaces(Surface &color_surface, Surface &depth_surface,
+Pipeline::clear_textures(Texture &color_texture, Texture &depth_texture,
                          const Vec4 &clear_color) {
   uint8_t R, G, B, A;
   convert_Vec4_to_RGBA8(clear_color, R, G, B, A);
-  int n_pixels    = color_surface.w * color_surface.h;
-  uint8_t *pixels = (uint8_t *) color_surface.pixels;
-  double *depths  = (double *) depth_surface.pixels;
+  int n_pixels    = color_texture.w * color_texture.h;
+  uint8_t *pixels = (uint8_t *) color_texture.pixels;
+  double *depths  = (double *) depth_texture.pixels;
   for (int i = 0; i < n_pixels; i++) {
     pixels[i * 4 + 0] = R;
     pixels[i * 4 + 1] = G;
@@ -355,7 +359,7 @@ Pipeline::get_projection_matrix() {
   Mat4x4 projection_matrix;
   if (this->eye.projection_mode == "perspective") {
     double aspect_ratio =
-        double(surfaces.color_surface->w) / double(surfaces.color_surface->h);
+        double(textures.color_texture->w) / double(textures.color_texture->h);
     double inv_aspect    = double(1.0) / aspect_ratio;
     double near          = eye.projection_param.x;
     double far           = eye.projection_param.y;
