@@ -16,3 +16,9 @@ Some tutorials that I found useful on the internet.
   https://wiki.libsdl.org/SDL3/FrontPage
 * **Tutorial** by LazyFoo:
   https://lazyfoo.net/tutorials/SDL/
+* Initialize OpenGL in SDL:
+  https://raw.githubusercontent.com/Overv/Open.GL/master/ebook/Modern%20OpenGL%20Guide.pdf
+
+
+
+

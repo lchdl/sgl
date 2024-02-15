@@ -1,9 +1,8 @@
-#include "tv_SDL.h"
 #include <stdio.h>
 
-#include "unistd.h"
-
 #include "ppl_core.h"
+#include "tv_SDL.h"
+#include "unistd.h"
 
 SDL_Window *pWindow;
 SDL_Surface *pWindowSurface;
@@ -12,7 +11,6 @@ int w = 256, h = 256;
 
 void
 run_pipeline() {
-
   /* Step 1: Setup resources. */
   int render_width  = w;
   int render_height = h;
@@ -22,10 +20,10 @@ run_pipeline() {
   depth_surface.create(render_width, render_height, 8); /* float64 per pixel */
 
   /* Step 2: Setup camera parameters. */
-  ppl::Vec3 eye_position = ppl::Vec3(0, 0, 0);
-  ppl::Vec3 eye_look_at  = ppl::Vec3(0, 0, -1);
+  ppl::Vec3 eye_position = ppl::Vec3(1, 1, 1);
+  ppl::Vec3 eye_look_at  = ppl::Vec3(0, 0, 0);
   ppl::Vec3 eye_up_dir   = ppl::Vec3(0, 1, 0);
-  double near            = 0.99;
+  double near            = 0.1;
   double far             = 10.0;
   double field_of_view   = ppl::PI / 2.0;
   ppl::Pipeline pipeline;
@@ -36,9 +34,9 @@ run_pipeline() {
   std::vector<ppl::Vertex> vertex_buffer;
   std::vector<int32_t> index_buffer;
   ppl::Triangle triangle;
-  triangle.v[0].p = ppl::Vec3(0, 0, -1);
-  triangle.v[1].p = ppl::Vec3(1, 0, -1);
-  triangle.v[2].p = ppl::Vec3(1, 2, -1);
+  triangle.v[0].p = ppl::Vec3(0, 0, 0);
+  triangle.v[1].p = ppl::Vec3(1, 0, 0);
+  triangle.v[2].p = ppl::Vec3(1, 1, 0);
   triangle.v[0].n = ppl::Vec3(0, 0, 1);
   triangle.v[1].n = ppl::Vec3(0, 0, 1);
   triangle.v[2].n = ppl::Vec3(0, 0, 1);
@@ -70,7 +68,6 @@ run_pipeline() {
 
 int
 main() {
-
   SDL_SetMainReady();
 
   /* Initialize SDL */

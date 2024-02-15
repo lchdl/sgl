@@ -1,4 +1,5 @@
 #include "ppl_core.h"
+
 #include <malloc.h>
 
 namespace ppl {
@@ -34,7 +35,6 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
                     const std::vector<int32_t> &index_buffer,
                     const Mat4x4 &model_matrix, Texture &color_texture,
                     Texture &depth_texture, const Texture *in_texture) {
-
   /* Clear data from last frame. */
   ppl.Vertices.clear();
   ppl.Triangles.clear();
@@ -83,12 +83,13 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
   for (int i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
     /* Step 3.1: Convert clip space to NDC space (perspective divide) */
     Triangle_gl &tri_gl = ppl.Triangles[i_tri];
-    Vertex_gl &v0       = tri_gl.v[0];
-    Vertex_gl &v1       = tri_gl.v[1];
-    Vertex_gl &v2       = tri_gl.v[2];
-    Vec3 p0_NDC         = v0.gl_Position.xyz() / v0.gl_Position.w;
-    Vec3 p1_NDC         = v1.gl_Position.xyz() / v1.gl_Position.w;
-    Vec3 p2_NDC         = v2.gl_Position.xyz() / v2.gl_Position.w;
+
+    Vertex_gl &v0 = tri_gl.v[0];
+    Vertex_gl &v1 = tri_gl.v[1];
+    Vertex_gl &v2 = tri_gl.v[2];
+    Vec3 p0_NDC   = v0.gl_Position.xyz() / v0.gl_Position.w;
+    Vec3 p1_NDC   = v1.gl_Position.xyz() / v1.gl_Position.w;
+    Vec3 p2_NDC   = v2.gl_Position.xyz() / v2.gl_Position.w;
     /* Step 3.2: Convert NDC space to window space */
     /**
     @note: In NDC space, x,y,z is between [-1, +1]
@@ -100,20 +101,16 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
     @note: The window space origin is at the lower-left corner of the screen,
     with +x axis pointing to the right and +y axis pointing to the top.
     **/
-    /* clang-format off */
     const double render_width  = double(this->textures.color_texture->w);
     const double render_height = double(this->textures.color_texture->h);
     const Vec3 scale_factor    = Vec3(render_width, render_height, 1.0);
-    const Vec3 iz = Vec3(1.0 / tri_gl.v[0].gl_Position.w, 
-                         1.0 / tri_gl.v[1].gl_Position.w,
-                         1.0 / tri_gl.v[2].gl_Position.w);
-    /* clang-format on */
+    const Vec3 iz =
+        Vec3(1.0 / tri_gl.v[0].gl_Position.w, 1.0 / tri_gl.v[1].gl_Position.w,
+             1.0 / tri_gl.v[2].gl_Position.w);
     const Vec4 &p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
     const Vec4 &p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
     const Vec4 &p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
     double area    = edge_function(p0, p1, p2);
-    if (area < 0.0001)
-      continue;
     /** @note: p0, p1, p2 are actually gl_FragCoord. **/
     /* Step 3.3: Rasterization. */
     Vec4 rect = get_minimum_rect(p0, p1, p2);
@@ -121,39 +118,44 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
     tri_gl.v[0] *= iz.i[0];
     tri_gl.v[1] *= iz.i[1];
     tri_gl.v[2] *= iz.i[2];
-    Vec4 p; /* raster scan coordinate */
-    for (p.y = rect.i[1]; p.y < rect.i[3]; p.y += 1.0) {
-      for (p.x = rect.i[0]; p.x < rect.i[2]; p.x += 1.0) {
-        /* clang-format off */
-        /** @note: winding order is important.  **/
-        Vec3 w = Vec3(edge_function(p1, p2, p),
-                      edge_function(p2, p0, p),
+    /* p is the raster scan coordinate, and should centered to the pixel. For
+    example, [0.0, 1.0) should become 0.5, [99.0, 100.0) should become 99.5. */
+    Vec4 p;
+    for (p.y = floor(rect.i[1]) + 0.5; p.y < rect.i[3]; p.y += 1.0) {
+      for (p.x = floor(rect.i[0]) + 0.5; p.x < rect.i[2]; p.x += 1.0) {
+        /**
+        @note: here the winding order is important,
+        and w_i are calculated in window space
+        **/
+        Vec3 w = Vec3(edge_function(p1, p2, p), edge_function(p2, p0, p),
                       edge_function(p0, p1, p));
+        // printf("tri=%d, p.x=%.4f, p.y=%.4f, W=[%.4f,%.4f,%.4f]\n", i_tri,
+        // p.x,
+        //        p.y, w.x, w.y, w.z);
         /* discard pixel if it is outside the triangle area */
         if (w.i[0] < 0 || w.i[1] < 0 || w.i[2] < 0)
           continue;
-        /** @note: the w_i are calculated in window space. **/
         w /= area;
-        Vertex_gl v_lerp = tri_gl.v[0] * w.i[0] + tri_gl.v[1] * w.i[1] + tri_gl.v[2] * w.i[2];
-        double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
+        Vertex_gl v_lerp =
+            tri_gl.v[0] * w.i[0] + tri_gl.v[1] * w.i[1] + tri_gl.v[2] * w.i[2];
+        double z_real =
+            1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
         v_lerp *= z_real;
         /**
         @note: v_lerp is the interpolated vertex in homogeneous clip space
         in order to assemble the correct gl_FragCoord, we need to manually
         convert it into NDC space again.
         **/
-        //print("v_lerp", v_lerp);
+        // print("v_lerp", v_lerp);
         /* Step 3.4: Assemble fragment and render pixel. */
         Fragment_gl fragment;
-        fragment.gl_FragCoord = Vec4(p.x, 
-                                     p.y, 
-                                     (1.0 + v_lerp.gl_Position.z) / 2.0, 
-                                     1.0 / v_lerp.gl_Position.w);
+        fragment.gl_FragCoord =
+            Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
+                 1.0 / v_lerp.gl_Position.w);
         fragment.n = v_lerp.n;
         fragment.t = v_lerp.t;
         Vec4 fragment_out;
         fragment_shader(fragment, uniforms, fragment_out);
-        /* clang-format on */
         /* Step 3.5: Fragment processing */
         write_textures(fragment.gl_FragCoord.xy(), fragment_out,
                        fragment.gl_FragCoord.z);
@@ -171,8 +173,8 @@ Pipeline::write_textures(const Vec2 &p, const Vec4 &fragment_out,
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
-  int pixel_id    = iy * w + ix;
   uint8_t *pixels = (uint8_t *) this->textures.color_texture->pixels;
+  int pixel_id    = iy * w + ix;
   /* depth test */
   double *depths = (double *) this->textures.depth_texture->pixels;
   double z_orig  = depths[pixel_id];
@@ -231,26 +233,29 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
                         Vertex_gl &q3, Vertex_gl &q4, int &n_tri) {
   int p1_sign, p2_sign, p3_sign;
   if (clip_sign == +1) {
-    p1_sign = (v1.gl_Position.i[clip_axis] < v1.gl_Position.w) ? +1 : -1;
-    p2_sign = (v2.gl_Position.i[clip_axis] < v2.gl_Position.w) ? +1 : -1;
-    p3_sign = (v3.gl_Position.i[clip_axis] < v3.gl_Position.w) ? +1 : -1;
+    /* use <= instead of <, if a point lies on the clip plane we don't need to
+     * clip it. */
+    p1_sign = (v1.gl_Position.i[clip_axis] <= v1.gl_Position.w) ? +1 : -1;
+    p2_sign = (v2.gl_Position.i[clip_axis] <= v2.gl_Position.w) ? +1 : -1;
+    p3_sign = (v3.gl_Position.i[clip_axis] <= v3.gl_Position.w) ? +1 : -1;
   } else {
-    p1_sign = (v1.gl_Position.i[clip_axis] > -v1.gl_Position.w) ? +1 : -1;
-    p2_sign = (v2.gl_Position.i[clip_axis] > -v2.gl_Position.w) ? +1 : -1;
-    p3_sign = (v3.gl_Position.i[clip_axis] > -v3.gl_Position.w) ? +1 : -1;
+    /* use >= instead of >. */
+    p1_sign = (v1.gl_Position.i[clip_axis] >= -v1.gl_Position.w) ? +1 : -1;
+    p2_sign = (v2.gl_Position.i[clip_axis] >= -v2.gl_Position.w) ? +1 : -1;
+    p3_sign = (v3.gl_Position.i[clip_axis] >= -v3.gl_Position.w) ? +1 : -1;
   }
 
   if (p1_sign < 0 && p2_sign < 0 && p3_sign < 0) {
-    /* all triangles are clipped out */
+    /* triangle is completely outside the clipping volume, simply discard it. */
     n_tri = 0;
   } else if (p1_sign > 0 && p2_sign > 0 && p3_sign > 0) {
-    /* all triangles are contained by the upper space of the
-    clipping plane, we don't need to do any clipping operations */
+    /* triangle is completely inside clipping volume, we don't need to do any
+     * clipping operations */
     n_tri = 1;
     q1 = v1, q2 = v2, q3 = v3;
   } else {
     /* clipping is needed, check how many vertices are in the upper side of
-    the plane */
+    the plane, to obtain the number of newly generated triangles */
     n_tri = 0;
     if (p1_sign > 0)
       n_tri++;
@@ -280,32 +285,28 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
         v[0] = &v3, v[1] = &v1, v[2] = &v2;
       }
     }
-    /*
+    /**
     Then, clip segments p0-p1 and p0-p2.
-
     Assume we have two vertices A and B, segment A-B will be clipped by a
     plane, assume the intersection is C, such that C = (1-t)A + tB. Then we
-    have: C_w = (1-t)*A_w + t*B_w.
-
-    For the near plane (z-axis) clipping, we have C_z = -C_w. Since C_z =
-    (1-t)*A_z + t*B_z, then we also have: -(1-t)*A_w - t*B_w = (1-t)*A_z +
-    t*B_z. We can solve scalar t:
-
-                      t = (A_z+A_w) / ((A_z+A_w)-(B_z+B_w))
-
+    have:
+                              C_w = (1-t)*A_w + t*B_w.
+    For the near plane (z-axis) clipping, we have:
+                                     C_z = -C_w.
+    Since C_z =(1-t)*A_z + t*B_z, then we also have:
+                     -(1-t)*A_w - t*B_w = (1-t)*A_z + t*B_z.
+    We can solve scalar t:
+                       t = (A_z+A_w) / ((A_z+A_w)-(B_z+B_w)).
     Similarily, we can solve scalar t for far plane clipping:
-
-                      t = (A_z-A_w) / ((A_z-A_w)-(B_z-B_w))
-
-    Clipping with other axes is also the same. Just replace A_z to A_x, A_y;
-    B_z to B_x or B_y.
-
-    Also note that this scalar t can also be used to interpolate all the
-    associated vertex attributes for C. The linear interpolation is perfectly
-    sufficient even in perspective distorted cases, because we are before the
-    perspective divide here, were the whole perspective transformation is
-    perfectly affine wrt. the 4D space we work in.
-    */
+                       t = (A_z-A_w) / ((A_z-A_w)-(B_z-B_w)).
+    Clipping with other axes is also the same. Just replace A_z to A_x, A_y; B_z
+    to B_x or B_y.
+    @note: The scalar t can also be used to interpolate all the associated
+    vertex attributes for C. The linear interpolation is perfectly sufficient
+    even in perspective distorted cases, because we are before the perspective
+    divide here, were the whole perspective transformation is perfectly affine
+    wrt. the 4D space we work in.
+    **/
     double t[2];
     clip_segment(*v[0], *v[1], clip_axis, clip_sign, t[0]);
     clip_segment(*v[0], *v[2], clip_axis, clip_sign, t[1]);

@@ -90,8 +90,7 @@ struct Mat3x3 {
   };
 
   Mat3x3() {
-    for (int t = 0; t < 9; t++)
-      i[t] = 0.0;
+    for (int t = 0; t < 9; t++) i[t] = 0.0;
   }
   Mat3x3(double _11, double _12, double _13, double _21, double _22, double _23,
          double _31, double _32, double _33) {
@@ -119,8 +118,7 @@ struct Mat4x4 {
     };
   };
   Mat4x4() {
-    for (int t = 0; t < 16; t++)
-      i[t] = 0.0;
+    for (int t = 0; t < 16; t++) i[t] = 0.0;
   }
   Mat4x4(double _11, double _12, double _13, double _14, double _21, double _22,
          double _23, double _24, double _31, double _32, double _33, double _34,
@@ -286,15 +284,13 @@ transpose(Mat3x3 _a) {
 inline Mat3x3
 operator+(Mat3x3 _a, Mat3x3 _b) {
   Mat3x3 c;
-  for (int i = 0; i < 9; i++)
-    c.i[i] = _a.i[i] + _b.i[i];
+  for (int i = 0; i < 9; i++) c.i[i] = _a.i[i] + _b.i[i];
   return c;
 }
 inline Mat3x3
 operator-(Mat3x3 _a, Mat3x3 _b) {
   Mat3x3 c;
-  for (int i = 0; i < 9; i++)
-    c.i[i] = _a.i[i] - _b.i[i];
+  for (int i = 0; i < 9; i++) c.i[i] = _a.i[i] - _b.i[i];
   return c;
 }
 inline Mat3x3
@@ -303,8 +299,7 @@ mul(Mat3x3 _a, Mat3x3 _b) {
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 3; j++) {
       double sum = 0.0;
-      for (int k = 0; k < 3; k++)
-        sum += _a.i[i * 3 + k] * _b.i[k * 3 + j];
+      for (int k = 0; k < 3; k++) sum += _a.i[i * 3 + k] * _b.i[k * 3 + j];
       c.i[i * 3 + j] = sum;
     }
   }
@@ -325,15 +320,13 @@ mul(Mat3x3 _a, Vec3 _b) {
 inline Mat3x3
 operator*(Mat3x3 _a, double _b) {
   Mat3x3 c;
-  for (int i = 0; i < 9; i++)
-    c.i[i] = _a.i[i] * _b;
+  for (int i = 0; i < 9; i++) c.i[i] = _a.i[i] * _b;
   return c;
 }
 inline Mat3x3
 operator*(double _a, Mat3x3 _b) {
   Mat3x3 c;
-  for (int i = 0; i < 9; i++)
-    c.i[i] = _a * _b.i[i];
+  for (int i = 0; i < 9; i++) c.i[i] = _a * _b.i[i];
   return c;
 }
 
@@ -345,15 +338,13 @@ transpose(Mat4x4 _a) {
 inline Mat4x4
 operator+(Mat4x4 _a, Mat4x4 _b) {
   Mat4x4 c;
-  for (int i = 0; i < 16; i++)
-    c.i[i] = _a.i[i] + _b.i[i];
+  for (int i = 0; i < 16; i++) c.i[i] = _a.i[i] + _b.i[i];
   return c;
 }
 inline Mat4x4
 operator-(Mat4x4 _a, Mat4x4 _b) {
   Mat4x4 c;
-  for (int i = 0; i < 16; i++)
-    c.i[i] = _a.i[i] - _b.i[i];
+  for (int i = 0; i < 16; i++) c.i[i] = _a.i[i] - _b.i[i];
   return c;
 }
 inline Mat4x4
@@ -362,8 +353,7 @@ mul(Mat4x4 _a, Mat4x4 _b) {
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
       double sum = 0.0;
-      for (int k = 0; k < 4; k++)
-        sum += _a.i[i * 4 + k] * _b.i[k * 4 + j];
+      for (int k = 0; k < 4; k++) sum += _a.i[i * 4 + k] * _b.i[k * 4 + j];
       c.i[i * 4 + j] = sum;
     }
   }
@@ -388,15 +378,13 @@ mul(Mat4x4 _a, Vec4 _b) {
 inline Mat4x4
 operator*(Mat4x4 _a, double _b) {
   Mat4x4 c;
-  for (int i = 0; i < 16; i++)
-    c.i[i] = _a.i[i] * _b;
+  for (int i = 0; i < 16; i++) c.i[i] = _a.i[i] * _b;
   return c;
 }
 inline Mat4x4
 operator*(double _a, Mat4x4 _b) {
   Mat4x4 c;
-  for (int i = 0; i < 16; i++)
-    c.i[i] = _a * _b.i[i];
+  for (int i = 0; i < 16; i++) c.i[i] = _a * _b.i[i];
   return c;
 }
 inline Mat4x4
