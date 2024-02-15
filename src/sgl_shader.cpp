@@ -82,9 +82,9 @@ fragment_shader(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                 Vec4 &fragment_out) {
   Vec2 uv = fragment_in.t;
   Vec3 wp = fragment_in.wp;
-  // Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
-  Vec3 color = (wp + 1.0) / 2.0;
-  fragment_out = Vec4(wp, 1.0);
+  Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
+  Vec3 color = (wp + 2.0) / 3.0;
+  fragment_out = Vec4(color * textured, 1.0);
 }
 
 };   // namespace sgl

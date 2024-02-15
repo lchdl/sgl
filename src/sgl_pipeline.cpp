@@ -41,8 +41,8 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
   dt.VertexPostprocessing = timer.tick();
 
   /* Step 3: Rasterization & fragment processing */
-  fragment_processing(uniforms);
-  // fragment_processing_MT(uniforms, hwspec.num_threads);
+  // fragment_processing(uniforms);
+  fragment_processing_MT(uniforms, hwspec.num_threads);
   dt.FragmentProcessing = timer.tick();
 }
 

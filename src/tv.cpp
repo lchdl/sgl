@@ -17,7 +17,7 @@ RenderConfig render_config;
 Pipeline pipeline;
 std::vector<Vertex> vertex_buffer;
 std::vector<int32_t> index_buffer;
-int colortex, depthtex;
+int colortex, depthtex, modeltex;
 
 void
 RGBA8_texture_to_SDL_surface(const Texture* texture, SDL_Surface* surface) {
@@ -38,9 +38,9 @@ RGBA8_texture_to_SDL_surface(const Texture* texture, SDL_Surface* surface) {
 Vertex
 build_vertex(Vec3 p) {
   Vertex v;
-  v.n = normalize(p);
   v.p = p;
-  v.t = Vec2();
+  v.n = normalize(p);
+  v.t = Vec2(p.x + 1.0, p.z + 1.0) / 2.0;
   return v;
 }
 
@@ -91,6 +91,8 @@ init_pipeline() {
   depthtex = texlib.create_texture(render_width, render_height,
                                    TextureFormat::texture_format_float64,
                                    TextureSampling::texture_sampling_point);
+  modeltex =
+      texlib.load_texture("C:/Users/1/Desktop/LCH/tiny_vision/bin/checker.png");
 
   /* Step 2: Setup render config. */
 
@@ -104,9 +106,10 @@ init_pipeline() {
 
   render_config.textures[0] = texlib.get_texture(colortex);
   render_config.textures[1] = texlib.get_texture(depthtex);
+  render_config.textures[2] = texlib.get_texture(modeltex);
   render_config.color_texture_id = 0;
   render_config.depth_texture_id = 1;
-  render_config.uniform_texture_ids[0] = 0;
+  render_config.uniform_texture_ids[0] = 2;
   render_config.model_transform = Mat4x4::identity();
 
   /* Step 3: Setup model. */
@@ -143,17 +146,15 @@ main() {
   bool quit = false;
   double T = 0.0;
   int frameid = 0;
+  const double time_factor = 0.3;
   while (!quit) {
     SDL_PollEvent(&e);
     if (e.type == SDL_QUIT) {
       quit = true;
     }
-    // const double slow_factor = 0.3;
-    //  double T = timer.elapsed() * slow_factor;
-    T += 0.01;
+    T = timer.elapsed() * time_factor;
     frameid++;
-    // render_config.eye.position = Vec3(3 * sin(T), 3, 3 * cos(T));
-    render_config.eye.position = Vec3(3, 3, 3);
+    render_config.eye.position = Vec3(3 * sin(T), 3, 3 * cos(T));
     pipeline.clear_textures(*texlib.get_texture(colortex),
                             *texlib.get_texture(depthtex),
                             Vec4(0.5, 0.5, 0.5, 1.0));
