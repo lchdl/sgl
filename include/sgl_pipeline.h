@@ -1,8 +1,9 @@
 /*
-  == The life of a triangle ==
-  A complete pipeline to draw a single triangle
-  on screen. This is also the rasterization pipeline
-  of standard OpenGL.
+  A complete software implementation of OpenGL graphic pipeline.
+  This implementation also covers every details you need to know
+  about writing a software rasterizer from scratch. The whole
+  pipeline supports OpenMP accelerating, you can dynamically
+  adjust the number of CPU cores used for rendering.
 */
 #pragma once
 #include <stdint.h>
@@ -43,6 +44,8 @@ class Pipeline {
  protected:
   /**
   Internal class that is used in primitive assembly stage.
+  Users do not need to care about it too much since it is just an simple
+  aggregation of vertices that represent an assembled primitive.
   **/
   class Triangle_gl {
    public:
@@ -54,6 +57,38 @@ class Pipeline {
       this->v[0] = v1, this->v[1] = v2, this->v[2] = v3;
     }
   };
+
+ protected:
+  /**
+  Stage I: Vertex Processing.
+  @param vertex_buffer: The vertex buffer that is going to be processed.
+  @param uniforms: The uniform variables given to the pipeline.
+  @note: This function will invoke vertex shader, and all processed vertices
+  will be stored into this->ppl.Vertices for further use.
+  **/
+  void vertex_processing(const std::vector<Vertex> &vertex_buffer,
+                         const Uniforms &uniforms);
+
+  /**
+  Stage II: Vertex Post-processing.
+  @param index_buffer: The index buffer object that will tell us how the mesh is
+  formed by using the vertex array.
+  @note: After running post-processing, this->ppl.Triangles will be initialized
+  properly and ready for the next step.
+  **/
+  void vertex_post_processing(const std::vector<int> &index_buffer);
+
+  /**
+  Stage III: Fragment Processing.
+  @param uniforms: The uniform variables given to the pipeline.
+  @param num_threads: The number of concurrent threads used for rasterization.
+  @note: "MT" stands for "multi-threaded". If running in MT, OpenMP must be
+  enabled.
+  **/
+  void fragment_processing(const Uniforms &uniforms);
+  void fragment_processing_MT(const Uniforms &uniforms, const int &num_threads);
+
+ protected:
   /**
   Clip triangle in homogeneous space.
   @note: Assume each vertex has homogeneous coordinate (x,y,z,w), then clip
@@ -122,7 +157,10 @@ class Pipeline {
     tr.y = max(max(p0.y, p1.y), p2.y);
     return Vec4(bl.x, bl.y, tr.x, tr.y);
   }
-  double edge_function(const Vec4 &p0, const Vec4 &p1, const Vec4 &p) {
+  /**
+  Edge function. Determine which side the point p is at wrt. edge p0-p1.
+  **/
+  double edge(const Vec4 &p0, const Vec4 &p1, const Vec4 &p) {
     return (p0.y - p1.y) * p.x + (p1.x - p0.x) * p.y +
            (p0.x * p1.y - p0.y * p1.x);
   }
@@ -161,7 +199,7 @@ class Pipeline {
  public:
   struct {
     /* number of cpu cores used for rendering */
-    int num_cpu_cores;
+    int num_threads;
   } hwspec;
   struct {
     /* recorded time stamps for performance benchmarking */

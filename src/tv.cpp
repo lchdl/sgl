@@ -7,7 +7,7 @@
 
 using namespace sgl;
 
-int w = 800, h = 600;
+int w = 320, h = 240;
 
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
@@ -141,26 +141,33 @@ main() {
   SDL_Event e;
   Timer timer, frame_timer;
   bool quit = false;
+  double T = 0.0;
+  int frameid = 0;
   while (!quit) {
     SDL_PollEvent(&e);
     if (e.type == SDL_QUIT) {
       quit = true;
     }
-    const double slow_factor = 0.3;
-    double T = timer.elapsed() * slow_factor;
+    // const double slow_factor = 0.3;
+    //  double T = timer.elapsed() * slow_factor;
+    T += 0.01;
+    frameid++;
     render_config.eye.position = Vec3(3 * sin(T), 3, 3 * cos(T));
     pipeline.clear_textures(*texlib.get_texture(colortex),
                             *texlib.get_texture(depthtex),
                             Vec4(0.5, 0.5, 0.5, 1.0));
     frame_timer.tick();
-    pipeline.hwspec.num_cpu_cores = 4;
+    pipeline.hwspec.num_threads = 4;
     pipeline.rasterize(vertex_buffer, index_buffer, render_config);
     double frame_time = frame_timer.tick();
     RGBA8_texture_to_SDL_surface(texlib.get_texture(colortex), pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
-    std::string title = std::string("SGL Demo | ") +
-                        "FPS=" + std::to_string(int(1.0 / frame_time));
+    std::string title = std::string("SGL Demo | ") + std::to_string(frameid) +
+                        " | FPS=" + std::to_string(int(1.0 / frame_time));
     SDL_SetWindowTitle(pWindow, title.c_str());
+
+    // if (frameid == 24)
+    //   __debugbreak();
   }
 
   return 0;
