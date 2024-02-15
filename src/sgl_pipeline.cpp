@@ -1,52 +1,37 @@
-#include "ppl_core.h"
+#include "sgl_pipeline.h"
 
 #include <malloc.h>
+#include <omp.h>
+#include <unistd.h>
 
-namespace ppl {
+namespace sgl {
 
 Pipeline::Pipeline() {
-  eye.projection_mode    = "perspective";
-  textures.color_texture = NULL;
-  textures.depth_texture = NULL;
+  textures.color = NULL;
+  textures.depth = NULL;
+  hwspec.num_cpu_cores = max(get_cpu_cores(), 1);
 }
 Pipeline::~Pipeline() {}
-void
-Pipeline::setup_camera(const Vec3 &position, const Vec3 &look_at,
-                       const Vec3 &up_dir, const double &near,
-                       const double &far, const double &field_of_view) {
-  eye.projection_mode  = "perspective";
-  eye.projection_param = Vec3(near, far, field_of_view);
-  eye.position         = position;
-  eye.look_at          = look_at;
-  eye.up_dir           = normalize(up_dir);
-}
-void
-Pipeline::setup_camera(const Vec3 &position, const Vec3 &look_at,
-                       const Vec3 &up_dir, const Vec3 &volume) {
-  eye.projection_mode  = "orthographic";
-  eye.projection_param = volume;
-  eye.position         = position;
-  eye.look_at          = look_at;
-  eye.up_dir           = normalize(up_dir);
-}
 
 void
 Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
                     const std::vector<int32_t> &index_buffer,
-                    const Mat4x4 &model_matrix, Texture &color_texture,
-                    Texture &depth_texture, const Texture *in_texture) {
+                    const RenderConfig &render_config) {
   /* Clear data from last frame. */
   ppl.Vertices.clear();
   ppl.Triangles.clear();
 
+  Timer timer;
+
   /* Register textures and fill uniform variables */
-  this->textures.color_texture = &color_texture;
-  this->textures.depth_texture = &depth_texture;
+  this->textures.color = render_config.textures[render_config.color_texture_id];
+  this->textures.depth = render_config.textures[render_config.depth_texture_id];
   Uniforms uniforms;
-  uniforms.model      = model_matrix;
-  uniforms.view       = get_view_matrix();
-  uniforms.projection = get_projection_matrix();
-  uniforms.in_texture = in_texture;
+  for (int i = 0; i < MAX_TEXTURES_PER_SHADING_UNIT; i++)
+    uniforms.in_textures[i] = NULL;
+  prepare_uniforms(render_config, uniforms);
+
+  timer.tick();
 
   /* Step 1: Vertex processing. */
   for (int i_vert = 0; i_vert < vertex_buffer.size(); i_vert++) {
@@ -56,6 +41,8 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
     vertex_shader(vertex_buffer[i_vert], uniforms, vertex_out);
     ppl.Vertices.push_back(vertex_out);
   }
+
+  dt.VertexProcessing = timer.tick();
 
   /* Step 2: Vertex post-processing. */
   for (int i_tri = 0; i_tri < index_buffer.size() / 3; i_tri++) {
@@ -70,9 +57,9 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
     is fixed to (0,0,-1), and dot product between eye vector and triangle normal
     simply becomes -n.z. If -n.z > 0.0, then ignore this face.
     **/
-    Vec3 &p0 = tri_gl.v[0].p;
-    Vec3 &p1 = tri_gl.v[1].p;
-    Vec3 &p2 = tri_gl.v[2].p;
+    Vec3 p0 = tri_gl.v[0].gl_Position.xyz();
+    Vec3 p1 = tri_gl.v[1].gl_Position.xyz();
+    Vec3 p2 = tri_gl.v[2].gl_Position.xyz();
 
     Vec3 facing = cross(p1 - p0, p2 - p0);
     if (facing.z < 0.0)
@@ -84,111 +71,110 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
     clip_triangle(tri_gl, ppl.Triangles);
   }
 
-  /* Step 3: Rasterization & fragment processing */
-  for (int i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
-    /* Step 3.1: Convert clip space to NDC space (perspective divide) */
-    Triangle_gl &tri_gl = ppl.Triangles[i_tri];
+  dt.VertexPostprocessing = timer.tick();
 
-    Vertex_gl &v0 = tri_gl.v[0];
-    Vertex_gl &v1 = tri_gl.v[1];
-    Vertex_gl &v2 = tri_gl.v[2];
-    Vec3 p0_NDC   = v0.gl_Position.xyz() / v0.gl_Position.w;
-    Vec3 p1_NDC   = v1.gl_Position.xyz() / v1.gl_Position.w;
-    Vec3 p2_NDC   = v2.gl_Position.xyz() / v2.gl_Position.w;
-    /* Step 3.2: Convert NDC space to window space */
-    /**
-    @note: In NDC space, x,y,z is between [-1, +1]
-    NDC space       window space
-    -----------------------------
-    x: [-1, +1]     x: [0, +w]
-    y: [-1, +1]     y: [0, +h]
-    z: [-1, +1]     z: [0, +1]
-    @note: The window space origin is at the lower-left corner of the screen,
-    with +x axis pointing to the right and +y axis pointing to the top.
-    **/
-    const double render_width  = double(this->textures.color_texture->w);
-    const double render_height = double(this->textures.color_texture->h);
-    const Vec3 scale_factor    = Vec3(render_width, render_height, 1.0);
-    const Vec3 iz =
-        Vec3(1.0 / tri_gl.v[0].gl_Position.w, 1.0 / tri_gl.v[1].gl_Position.w,
-             1.0 / tri_gl.v[2].gl_Position.w);
-    const Vec4 &p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
-    const Vec4 &p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
-    const Vec4 &p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
-    double area    = edge_function(p0, p1, p2);
-    /** @note: p0, p1, p2 are actually gl_FragCoord. **/
-    /* Step 3.3: Rasterization. */
-    Vec4 rect = get_minimum_rect(p0, p1, p2);
-    /* precomupte: divide by real z */
-    tri_gl.v[0] *= iz.i[0];
-    tri_gl.v[1] *= iz.i[1];
-    tri_gl.v[2] *= iz.i[2];
-    /* p is the raster scan coordinate, and should centered to the pixel. For
-    example, [0.0, 1.0) should become 0.5, [99.0, 100.0) should become 99.5. */
-    Vec4 p;
-    for (p.y = floor(rect.i[1]) + 0.5; p.y < rect.i[3]; p.y += 1.0) {
-      for (p.x = floor(rect.i[0]) + 0.5; p.x < rect.i[2]; p.x += 1.0) {
-        /**
-        @note: here the winding order is important,
-        and w_i are calculated in window space
-        **/
-        Vec3 w = Vec3(edge_function(p1, p2, p), edge_function(p2, p0, p),
-                      edge_function(p0, p1, p));
-        // printf("tri=%d, p.x=%.4f, p.y=%.4f, W=[%.4f,%.4f,%.4f]\n", i_tri,
-        // p.x,
-        //        p.y, w.x, w.y, w.z);
-        /* discard pixel if it is outside the triangle area */
-        if (w.i[0] < 0 || w.i[1] < 0 || w.i[2] < 0)
-          continue;
-        w /= area;
-        Vertex_gl v_lerp =
-            tri_gl.v[0] * w.i[0] + tri_gl.v[1] * w.i[1] + tri_gl.v[2] * w.i[2];
-        double z_real =
-            1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
-        v_lerp *= z_real;
-        /**
-        @note: v_lerp is the interpolated vertex in homogeneous clip space
-        in order to assemble the correct gl_FragCoord, we need to manually
-        convert it into NDC space again.
-        **/
-        // print("v_lerp", v_lerp);
-        /* Step 3.4: Assemble fragment and render pixel. */
-        Fragment_gl fragment;
-        fragment.gl_FragCoord =
-            Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
-                 1.0 / v_lerp.gl_Position.w);
-        fragment.n = v_lerp.n;
-        fragment.t = v_lerp.t;
-        Vec4 fragment_out;
-        fragment_shader(fragment, uniforms, fragment_out);
-        /* Step 3.5: Fragment processing */
-        write_textures(fragment.gl_FragCoord.xy(), fragment_out,
-                       fragment.gl_FragCoord.z);
+  /* Step 3: Rasterization & fragment processing */
+#pragma omp parallel for num_threads(hwspec.num_cpu_cores)
+  for (int core_id = 0; core_id < hwspec.num_cpu_cores; core_id++) {
+    for (int i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
+      /* Step 3.1: Convert clip space to NDC space (perspective divide) */
+      Triangle_gl tri_gl = ppl.Triangles[i_tri];
+      Vertex_gl &v0 = tri_gl.v[0];
+      Vertex_gl &v1 = tri_gl.v[1];
+      Vertex_gl &v2 = tri_gl.v[2];
+      Vec3 p0_NDC = v0.gl_Position.xyz() / v0.gl_Position.w;
+      Vec3 p1_NDC = v1.gl_Position.xyz() / v1.gl_Position.w;
+      Vec3 p2_NDC = v2.gl_Position.xyz() / v2.gl_Position.w;
+      /* Step 3.2: Convert NDC space to window space */
+      /**
+      @note: In NDC space, x,y,z is between [-1, +1]
+      NDC space       window space
+      -----------------------------
+      x: [-1, +1]     x: [0, +w]
+      y: [-1, +1]     y: [0, +h]
+      z: [-1, +1]     z: [0, +1]
+      @note: The window space origin is at the lower-left corner of the screen,
+      with +x axis pointing to the right and +y axis pointing to the top.
+      **/
+      const double render_width = double(this->textures.color->w);
+      const double render_height = double(this->textures.color->h);
+      const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
+      const Vec3 iz =
+          Vec3(1.0 / tri_gl.v[0].gl_Position.w, 1.0 / tri_gl.v[1].gl_Position.w,
+               1.0 / tri_gl.v[2].gl_Position.w);
+      const Vec4 &p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
+      const Vec4 &p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
+      const Vec4 &p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
+      double area = edge_function(p0, p1, p2);
+      /** @note: p0, p1, p2 are actually gl_FragCoord. **/
+      /* Step 3.3: Rasterization. */
+      Vec4 rect = get_minimum_rect(p0, p1, p2);
+      /* precomupte: divide by real z */
+      tri_gl.v[0] *= iz.i[0];
+      tri_gl.v[1] *= iz.i[1];
+      tri_gl.v[2] *= iz.i[2];
+      Vec4 p;
+      for (p.y = floor(rect.i[1]) + 0.5 + double(core_id); p.y < rect.i[3];
+           p.y += double(hwspec.num_cpu_cores)) {
+        for (p.x = floor(rect.i[0]) + 0.5; p.x < rect.i[2]; p.x += 1.0) {
+          /**
+          @note: here the winding order is important,
+          and w_i are calculated in window space
+          **/
+          Vec3 w = Vec3(edge_function(p1, p2, p), edge_function(p2, p0, p),
+                        edge_function(p0, p1, p));
+          /* discard pixel if it is outside the triangle area */
+          if (w.i[0] < 0 || w.i[1] < 0 || w.i[2] < 0)
+            continue;
+          w /= area;
+          Vertex_gl v_lerp = tri_gl.v[0] * w.i[0] + tri_gl.v[1] * w.i[1] +
+                             tri_gl.v[2] * w.i[2];
+          double z_real =
+              1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
+          v_lerp *= z_real;
+          /**
+          @note: v_lerp is the interpolated vertex in homogeneous clip space
+          in order to assemble the correct gl_FragCoord, we need to manually
+          convert it into NDC space again.
+          **/
+          /* Step 3.4: Assemble fragment and render pixel. */
+          Fragment_gl fragment;
+          assemble_fragment(v_lerp, fragment);
+          fragment.gl_FragCoord =
+              Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
+                   1.0 / v_lerp.gl_Position.w);
+          Vec4 color_out;
+          fragment_shader(fragment, uniforms, color_out);
+          /* Step 3.5: Fragment processing */
+          write_textures(fragment.gl_FragCoord.xy(), color_out,
+                         fragment.gl_FragCoord.z);
+        }
       }
     }
   }
+
+  dt.FragmentProcessing = timer.tick();
 }
 
 void
-Pipeline::write_textures(const Vec2 &p, const Vec4 &fragment_out,
-                         const double &z) {
-  int w  = this->textures.color_texture->w;
-  int h  = this->textures.color_texture->h;
+Pipeline::write_textures(const Vec2 &p, const Vec4 &color, const double &z) {
+  int w = this->textures.color->w;
+  int h = this->textures.color->h;
   int ix = int(p.x);
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
-  uint8_t *pixels = (uint8_t *) this->textures.color_texture->pixels;
-  int pixel_id    = iy * w + ix;
+  uint8_t *pixels = (uint8_t *) this->textures.color->pixels;
+  int pixel_id = iy * w + ix;
   /* depth test */
-  double *depths = (double *) this->textures.depth_texture->pixels;
-  double z_orig  = depths[pixel_id];
-  double z_new   = min(max(z, 0.0), 1.0);
+  double *depths = (double *) this->textures.depth->pixels;
+  double z_orig = depths[pixel_id];
+  double z_new = min(max(z, 0.0), 1.0);
   if (z_orig < z_new)
     return;
   depths[pixel_id] = z_new;
   uint8_t R, G, B, A;
-  convert_Vec4_to_RGBA8(fragment_out, R, G, B, A);
+  convert_Vec4_to_RGBA8(color, R, G, B, A);
   pixels[pixel_id * 4 + 0] = R;
   pixels[pixel_id * 4 + 1] = G;
   pixels[pixel_id * 4 + 2] = B;
@@ -223,7 +209,7 @@ Pipeline::clip_triangle(const Triangle_gl &triangle_in,
       /* swap `Qcur` and `Qnext` for the next iteration */
       Qcur->clear();
       Qtemp = Qcur;
-      Qcur  = Qnext;
+      Qcur = Qnext;
       Qnext = Qtemp;
     }
   }
@@ -332,58 +318,17 @@ Pipeline::clear_textures(Texture &color_texture, Texture &depth_texture,
                          const Vec4 &clear_color) {
   uint8_t R, G, B, A;
   convert_Vec4_to_RGBA8(clear_color, R, G, B, A);
-  int n_pixels    = color_texture.w * color_texture.h;
+  int n_pixels = color_texture.w * color_texture.h;
   uint8_t *pixels = (uint8_t *) color_texture.pixels;
-  double *depths  = (double *) depth_texture.pixels;
+  double *depths = (double *) depth_texture.pixels;
   for (int i = 0; i < n_pixels; i++) {
     pixels[i * 4 + 0] = R;
     pixels[i * 4 + 1] = G;
     pixels[i * 4 + 2] = B;
     pixels[i * 4 + 3] = A;
-    depths[i]         = 100.0;
+    depths[i] = 100.0;
   }
   return;
 }
 
-Mat4x4
-Pipeline::get_view_matrix() {
-  Vec3 front = normalize(eye.position - eye.look_at);
-  Vec3 left  = normalize(cross(eye.up_dir, front));
-  Vec3 up    = normalize(cross(front, left));
-  Vec3 &F = front, &L = left, &U = up;
-  const double &ex = eye.position.x, &ey = eye.position.y, &ez = eye.position.z;
-  Mat4x4 rotation(L.x, L.y, L.z, 0.0, U.x, U.y, U.z, 0.0, F.x, F.y, F.z, 0.0,
-                  0.0, 0.0, 0.0, 1.0);
-  Mat4x4 translation(1.0, 0.0, 0.0, -ex, 0.0, 1.0, 0.0, -ey, 0.0, 0.0, 1.0, -ez,
-                     0.0, 0.0, 0.0, 1.0);
-  Mat4x4 view_matrix = mul(rotation, translation);
-  return view_matrix;
-}
-
-Mat4x4
-Pipeline::get_projection_matrix() {
-  Mat4x4 projection_matrix;
-  if (this->eye.projection_mode == "perspective") {
-    double aspect_ratio =
-        double(textures.color_texture->w) / double(textures.color_texture->h);
-    double inv_aspect    = double(1.0) / aspect_ratio;
-    double near          = eye.projection_param.x;
-    double far           = eye.projection_param.y;
-    double field_of_view = eye.projection_param.z;
-    double left          = -tan(field_of_view / double(2.0)) * near;
-    double right         = -left;
-    double top           = inv_aspect * right;
-    double bottom        = -top;
-    projection_matrix =
-        Mat4x4(2 * near / (right - left), 0, (right + left) / (right - left), 0,
-               0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0,
-               0, 0, -(far + near) / (far - near),
-               -2 * far * near / (far - near), 0, 0, -1.0, 0);
-    return projection_matrix;
-  } else {
-    /* not implemented now */
-    return projection_matrix;
-  }
-}
-
-};   // namespace ppl
+};   // namespace sgl

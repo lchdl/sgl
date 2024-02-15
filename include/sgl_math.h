@@ -1,7 +1,7 @@
 #pragma once
 #include <math.h>
 
-namespace ppl {
+namespace sgl {
 
 static const double PI = 3.1415926535897932384626;
 
@@ -41,9 +41,10 @@ struct Vec3 {
   Vec3(double _x, double _y, double _z) { x = _x, y = _y, z = _z; }
   void operator*=(double _b) { x *= _b, y *= _b, z *= _b; }
   void operator/=(double _b) {
-    double inv_b  = 1.0 / _b;
+    double inv_b = 1.0 / _b;
     x *= inv_b, y *= inv_b, z *= inv_b;
   }
+  Vec2 xy() const { return Vec2(x, y); }
 };
 struct Vec4 {
   union {
@@ -55,12 +56,12 @@ struct Vec4 {
     };
   };
   Vec4() { x = y = z = w = 0.0; }
-  Vec4(double _x, double _y, double _z, double _w) {
-    x = _x, y = _y, z = _z, w = _w;
-  }
   Vec4(double _x) { x = _x, y = 0.0, z = 0.0, w = 0.0; }
   Vec4(double _x, double _y) { x = _x, y = _y, z = 0.0, w = 0.0; }
   Vec4(double _x, double _y, double _z) { x = _x, y = _y, z = _z, w = 0.0; }
+  Vec4(double _x, double _y, double _z, double _w) {
+    x = _x, y = _y, z = _z, w = _w;
+  }
 
   Vec4(Vec2 _a, double _b, double _c) { x = _a.x, y = _a.y, z = _b, w = _c; }
   Vec4(double _a, Vec2 _b, double _c) { x = _a, y = _b.x, z = _b.y, w = _c; }
@@ -68,8 +69,9 @@ struct Vec4 {
   Vec4(Vec3 _a, double _b) { x = _a.x, y = _a.y, z = _a.z, w = _b; }
   Vec4(double _a, Vec3 _b) { x = _a, y = _b.x, z = _b.y, w = _b.z; }
   Vec4(Vec2 _a, Vec2 _b) { x = _a.x, y = _a.y, z = _b.x, w = _b.y; }
-  Vec3 xyz() { return Vec3(x, y, z); }
-  Vec2 xy() { return Vec2(x, y); }
+  Vec3 xyz() const { return Vec3(x, y, z); }
+  Vec2 xy() const { return Vec2(x, y); }
+  Vec2 yz() const { return Vec2(y, z); }
   void operator*=(double _b) { x *= _b, y *= _b, z *= _b, w *= _b; }
 };
 struct Mat3x3 {
@@ -400,4 +402,4 @@ operator&(Vec4 _a, Mat4x4 _b) {
   return mul(_a, _b);
 }
 
-};   // namespace ppl
+};   // namespace sgl

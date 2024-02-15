@@ -5,38 +5,21 @@
   of standard OpenGL.
 */
 #pragma once
-#include "ppl_math.h"
-#include "ppl_shader.h"
-#include "ppl_texture.h"
-#include "ppl_utils.h"
 #include <stdint.h>
+
 #include <string>
 #include <vector>
 
-namespace ppl {
+#include "sgl_config.h"
+#include "sgl_math.h"
+#include "sgl_shader.h"
+#include "sgl_texture.h"
+#include "sgl_utils.h"
+
+namespace sgl {
 
 class Pipeline {
-public:
-  /**
-  Setup a perspective camera. Must be called before `rasterize(...)`.
-  @param position: Eye position.
-  @param look_at: Eye view target.
-  @param up_dir: Eye up vector (normalized).
-  @param near, far: Near / far clipping plane.
-  @param field_of_view: Field of view (in degrees).
-  **/
-  void setup_camera(const Vec3 &position, const Vec3 &look_at,
-                    const Vec3 &up_dir, const double &near, const double &far,
-                    const double &field_of_view);
-  /**
-  Setup a orthographic camera. Must be called before `rasterize(...)`.
-  @param position: Eye position.
-  @param look_at: Eye view target.
-  @param up_dir: Eye up vector (normalized).
-  @param volume: Viewing volume (dx, dy, dz).
-  **/
-  void setup_camera(const Vec3 &position, const Vec3 &look_at,
-                    const Vec3 &up_dir, const Vec3 &volume);
+ public:
   /**
   Clear textures.
   @param color_texture: Color texture to be cleared.
@@ -55,15 +38,22 @@ public:
   **/
   void rasterize(const std::vector<Vertex> &vertex_buffer,
                  const std::vector<int32_t> &index_buffer,
-                 const Mat4x4 &model_matrix, Texture &color_texture,
-                 Texture &depth_texture, const Texture *texture_in);
+                 const RenderConfig &render_config);
 
-protected:
+ protected:
   /**
-  Calculate view and projection matrices.
+  Internal class that is used in primitive assembly stage.
   **/
-  Mat4x4 get_view_matrix();
-  Mat4x4 get_projection_matrix();
+  class Triangle_gl {
+   public:
+    Vertex_gl v[3];
+
+   public:
+    Triangle_gl() {}
+    Triangle_gl(const Vertex_gl &v1, const Vertex_gl &v2, const Vertex_gl &v3) {
+      this->v[0] = v1, this->v[1] = v2, this->v[2] = v3;
+    }
+  };
   /**
   Clip triangle in homogeneous space.
   @note: Assume each vertex has homogeneous coordinate (x,y,z,w), then clip
@@ -116,8 +106,9 @@ protected:
     }
     t = (S1) / (S1 - S2);
   }
-
   /**
+  Get minimum rectangle in window space that completely covers the whole
+  triangle.
   @param p0, p1, p2: Window space coordinate (x,y,z,1/w), where (x,y) is the
   relative pixel location, z is the mapped NDC depth (see glFragDepth()), w is
   the real depth value in view space.
@@ -136,7 +127,7 @@ protected:
            (p0.x * p1.y - p0.y * p1.x);
   }
   /**
-  Color convertion. Vec4 => RGBA8
+  Color convertion. Vec4 => RGBA8.
   @param color: A Vec4 color (r,g,b,a), map value range [0.0, 1.0] to [0, 255],
   out of bound values will be clamped to 0 or 1 before conversion.
   **/
@@ -148,24 +139,18 @@ protected:
     A = uint8_t(min(max(int(color.w * 255.0), 0), 255));
   }
   /**
-  texture read/write functionalities.
+  Write final color data into targeted textures.
   @param p: Window coordinate (x, y), origin is at lower-left corner.
-  @param fragment_out: Output of fragment shader.
+  @param color: Output color from the fragment shader.
   @param z: Depth value in window space [0, +1], 0/1: near/far.
   **/
-  void write_textures(const Vec2 &p, const Vec4 &fragment_out, const double &z);
+  void write_textures(const Vec2 &p, const Vec4 &color, const double &z);
 
-protected:
+ protected:
   struct {
-    std::string projection_mode; /* "perspective" or "orthographic". */
-    Vec3 projection_param;
-    Vec3 position, look_at, up_dir;
-  } eye;
-  struct {
-    /* not owned */
-    Texture *color_texture;
-    Texture *depth_texture;
-  } textures;
+    Texture *color;
+    Texture *depth;
+  } textures; /** @note: not owned **/
   struct {
     /* vertices after vertex processing */
     std::vector<Vertex_gl> Vertices;
@@ -173,9 +158,21 @@ protected:
     std::vector<Triangle_gl> Triangles;
   } ppl;
 
-public:
+ public:
+  struct {
+    /* number of cpu cores used for rendering */
+    int num_cpu_cores;
+  } hwspec;
+  struct {
+    /* recorded time stamps for performance benchmarking */
+    double VertexProcessing;
+    double VertexPostprocessing;
+    double FragmentProcessing;
+  } dt;
+
+ public:
   Pipeline();
   ~Pipeline();
 };
 
-};   // namespace ppl
+};   // namespace sgl
