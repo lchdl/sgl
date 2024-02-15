@@ -58,19 +58,24 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
   }
 
   /* Step 2: Vertex post-processing. */
-  for (int i_tri = 0; i_tri < ppl.Vertices.size() / 3; i_tri++) {
+  for (int i_tri = 0; i_tri < index_buffer.size() / 3; i_tri++) {
     /* Step 2.1: Primitive assembly. */
     Triangle_gl tri_gl;
-    tri_gl.v[0] = ppl.Vertices[i_tri * 3];
-    tri_gl.v[1] = ppl.Vertices[i_tri * 3 + 1];
-    tri_gl.v[2] = ppl.Vertices[i_tri * 3 + 2];
-    /* Step 2.2: Face culling. */
+    tri_gl.v[0] = ppl.Vertices[index_buffer[i_tri * 3]];
+    tri_gl.v[1] = ppl.Vertices[index_buffer[i_tri * 3 + 1]];
+    tri_gl.v[2] = ppl.Vertices[index_buffer[i_tri * 3 + 2]];
+    /** Step 2.2: Face culling.
+    @note: After vertex shader, all vertices are in homogeneous space,
+    and since all vertices were transformed by view matrix, now the eye vector
+    is fixed to (0,0,-1), and dot product between eye vector and triangle normal
+    simply becomes -n.z. If -n.z > 0.0, then ignore this face.
+    **/
     Vec3 &p0 = tri_gl.v[0].p;
     Vec3 &p1 = tri_gl.v[1].p;
     Vec3 &p2 = tri_gl.v[2].p;
-    Vec3 eyedir =
-        -Vec3(uniforms.view.i31, uniforms.view.i32, uniforms.view.i33);
-    if (dot(eyedir, cross(p1 - p0, p2 - p0)) > 0.0)
+
+    Vec3 facing = cross(p1 - p0, p2 - p0);
+    if (facing.z < 0.0)
       continue;
     /** Step 2.3: Clipping.
     @note: For detailed explanation of how to do clipping in homogeneous space,

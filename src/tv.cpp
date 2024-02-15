@@ -1,8 +1,9 @@
-#include <stdio.h>
-
 #include "ppl_core.h"
-#include "tv_SDL.h"
 #include "unistd.h"
+
+#define SDL_MAIN_HANDLED
+#include <SDL2/SDL.h>
+#include <stdio.h>
 
 SDL_Window *pWindow;
 SDL_Surface *pWindowSurface;
@@ -20,12 +21,12 @@ run_pipeline() {
   depth_surface.create(render_width, render_height, 8); /* float64 per pixel */
 
   /* Step 2: Setup camera parameters. */
-  ppl::Vec3 eye_position = ppl::Vec3(1, 1, 1);
+  ppl::Vec3 eye_position = ppl::Vec3(2, 2, 2);
   ppl::Vec3 eye_look_at  = ppl::Vec3(0, 0, 0);
   ppl::Vec3 eye_up_dir   = ppl::Vec3(0, 1, 0);
   double near            = 0.1;
   double far             = 10.0;
-  double field_of_view   = ppl::PI / 2.0;
+  double field_of_view   = ppl::PI / 3.0;
   ppl::Pipeline pipeline;
   pipeline.setup_camera(eye_position, eye_look_at, eye_up_dir, near, far,
                         field_of_view);
@@ -33,22 +34,32 @@ run_pipeline() {
   /* Step 3: Setup single triangle. */
   std::vector<ppl::Vertex> vertex_buffer;
   std::vector<int32_t> index_buffer;
-  ppl::Triangle triangle;
-  triangle.v[0].p = ppl::Vec3(0, 0, 0);
-  triangle.v[1].p = ppl::Vec3(1, 0, 0);
-  triangle.v[2].p = ppl::Vec3(1, 1, 0);
-  triangle.v[0].n = ppl::Vec3(0, 0, 1);
-  triangle.v[1].n = ppl::Vec3(0, 0, 1);
-  triangle.v[2].n = ppl::Vec3(0, 0, 1);
-  triangle.v[0].t = ppl::Vec2(0, 0);
-  triangle.v[1].t = ppl::Vec2(1, 0);
-  triangle.v[2].t = ppl::Vec2(1, 1);
-  vertex_buffer.push_back(triangle.v[0]);
-  vertex_buffer.push_back(triangle.v[1]);
-  vertex_buffer.push_back(triangle.v[2]);
+  ppl::Vertex v[4];
+  v[0].p = ppl::Vec3(0, 0, 0);
+  v[1].p = ppl::Vec3(0, 0, 1);
+  v[2].p = ppl::Vec3(1, 0, 1);
+  v[3].p = ppl::Vec3(1, 0, 0);
+
+  v[0].n = ppl::Vec3(0, 1, 0);
+  v[1].n = ppl::Vec3(0, 1, 0);
+  v[2].n = ppl::Vec3(0, 1, 0);
+  v[3].n = ppl::Vec3(0, 1, 0);
+
+  v[0].t = ppl::Vec2(0, 0);
+  v[1].t = ppl::Vec2(0, 1);
+  v[2].t = ppl::Vec2(1, 1);
+  v[3].t = ppl::Vec2(1, 0);
+
+  vertex_buffer.push_back(v[0]);
+  vertex_buffer.push_back(v[1]);
+  vertex_buffer.push_back(v[2]);
+  vertex_buffer.push_back(v[3]);
   index_buffer.push_back(0);
   index_buffer.push_back(1);
   index_buffer.push_back(2);
+  index_buffer.push_back(0);
+  index_buffer.push_back(2);
+  index_buffer.push_back(3);
 
   ppl::Mat4x4 model_matrix;
   model_matrix = ppl::Mat4x4::identity();
