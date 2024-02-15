@@ -64,8 +64,8 @@ build_model(std::vector<Vertex>& v, std::vector<int>& i) {
   v.push_back(build_vertex(Vec3(-1, +1, +1)));
   v.push_back(build_vertex(Vec3(+1, +1, +1)));
   v.push_back(build_vertex(Vec3(+1, +1, -1)));
-  build_face(i, 0, 1, 2);
-  build_face(i, 0, 2, 3);
+  build_face(i, 2, 1, 0);
+  build_face(i, 2, 0, 3);
   build_face(i, 4, 5, 6);
   build_face(i, 4, 6, 7);
 
@@ -152,7 +152,8 @@ main() {
     //  double T = timer.elapsed() * slow_factor;
     T += 0.01;
     frameid++;
-    render_config.eye.position = Vec3(3 * sin(T), 3, 3 * cos(T));
+    // render_config.eye.position = Vec3(3 * sin(T), 3, 3 * cos(T));
+    render_config.eye.position = Vec3(3, 3, 3);
     pipeline.clear_textures(*texlib.get_texture(colortex),
                             *texlib.get_texture(depthtex),
                             Vec4(0.5, 0.5, 0.5, 1.0));

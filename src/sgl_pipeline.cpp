@@ -41,8 +41,8 @@ Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
   dt.VertexPostprocessing = timer.tick();
 
   /* Step 3: Rasterization & fragment processing */
-  // fragment_processing(uniforms);
-  fragment_processing_MT(uniforms, hwspec.num_threads);
+  fragment_processing(uniforms);
+  // fragment_processing_MT(uniforms, hwspec.num_threads);
   dt.FragmentProcessing = timer.tick();
 }
 
@@ -167,7 +167,14 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
                                  const int &num_threads) {
 #pragma omp parallel for num_threads(num_threads)
   for (int thread_id = 0; thread_id < num_threads; thread_id++) {
-    /* Each thread will rasterize all the triangles, but  */
+    /**
+    @note: interlaced rendering in MT mode. For example, if 4 threads (0~3)
+    are used for rasterization, then:
+    - thread 0 will only render y = 0, 4, 8, 12, ...
+    - thread 1 will only render y = 1, 5, 9, 13, ...
+    - thread 2 will only render y = 2, 6, 10, 14, ...
+    - thread 3 will only render y = 3, 7, 11, 15, ...
+    **/
     for (int i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
       /* Step 3.1: Convert clip space to NDC space (perspective divide) */
       Triangle_gl tri_gl = ppl.Triangles[i_tri];
@@ -205,8 +212,9 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
       v1 *= iz.i[1];
       v2 *= iz.i[2];
       Vec4 p;
-      for (p.y = floor(rect.i[1]) + 0.5 + double(thread_id); p.y < rect.i[3];
-           p.y += double(hwspec.num_threads)) {
+      int y_base = num_threads * int(int(rect.i[1]) / num_threads);
+      for (p.y = double(y_base) + 0.5 + double(thread_id); p.y < rect.i[3];
+           p.y += double(num_threads)) {
         for (p.x = floor(rect.i[0]) + 0.5; p.x < rect.i[2]; p.x += 1.0) {
           /**
           @note: here the winding order is important,
