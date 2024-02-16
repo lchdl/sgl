@@ -26,6 +26,14 @@
 
 namespace sgl {
 
+/** 
+Defines vertex and fragment shader function pointer type.
+This will enable users to design their own vertex and fragment shaders
+and link them to the pipeline.
+**/
+typedef void(*VS_func_t)(const Vertex &, const Uniforms &, Vertex_gl &);
+typedef void(*FS_func_t)(const Fragment_gl &, const Uniforms &, Vec4 &);
+
 class Pipeline {
  public:
   /**
@@ -47,6 +55,8 @@ class Pipeline {
   void rasterize(const std::vector<Vertex> &vertex_buffer,
                  const std::vector<int32_t> &index_buffer,
                  const RenderConfig &render_config);
+
+ public:
 	/**
 	Set number of threads for rasterization.
 	@param num_threads: Number of concurrent threads.
@@ -54,6 +64,12 @@ class Pipeline {
 	void set_num_threads(const int& num_threads) {
 		hwspec.num_threads = num_threads;
 	}
+
+	/**
+	Set vertex and fragment shaders.
+	**/
+	void set_VS(VS_func_t VS) { shaders.VS = VS; }
+	void set_FS(FS_func_t FS) { shaders.FS = FS; }
 
  protected:
   /**
@@ -198,8 +214,12 @@ class Pipeline {
   **/
   void write_textures(const Vec2 &p, const Vec4 &color, const double &z);
 
+
  protected:
-  struct {
+	
+	/** DATA STORAGE **/
+	
+	struct {
     Texture *color;
     Texture *depth;
   } textures; /** @note: not owned **/
@@ -213,6 +233,10 @@ class Pipeline {
 		/* number of cpu cores used for rendering */
 		int num_threads;
 	} hwspec;
+	struct {
+		VS_func_t VS;
+		FS_func_t FS;
+	} shaders;
 
  public:
   struct {
@@ -224,7 +248,8 @@ class Pipeline {
 
  public:
   Pipeline();
-  ~Pipeline();
+	Pipeline(VS_func_t VS, FS_func_t FS);
+	~Pipeline();
 };
 
 };   // namespace sgl

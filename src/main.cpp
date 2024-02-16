@@ -9,7 +9,7 @@
 
 using namespace sgl;
 
-int w = 800, h = 600;
+int w = 320, h = 240;
 
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
@@ -81,7 +81,6 @@ init_pipeline() {
       texlib.load_texture("textures/checker.png");
 
   /* Step 2: Setup render config. */
-
   render_config.eye.position = Vec3(3, 3, 3);
   render_config.eye.look_at = Vec3(0, 0, 0);
   render_config.eye.up_dir = Vec3(0, 1, 0);
@@ -97,6 +96,9 @@ init_pipeline() {
   render_config.depth_texture_id = 1;
   render_config.uniform_texture_ids[0] = 2;
   render_config.model_transform = Mat4x4::identity();
+
+	pipeline.set_VS(vertex_shader);
+	pipeline.set_FS(fragment_shader);
 
   /* Step 3: Setup model. */
   build_model(vertex_buffer, index_buffer);
@@ -114,7 +116,7 @@ main() {
     exit(1);
 
   /* Create window */
-  pWindow = SDL_CreateWindow("SGL Demo", SDL_WINDOWPOS_UNDEFINED,
+  pWindow = SDL_CreateWindow("SGL", SDL_WINDOWPOS_UNDEFINED,
                              SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN);
   if (pWindow == NULL)
     exit(1);
@@ -126,11 +128,11 @@ main() {
 
   SDL_UpdateWindowSurface(pWindow);
 
-	Assimp::Importer importer;
+	/*Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile("G:/sgl/res/models/buddha.obj",
 		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs |
 		aiProcess_JoinIdenticalVertices);
-
+		*/
 
   /* Start main loop */
   SDL_Event e;
@@ -139,6 +141,8 @@ main() {
   double T = 0.0;
   int frameid = 0;
   const double time_factor = 0.3;
+	double total_frame_time = 0.0;
+	char buf[64];
   while (!quit) {
     SDL_PollEvent(&e);
     if (e.type == SDL_QUIT) {
@@ -146,17 +150,24 @@ main() {
     }
     T = timer.elapsed() * time_factor;
     frameid++;
+		if (frameid % 2 == 0) {
+			pipeline.set_FS(fragment_shader);
+		}
+		else {
+			pipeline.set_FS(fragment_shader2);
+		}
     render_config.eye.position = Vec3(3 * sin(T), 3, 3 * cos(T));
     pipeline.clear_textures(*texlib.get_texture(colortex),
                             *texlib.get_texture(depthtex),
                             Vec4(0.5, 0.5, 0.5, 1.0));
     frame_timer.tick();
-		//pipeline.set_num_threads();
     pipeline.rasterize(vertex_buffer, index_buffer, render_config);
     double frame_time = frame_timer.tick();
+		total_frame_time += frame_time;
     RGBA8_texture_to_SDL_surface(texlib.get_texture(colortex), pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
-    std::string title = std::string("SGL Demo | ") + std::to_string(frameid) +
+		sprintf(buf, "%.2lfms", total_frame_time / frameid * 1000.0);
+    std::string title = std::string("SGL | ") + buf +
                         " | FPS=" + std::to_string(int(1.0 / frame_time));
     SDL_SetWindowTitle(pWindow, title.c_str());
 

@@ -130,4 +130,6 @@ Defines fragment shader (FS).
 void fragment_shader(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                      Vec4 &color_out);
 
+void fragment_shader2(const Fragment_gl & fragment_in, const Uniforms & uniforms, Vec4 & fragment_out);
+
 };   // namespace sgl

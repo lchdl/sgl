@@ -5,7 +5,7 @@ namespace sgl {
 
 /* Simple math operations should be inlined as much as possible. */
 
-static const double PI = 3.1415926535897932384626;
+static const double PI = 3.141592653589793238462643383279502884197;
 
 template <typename T>
 T

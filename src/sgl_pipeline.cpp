@@ -8,7 +8,17 @@ namespace sgl {
 Pipeline::Pipeline() {
   textures.color = NULL;
   textures.depth = NULL;
+	shaders.VS = NULL;
+	shaders.FS = NULL;
   hwspec.num_threads = max(get_cpu_cores(), 1);
+}
+Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
+{
+	textures.color = NULL;
+	textures.depth = NULL;
+	shaders.VS = VS;
+	shaders.FS = FS;
+	hwspec.num_threads = max(get_cpu_cores(), 1);
 }
 Pipeline::~Pipeline() {}
 
@@ -52,7 +62,7 @@ Pipeline::vertex_processing(const std::vector<Vertex> &vertex_buffer,
     Vertex_gl vertex_out;
     /* Map vertex from model local space to homogeneous clip space and stores to
     "gl_Position". */
-    vertex_shader(vertex_buffer[i_vert], uniforms, vertex_out);
+    shaders.VS(vertex_buffer[i_vert], uniforms, vertex_out);
     ppl.Vertices.push_back(vertex_out);
   }
 }
@@ -152,7 +162,7 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
             Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
                  1.0 / v_lerp.gl_Position.w);
         Vec4 color_out;
-        fragment_shader(fragment, uniforms, color_out);
+        shaders.FS(fragment, uniforms, color_out);
         /* Step 3.5: Fragment processing */
         write_textures(fragment.gl_FragCoord.xy(), color_out,
                        fragment.gl_FragCoord.z);
@@ -240,7 +250,7 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
               Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
                    1.0 / v_lerp.gl_Position.w);
           Vec4 color_out;
-          fragment_shader(fragment, uniforms, color_out);
+          shaders.FS(fragment, uniforms, color_out);
           /* Step 3.5: Fragment processing */
           write_textures(fragment.gl_FragCoord.xy(), color_out,
                          fragment.gl_FragCoord.z);
