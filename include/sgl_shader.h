@@ -25,7 +25,8 @@ class Vertex_gl {
  public:
   /**
   Used in primitive clipping. Linear interpolate two vertices.
-  @note: `gl_Position` should be lerped but `gl_FragCoord` does not need to.
+  @note: `gl_Position` should be lerped but `gl_FragCoord` does not need to, it
+  will be automatically assembled in rasterization stage.
   **/
   static Vertex_gl lerp(const Vertex_gl &v0, const Vertex_gl &v1,
                         const double &w) {
@@ -34,7 +35,8 @@ class Vertex_gl {
   /**
   In rasterization, vertex attributes need to be first divided by real depth
   value, then interpolate by window space barycentric coordinates, finally
-  multiply real depth again. So we need to provide such operators.
+  multiply real depth again, to obtain the interpolated perspective correct
+  attribute values. So we need to provide such operators.
   @param v: Input vertex.
   @returns: Returns operated value.
   **/

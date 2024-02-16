@@ -1,9 +1,16 @@
 /*
-  A complete software implementation of OpenGL graphic pipeline.
+  SGL - Software Graphics Library
+                                              by lchdl 2024-Feb
+  - A complete software implementation of OpenGL graphic pipeline.
   This implementation also covers every details you need to know
   about writing a software rasterizer from scratch. The whole
   pipeline supports OpenMP accelerating, you can dynamically
   adjust the number of CPU cores used for rendering.
+
+  - TODO:
+    1) replaceable vertex and fragment shaders support.
+    2) replaceable vertex definition.
+    3) animation support.
 */
 #pragma once
 #include <stdint.h>

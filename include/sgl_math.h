@@ -3,6 +3,8 @@
 
 namespace sgl {
 
+/* Simple math operations should be inlined as much as possible. */
+
 static const double PI = 3.1415926535897932384626;
 
 template <typename T>
@@ -15,6 +17,17 @@ T
 max(T _a, T _b) {
   return (_a > _b) ? _a : _b;
 }
+template <typename T>
+T
+clamp(const T& _low, T& _var, const T& _high) {
+  return min(max(_var, _low), _high);
+}
+template <typename T1, typename T2>
+T1
+lerp(T1 _a, T1 _b, T2 _w) {
+  return (T2(1) - _w) * _a + _w * _b;
+}
+
 struct Vec2 {
   union {
     struct {
@@ -45,6 +58,8 @@ struct Vec3 {
     x *= inv_b, y *= inv_b, z *= inv_b;
   }
   Vec2 xy() const { return Vec2(x, y); }
+  Vec2 xy() const { return Vec2(x, y); }
+  Vec2 yz() const { return Vec2(y, z); }
 };
 struct Vec4 {
   union {
@@ -69,10 +84,16 @@ struct Vec4 {
   Vec4(Vec3 _a, double _b) { x = _a.x, y = _a.y, z = _a.z, w = _b; }
   Vec4(double _a, Vec3 _b) { x = _a, y = _b.x, z = _b.y, w = _b.z; }
   Vec4(Vec2 _a, Vec2 _b) { x = _a.x, y = _a.y, z = _b.x, w = _b.y; }
+  void operator+=(double _b) { x += _b, y += _b, z += _b, w += _b; }
+  void operator-=(double _b) { x -= _b, y -= _b, z -= _b, w -= _b; }
+  void operator*=(double _b) { x *= _b, y *= _b, z *= _b, w *= _b; }
+  void operator/=(double _b) {
+    double inv_b = 1.0 / _b;
+    x *= inv_b, y *= inv_b, z *= inv_b, w *= inv_b;
+  }
   Vec3 xyz() const { return Vec3(x, y, z); }
   Vec2 xy() const { return Vec2(x, y); }
-  Vec2 yz() const { return Vec2(y, z); }
-  void operator*=(double _b) { x *= _b, y *= _b, z *= _b, w *= _b; }
+  Vec2 zw() const { return Vec2(z, w); }
 };
 struct Mat3x3 {
   union {

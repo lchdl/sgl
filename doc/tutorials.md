@@ -19,6 +19,23 @@ Some tutorials that I found useful on the internet.
 * Initialize OpenGL in SDL:
   https://raw.githubusercontent.com/Overv/Open.GL/master/ebook/Modern%20OpenGL%20Guide.pdf
 
+### Assimp
 
+#### Build Assimp using MSYS2+MinGW64 on Windows
+* Download source code from: 
+  https://github.com/assimp/assimp/releases/
+  
+  and unzip the code into an empty folder, enter that folder and create a folder named "**./build/**" in it.
+* Use CMake to configure & generate a **MinGW Makefile** under the "**./build/**" directory.
+  
+  - note that you need to uncheck build zlib and 
 
+* On MSYS2, install mingw32-make:
+  > pacman -S mingw-w64-x86_64-make
+* Search "**MSYS2 MINGW64**" on windows search bar, to open a MinGW64 MSYS2 shell, *do not open other types of shells*. You can execute
+  > mingw32-make
+  
+  to see if anything goes wrong.
+* **cd** into "**./build/**", then
+  > mingw32-make
 
