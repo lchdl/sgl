@@ -2,7 +2,6 @@
 
 #include <malloc.h>
 #include <omp.h>
-#include <unistd.h>
 
 namespace sgl {
 

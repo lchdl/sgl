@@ -1,7 +1,8 @@
-#include "sgl_texture.h"
-#define STB_IMAGE_IMPLEMENTATION
 #include <malloc.h>
+#include "sgl_texture.h"
+#include "sgl_utils.h"
 
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 namespace sgl {
@@ -95,7 +96,8 @@ load_image_as_texture(const std::string &file) {
   if (data == NULL) {
     const char *failure = stbi_failure_reason();
     printf("Failed to load image \"%s\", %s.\n", file.c_str(), failure);
-    return texture;
+		printf("* note: current working directory is: \"%s\".\n", get_cwd().c_str());
+		return texture;
   }
   texture.create(x, y, TextureFormat::texture_format_RGBA8,
                  TextureSampling::texture_sampling_point);
@@ -126,7 +128,7 @@ TextureLibrary::load_texture(const std::string &file) {
 int
 TextureLibrary::find_unused_handle() {
   typedef std::map<int, Texture>::iterator iter_t;
-  int texture_handle = texture_library.size();
+  int texture_handle = (int)texture_library.size();
   iter_t it = texture_library.find(texture_handle);
   if (it == texture_library.end())
     return texture_handle;

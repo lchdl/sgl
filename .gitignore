@@ -4,6 +4,9 @@ build/
 temp/
 legacy/
 bin/
+lib/
+# ignore resource files (textures, models, ...)
+res/
 
 # [C++] For the following git ignored items, see:
 # https://github.com/github/gitignore/blob/main/C%2B%2B.gitignore

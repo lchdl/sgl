@@ -12,11 +12,10 @@
 #include <sys/sysctl.h>
 #else
 #include <unistd.h>
+#include <sys/time.h>
 #endif
 
 #include <stdio.h>
-#include <sys/time.h>
-
 #include <string>
 
 #include "sgl_math.h"
@@ -36,26 +35,52 @@ print(const std::string &prefix, const Vec4 &v) {
   printf("%s (%.4f, %.4f, %.4f, %.4f)\n", prefix.c_str(), v.x, v.y, v.z, v.w);
 };
 
+#if defined(WINDOWS) || defined(WIN32)
 class Timer {
- public:
-  double tick() {
-    gettimeofday(&tnow, NULL);
-    double dt = (tnow.tv_sec - tlast.tv_sec);
-    dt += (tnow.tv_usec - tlast.tv_usec) / 1000000.0; /* us to s */
-    tlast = tnow;
-    return dt;
-  }
-  double elapsed() {
-    gettimeofday(&tnow, NULL);
-    double dt = (tnow.tv_sec - tlast.tv_sec);
-    dt += (tnow.tv_usec - tlast.tv_usec) / 1000000.0; /* us to s */
-    return dt;
-  }
-  Timer() { tick(); }
+public:
+	double tick() {
+		QueryPerformanceCounter(&tnow);
+		double dt = double(tnow.QuadPart - tlast.QuadPart) / double(frequency.QuadPart);
+		tlast = tnow;
+		return dt;
+	}
+	double elapsed() {
+		QueryPerformanceCounter(&tnow);
+		double dt = double(tnow.QuadPart - tlast.QuadPart) / double(frequency.QuadPart);
+		return dt;
+	}
+	Timer() { 
+		QueryPerformanceFrequency(&frequency); 
+		tick(); 
+	}
 
- protected:
-  timeval tlast, tnow;
+protected:
+	LARGE_INTEGER frequency;
+	LARGE_INTEGER tlast, tnow;
 };
+#elif defined (LINUX)
+class Timer {
+public:
+	double tick() {
+		gettimeofday(&tnow, NULL);
+		double dt = (tnow.tv_sec - tlast.tv_sec);
+		dt += (tnow.tv_usec - tlast.tv_usec) / 1000000.0; /* us to s */
+		tlast = tnow;
+		return dt;
+	}
+	double elapsed() {
+		gettimeofday(&tnow, NULL);
+		double dt = (tnow.tv_sec - tlast.tv_sec);
+		dt += (tnow.tv_usec - tlast.tv_usec) / 1000000.0; /* us to s */
+		return dt;
+	}
+	Timer() { tick(); }
+
+protected:
+	timeval tlast, tnow;
+};
+#endif
+
 
 inline int
 get_cpu_cores() {
@@ -83,6 +108,13 @@ get_cpu_cores() {
 #else
   return sysconf(_SC_NPROCESSORS_ONLN);
 #endif
+}
+
+inline std::string
+get_cwd() {
+	TCHAR pwd[MAX_PATH];
+	GetCurrentDirectory(MAX_PATH, pwd);
+	return std::string(pwd);
 }
 
 };   // namespace sgl

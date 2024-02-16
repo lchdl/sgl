@@ -58,8 +58,8 @@ struct Vec3 {
     x *= inv_b, y *= inv_b, z *= inv_b;
   }
   Vec2 xy() const { return Vec2(x, y); }
-  Vec2 xy() const { return Vec2(x, y); }
   Vec2 yz() const { return Vec2(y, z); }
+	Vec2 xz() const { return Vec2(x, z); }
 };
 struct Vec4 {
   union {

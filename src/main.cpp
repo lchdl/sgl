@@ -1,13 +1,15 @@
-#include "sgl_pipeline.h"
-#include "unistd.h"
-
-#define SDL_MAIN_HANDLED
-#include <SDL2/SDL.h>
 #include <stdio.h>
+
+#include "sgl_SDL.h"
+#include "sgl_pipeline.h"
+
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
 
 using namespace sgl;
 
-int w = 320, h = 240;
+int w = 800, h = 600;
 
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
@@ -18,22 +20,6 @@ Pipeline pipeline;
 std::vector<Vertex> vertex_buffer;
 std::vector<int32_t> index_buffer;
 int colortex, depthtex, modeltex;
-
-void
-RGBA8_texture_to_SDL_surface(const Texture* texture, SDL_Surface* surface) {
-  uint8_t* src = (uint8_t*) texture->pixels;
-  uint8_t* dst = (uint8_t*) surface->pixels;
-  for (int y = 0; y < surface->h; y++) {
-    for (int x = 0; x < surface->w; x++) {
-      uint8_t r, g, b, a;
-      int pid = y * w + x;
-      dst[pid * 4 + 2] = src[pid * 4 + 0];
-      dst[pid * 4 + 1] = src[pid * 4 + 1];
-      dst[pid * 4 + 0] = src[pid * 4 + 2];
-      dst[pid * 4 + 3] = src[pid * 4 + 3];
-    }
-  }
-}
 
 Vertex
 build_vertex(Vec3 p) {
@@ -92,7 +78,7 @@ init_pipeline() {
                                    TextureFormat::texture_format_float64,
                                    TextureSampling::texture_sampling_point);
   modeltex =
-      texlib.load_texture("C:/Users/1/Desktop/LCH/tiny_vision/bin/checker.png");
+      texlib.load_texture("textures/checker.png");
 
   /* Step 2: Setup render config. */
 
@@ -140,7 +126,13 @@ main() {
 
   SDL_UpdateWindowSurface(pWindow);
 
-  // Hack to get window to stay up
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile("G:/sgl/res/models/buddha.obj",
+		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs |
+		aiProcess_JoinIdenticalVertices);
+
+
+  /* Start main loop */
   SDL_Event e;
   Timer timer, frame_timer;
   bool quit = false;
@@ -159,7 +151,7 @@ main() {
                             *texlib.get_texture(depthtex),
                             Vec4(0.5, 0.5, 0.5, 1.0));
     frame_timer.tick();
-    pipeline.hwspec.num_threads = 4;
+		//pipeline.set_num_threads();
     pipeline.rasterize(vertex_buffer, index_buffer, render_config);
     double frame_time = frame_timer.tick();
     RGBA8_texture_to_SDL_surface(texlib.get_texture(colortex), pWindowSurface);
@@ -168,8 +160,6 @@ main() {
                         " | FPS=" + std::to_string(int(1.0 / frame_time));
     SDL_SetWindowTitle(pWindow, title.c_str());
 
-    // if (frameid == 24)
-    //   __debugbreak();
   }
 
   return 0;

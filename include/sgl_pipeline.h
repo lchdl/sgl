@@ -47,6 +47,13 @@ class Pipeline {
   void rasterize(const std::vector<Vertex> &vertex_buffer,
                  const std::vector<int32_t> &index_buffer,
                  const RenderConfig &render_config);
+	/**
+	Set number of threads for rasterization.
+	@param num_threads: Number of concurrent threads.
+	**/
+	void set_num_threads(const int& num_threads) {
+		hwspec.num_threads = num_threads;
+	}
 
  protected:
   /**
@@ -202,12 +209,12 @@ class Pipeline {
     /* geometry generated after vertex post-processing */
     std::vector<Triangle_gl> Triangles;
   } ppl;
+	struct {
+		/* number of cpu cores used for rendering */
+		int num_threads;
+	} hwspec;
 
  public:
-  struct {
-    /* number of cpu cores used for rendering */
-    int num_threads;
-  } hwspec;
   struct {
     /* recorded time stamps for performance benchmarking */
     double VertexProcessing;
