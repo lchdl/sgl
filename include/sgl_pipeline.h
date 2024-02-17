@@ -32,7 +32,7 @@ This will enable users to design their own vertex and fragment shaders
 and link them to the pipeline.
 **/
 typedef void(*VS_func_t)(const Vertex &, const Uniforms &, Vertex_gl &);
-typedef void(*FS_func_t)(const Fragment_gl &, const Uniforms &, Vec4 &);
+typedef void(*FS_func_t)(const Fragment_gl &, const Uniforms &, Vec4 &, bool&);
 
 class Pipeline {
  public:
@@ -52,9 +52,9 @@ class Pipeline {
   @param depth_texture: The depth buffer, texture format should be float64.
   @note: the size of the color and depth buffer should be the same.
   **/
-  void rasterize(const std::vector<Vertex> &vertex_buffer,
-                 const std::vector<int32_t> &index_buffer,
-                 const RenderConfig &render_config);
+  void draw(const std::vector<Vertex> &vertex_buffer,
+            const std::vector<int32_t> &index_buffer,
+            const RenderConfig &render_config);
 
  public:
 	/**

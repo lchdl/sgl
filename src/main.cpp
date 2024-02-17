@@ -2,14 +2,11 @@
 
 #include "sgl_SDL.h"
 #include "sgl_pipeline.h"
-
-#include "assimp/Importer.hpp"
-#include "assimp/scene.h"
-#include "assimp/postprocess.h"
+#include "sgl_Assimp.h"
 
 using namespace sgl;
 
-int w = 320, h = 240;
+int w = 800, h = 600;
 
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
@@ -128,11 +125,7 @@ main() {
 
   SDL_UpdateWindowSurface(pWindow);
 
-	/*Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile("G:/sgl/res/models/buddha.obj",
-		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs |
-		aiProcess_JoinIdenticalVertices);
-		*/
+	sgl::Assimp::load_model("models/forest.zip");
 
   /* Start main loop */
   SDL_Event e;
@@ -161,10 +154,10 @@ main() {
                             *texlib.get_texture(depthtex),
                             Vec4(0.5, 0.5, 0.5, 1.0));
     frame_timer.tick();
-    pipeline.rasterize(vertex_buffer, index_buffer, render_config);
+    pipeline.draw(vertex_buffer, index_buffer, render_config);
     double frame_time = frame_timer.tick();
 		total_frame_time += frame_time;
-    RGBA8_texture_to_SDL_surface(texlib.get_texture(colortex), pWindowSurface);
+    sgl::SDL2::sgl_texture_to_SDL_surface(texlib.get_texture(colortex), pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
 		sprintf(buf, "%.2lfms", total_frame_time / frameid * 1000.0);
     std::string title = std::string("SGL | ") + buf +

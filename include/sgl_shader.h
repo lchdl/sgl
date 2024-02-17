@@ -126,10 +126,11 @@ Defines fragment shader (FS).
   @param fragment_in: The input fragment.
   @param uniforms: The input uniform variables.
   @param color_out: The calculated output color (in normalized range [0, 1]).
+	@param discard: Whether this pixel is discarded or not.
 **/
 void fragment_shader(const Fragment_gl &fragment_in, const Uniforms &uniforms,
-                     Vec4 &color_out);
+                     Vec4 &color_out, bool& discard);
 
-void fragment_shader2(const Fragment_gl & fragment_in, const Uniforms & uniforms, Vec4 & fragment_out);
+void fragment_shader2(const Fragment_gl & fragment_in, const Uniforms & uniforms, Vec4 & fragment_out, bool& discard);
 
 };   // namespace sgl

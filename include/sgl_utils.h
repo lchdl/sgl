@@ -16,7 +16,9 @@
 #endif
 
 #include <stdio.h>
+#include <vector>
 #include <string>
+#include <filesystem>
 
 #include "sgl_math.h"
 
@@ -116,5 +118,96 @@ get_cwd() {
 	GetCurrentDirectory(MAX_PATH, pwd);
 	return std::string(pwd);
 }
+
+inline bool 
+endswith(std::string const &str, 
+	std::string const &ending) {
+	if (str.length() >= ending.length()) {
+		return (0 == str.compare(str.length() - ending.length(), 
+			ending.length(), ending));
+	}
+	else 
+		return false;
+}
+
+
+inline bool 
+file_exists(const std::string& file) {
+	if (FILE *fobj = fopen(file.c_str(), "r")) {
+		fclose(fobj);
+		return true;
+	}
+	else
+		return false;
+}
+
+/**
+List all files in a folder (no recursive).
+**/
+inline std::vector<std::string>
+ls(const std::string& folder) {
+	std::vector<std::string> files;
+	for (const auto& entry : std::filesystem::directory_iterator(folder)) {
+		std::string file = entry.path().string();
+		files.push_back(file);
+	}
+	return files;
+}
+
+/**
+Remove folder.
+**/
+inline void
+rm(const std::string& folder) {
+	std::filesystem::remove_all(folder);
+}
+
+/**
+Join path, returns absolute path.
+**/
+inline std::string
+join(const std::string& path1, const std::string& path2) {
+	std::filesystem::path joined = std::filesystem::path(path1) / std::filesystem::path(path2);
+	return std::filesystem::absolute(joined).string();
+}
+
+/**
+Make a directory, returns absolute path.
+**/
+inline std::string
+mkdir(const std::string& folder) {
+	std::filesystem::create_directories(folder);
+	return std::filesystem::absolute(
+		std::filesystem::path(folder)).string();
+}
+
+/**
+Make a random folder in folder.
+**/
+inline std::string 
+mktdir(const std::string& folder) {
+	char dname[16];
+	memset(dname, 0, 16);
+	const char* choices = "0123456789"
+		"abcdefghijklmnopqrstuvwxyz"
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	const size_t clen = strlen(choices);
+	do {
+		for (int i=0; i < 8; i++) {
+			dname[i] = choices[rand() % clen];
+		}
+	} while (file_exists(join(folder, dname)));
+	return mkdir(join(folder, dname));
+}
+
+/**
+Get file directory.
+**/
+inline std::string
+gd(const std::string& file) {
+	std::filesystem::path ppath = std::filesystem::path(file).parent_path();
+	return ppath.string();
+}
+
 
 };   // namespace sgl

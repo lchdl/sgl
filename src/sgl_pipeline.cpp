@@ -23,9 +23,9 @@ Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
 Pipeline::~Pipeline() {}
 
 void
-Pipeline::rasterize(const std::vector<Vertex> &vertex_buffer,
-                    const std::vector<int32_t> &index_buffer,
-                    const RenderConfig &render_config) {
+Pipeline::draw(const std::vector<Vertex> &vertex_buffer,
+               const std::vector<int32_t> &index_buffer,
+               const RenderConfig &render_config) {
   /* Clear data from last frame. */
   ppl.Vertices.clear();
   ppl.Triangles.clear();
@@ -162,10 +162,13 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
             Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
                  1.0 / v_lerp.gl_Position.w);
         Vec4 color_out;
-        shaders.FS(fragment, uniforms, color_out);
+				bool discard = false;
+				shaders.FS(fragment, uniforms, color_out, discard);
         /* Step 3.5: Fragment processing */
-        write_textures(fragment.gl_FragCoord.xy(), color_out,
-                       fragment.gl_FragCoord.z);
+				if (!discard) {
+					write_textures(fragment.gl_FragCoord.xy(), color_out,
+						fragment.gl_FragCoord.z);
+				}
       }
     }
   }
@@ -250,10 +253,13 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
               Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
                    1.0 / v_lerp.gl_Position.w);
           Vec4 color_out;
-          shaders.FS(fragment, uniforms, color_out);
+					bool discard = false;
+          shaders.FS(fragment, uniforms, color_out, discard);
           /* Step 3.5: Fragment processing */
-          write_textures(fragment.gl_FragCoord.xy(), color_out,
-                         fragment.gl_FragCoord.z);
+					if (!discard) {
+						write_textures(fragment.gl_FragCoord.xy(), color_out,
+							fragment.gl_FragCoord.z);
+					}
         }
       }
     }
@@ -283,8 +289,6 @@ Pipeline::write_textures(const Vec2 &p, const Vec4 &color, const double &z) {
   pixels[pixel_id * 4 + 1] = G;
   pixels[pixel_id * 4 + 2] = B;
   pixels[pixel_id * 4 + 3] = A;
-  // printf("write (ix=%d, iy=%d) = (%d, %d, %d, %d)\n", ix, iy, int(R), int(G),
-  //        int(B), int(A));
 }
 
 void

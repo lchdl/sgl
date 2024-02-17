@@ -8,12 +8,16 @@
 #include "sgl_texture.h"
 
 namespace sgl {
+namespace SDL2 {
 
 /**
 Convert sgl texture object to SDL2 surface object.
-	@note: texture and surface should have the same size.
+	@note: Texture and surface should have the same size. For efficiency, this
+	function will not check the sizes of texture and surface.
+	Only support RGBA8 format.
 **/
 void
-RGBA8_texture_to_SDL_surface(const Texture* texture, SDL_Surface* surface);
+sgl_texture_to_SDL_surface(const Texture* texture, SDL_Surface* surface);
 
+};
 };
