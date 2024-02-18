@@ -3,6 +3,7 @@
 #include "sgl_SDL.h"
 #include "sgl_pipeline.h"
 #include "sgl_Assimp.h"
+#include "sgl_utils.h"
 
 using namespace sgl;
 
@@ -105,8 +106,10 @@ init_pipeline() {
 }
 
 int
-main() {
+main(int argc, char* argv[]) {
   SDL_SetMainReady();
+
+  set_cwd(gd(argv[0]));
 
   /* Initialize SDL */
   if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -117,6 +120,8 @@ main() {
                              SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN);
   if (pWindow == NULL)
     exit(1);
+  
+  SDL_ShowWindow(pWindow);
 
   /* Get window surface */
   pWindowSurface = SDL_GetWindowSurface(pWindow);
@@ -126,6 +131,8 @@ main() {
   SDL_UpdateWindowSurface(pWindow);
 
 	sgl::Assimp::load_model("models/forest.zip");
+
+  printf("System initialized.\n");
 
   /* Start main loop */
   SDL_Event e;
@@ -143,7 +150,7 @@ main() {
     }
     T = timer.elapsed() * time_factor;
     frameid++;
-		if (frameid % 2 == 0) {
+		if (int(T/time_factor) % 2 == 0) {
 			pipeline.set_FS(fragment_shader);
 		}
 		else {

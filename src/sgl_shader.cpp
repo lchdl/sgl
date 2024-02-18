@@ -80,12 +80,12 @@ assemble_fragment(const Vertex_gl &vertex_in, Fragment_gl &fragment_out) {
 void
 fragment_shader(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                 Vec4 &fragment_out, bool& discard) {
-	int ix = fragment_in.gl_FragCoord.x;
-	int iy = fragment_in.gl_FragCoord.y;
-	if ((ix + iy) % 2 == 0) {
-		discard=true;
-		return;
-	}
+	// int ix = fragment_in.gl_FragCoord.x;
+	// int iy = fragment_in.gl_FragCoord.y;
+	// if ((ix + iy) % 2 == 0) {
+	// 	discard=true;
+	// 	return;
+	// }
   Vec2 uv = fragment_in.t;
   Vec3 wp = fragment_in.wp;
   Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
@@ -96,12 +96,12 @@ fragment_shader(const Fragment_gl &fragment_in, const Uniforms &uniforms,
 void
 fragment_shader2(const Fragment_gl &fragment_in, const Uniforms &uniforms,
 	Vec4 &fragment_out, bool& discard) {
-	int ix = fragment_in.gl_FragCoord.x;
-	int iy = fragment_in.gl_FragCoord.y;
-	if ((ix + iy) % 2 == 0) {
-		discard=true;
-		return;
-	}
+	// int ix = fragment_in.gl_FragCoord.x;
+	// int iy = fragment_in.gl_FragCoord.y;
+	// if ((ix + iy) % 2 == 0) {
+	// 	discard=true;
+	// 	return;
+	// }
 	Vec2 uv = fragment_in.t;
 	Vec3 wp = fragment_in.wp;
 	Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();

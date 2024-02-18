@@ -10,9 +10,10 @@
 #elif MACOS
 #include <sys/param.h>
 #include <sys/sysctl.h>
-#else
+#else /* Linux assumed */
 #include <unistd.h>
 #include <sys/time.h>
+#include <string.h>
 #endif
 
 #include <stdio.h>
@@ -107,16 +108,20 @@ get_cpu_cores() {
     }
   }
   return count;
-#else
+#else /* LINUX assumed */
   return sysconf(_SC_NPROCESSORS_ONLN);
 #endif
 }
 
 inline std::string
 get_cwd() {
-	TCHAR pwd[MAX_PATH];
-	GetCurrentDirectory(MAX_PATH, pwd);
+	std::filesystem::path pwd = std::filesystem::current_path();
 	return std::string(pwd);
+}
+
+inline void
+set_cwd(const std::string& path) {
+  std::filesystem::current_path(path);
 }
 
 inline bool 
@@ -188,7 +193,8 @@ inline std::string
 mktdir(const std::string& folder) {
 	char dname[16];
 	memset(dname, 0, 16);
-	const char* choices = "0123456789"
+	const char* choices =
+		"0123456789"
 		"abcdefghijklmnopqrstuvwxyz"
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	const size_t clen = strlen(choices);
