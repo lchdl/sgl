@@ -25,7 +25,7 @@ Pipeline::~Pipeline() {}
 void
 Pipeline::draw(const std::vector<Vertex> &vertex_buffer,
                const std::vector<int32_t> &index_buffer,
-               const RenderConfig &render_config) {
+               const Pass &pass) {
   /* Clear data from last frame. */
   ppl.Vertices.clear();
   ppl.Triangles.clear();
@@ -33,12 +33,10 @@ Pipeline::draw(const std::vector<Vertex> &vertex_buffer,
   Timer timer;
 
   /* Register textures and fill uniform variables */
-  this->textures.color = render_config.textures[render_config.color_texture_id];
-  this->textures.depth = render_config.textures[render_config.depth_texture_id];
+  this->textures.color = pass.color_texture;
+  this->textures.depth = pass.depth_texture;
   Uniforms uniforms;
-  for (int i = 0; i < MAX_TEXTURES_PER_SHADING_UNIT; i++)
-    uniforms.in_textures[i] = NULL;
-  prepare_uniforms(render_config, uniforms);
+  pass.to_uniforms(uniforms);
 
   /* Stage I: Vertex processing. */
   timer.tick();

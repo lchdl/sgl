@@ -2,16 +2,13 @@
 
 namespace sgl {
 
-Mat4x4
-get_view_matrix(const RenderConfig &render_config) {
-  Vec3 front =
-      normalize(render_config.eye.position - render_config.eye.look_at);
-  Vec3 left = normalize(cross(render_config.eye.up_dir, front));
+Mat4x4 
+Pass::get_view_matrix() const {
+  Vec3 front = normalize(eye.position - eye.look_at);
+  Vec3 left = normalize(cross(eye.up_dir, front));
   Vec3 up = normalize(cross(front, left));
   Vec3 &F = front, &L = left, &U = up;
-  const double &ex = render_config.eye.position.x,
-               &ey = render_config.eye.position.y,
-               &ez = render_config.eye.position.z;
+  const double &ex = eye.position.x, &ey = eye.position.y, &ez = eye.position.z;
   Mat4x4 rotation(L.x, L.y, L.z, 0.0, U.x, U.y, U.z, 0.0, F.x, F.y, F.z, 0.0,
                   0.0, 0.0, 0.0, 1.0);
   Mat4x4 translation(1.0, 0.0, 0.0, -ex, 0.0, 1.0, 0.0, -ey, 0.0, 0.0, 1.0, -ez,
@@ -21,16 +18,14 @@ get_view_matrix(const RenderConfig &render_config) {
 }
 
 Mat4x4
-get_projection_matrix(const RenderConfig &render_config) {
+Pass::get_projection_matrix() const {
   Mat4x4 projection_matrix;
-  Texture *color_texture =
-      render_config.textures[render_config.color_texture_id];
-  if (render_config.eye.perspective.enabled) {
+  if (eye.perspective.enabled) {
     double aspect_ratio = double(color_texture->w) / double(color_texture->h);
     double inv_aspect = double(1.0) / aspect_ratio;
-    double near = render_config.eye.perspective.near;
-    double far = render_config.eye.perspective.far;
-    double field_of_view = render_config.eye.perspective.field_of_view;
+    double near = eye.perspective.near;
+    double far = eye.perspective.far;
+    double field_of_view = eye.perspective.field_of_view;
     double left = -tan(field_of_view / double(2.0)) * near;
     double right = -left;
     double top = inv_aspect * right;
@@ -47,14 +42,37 @@ get_projection_matrix(const RenderConfig &render_config) {
   }
 }
 
-void
-prepare_uniforms(const RenderConfig &render_config, Uniforms &uniforms) {
-  uniforms.model = render_config.model_transform;
-  uniforms.view = get_view_matrix(render_config);
-  uniforms.projection = get_projection_matrix(render_config);
+Pass::Pass()
+{
+  color_texture = NULL;
+  depth_texture = NULL;
+  for (int i = 0; i < MAX_TEXTURES_PER_SHADING_UNIT; i++)
+    in_textures[i] = NULL;
+
+  eye.look_at = Vec3(0, 0, 0);
+  eye.position = Vec3(10, 10, 10);
+  eye.up_dir = Vec3(0, 1, 0);
+
+  eye.perspective.enabled = true;
+  eye.perspective.near = 0.1;
+  eye.perspective.far = 100.0;
+  eye.perspective.field_of_view = PI / 4.0;
+
+  eye.orthographic.enabled = false;
+  eye.orthographic.width = 256.0;
+  eye.orthographic.height = 256.0;
+  eye.orthographic.depth = 256.0;
+
+  model_transform = Mat4x4::identity();
+}
+
+void Pass::to_uniforms(Uniforms& out_uniforms) const
+{
+  out_uniforms.model = this->model_transform;
+  out_uniforms.view = get_view_matrix();
+  out_uniforms.projection = get_projection_matrix();
   for (int i = 0; i < MAX_TEXTURES_PER_SHADING_UNIT; i++) {
-    uniforms.in_textures[i] =
-        render_config.textures[render_config.uniform_texture_ids[i]];
+    out_uniforms.in_textures[i] = in_textures[i];
   }
 }
 

@@ -1,10 +1,11 @@
 #pragma once
 
-#include "sgl_config.h"
 #include "sgl_math.h"
 #include "sgl_texture.h"
 
 namespace sgl {
+
+const int MAX_TEXTURES_PER_SHADING_UNIT = 8;
 
 class Vertex {
  public:
@@ -87,18 +88,45 @@ class Uniforms {
   const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
 };
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Describes a complete pass when rendering */
+struct Pass {
+  /* output color texture (write only) */
+  Texture* color_texture;
+  /* output depth texture (write only) */
+  Texture* depth_texture;
+  /* input textures for vertex and fragment shaders (read only) */
+  const Texture* in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
 
-/**
-Defines customized operations when uniform variables are filled by pipeline.
-  @param render_config: The rendering configurations.
-  @param uniforms: The uniform variables that are being prepared.
-  @note: This function will be called once and only once at the beginning of
-every rasterization call.
-**/
-void prepare_uniforms(const RenderConfig &render_config, Uniforms &uniforms);
+  Mat4x4 model_transform;
+
+  /* camera/eye settings */
+  struct {
+    Vec3 position; /* eye position */
+    Vec3 look_at;  /* view target */
+    Vec3 up_dir;   /* up normal */
+    struct {
+      bool enabled;
+      double near, far, field_of_view;
+    } perspective;
+    struct {
+      bool enabled;
+      double width, height, depth;
+    } orthographic;
+  } eye;
+
+ public:
+  /* default ctor */
+  Pass();
+  /* utility functions */
+  void to_uniforms(Uniforms& out_uniforms) const;
+  Mat4x4 get_view_matrix() const;
+  Mat4x4 get_projection_matrix() const;
+
+};
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /**
 Defines vertex shader (VS), which transforms vertices from model local space

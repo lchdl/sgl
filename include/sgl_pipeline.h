@@ -18,7 +18,6 @@
 #include <string>
 #include <vector>
 
-#include "sgl_config.h"
 #include "sgl_math.h"
 #include "sgl_shader.h"
 #include "sgl_texture.h"
@@ -54,7 +53,7 @@ class Pipeline {
   **/
   void draw(const std::vector<Vertex> &vertex_buffer,
             const std::vector<int32_t> &index_buffer,
-            const RenderConfig &render_config);
+            const Pass &pass);
 
  public:
 	/**

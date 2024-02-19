@@ -66,7 +66,7 @@ texture will always has the RGBA8 format.
   @returns: The loaded image texture. If image loading failed, an empty texture
 will be returned (pixels=NULL).
 **/
-Texture load_image_as_texture(const std::string &file);
+Texture load_texture(const std::string &file);
 
 /**
   Common interface for sampling a texture. Designed mainly for fragment shaders.

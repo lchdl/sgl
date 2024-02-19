@@ -89,7 +89,7 @@ Texture::texture_RGBA8_point(const Vec2 &p) const {
 }
 
 Texture
-load_image_as_texture(const std::string &file) {
+load_texture(const std::string &file) {
   int x, y, n;
   unsigned char *data = stbi_load(file.c_str(), &x, &y, &n, 4);
   Texture texture;
@@ -119,7 +119,7 @@ texture(const Texture *texobj, const Vec2 &uv) {
 
 int
 TextureLibrary::load_texture(const std::string &file) {
-  Texture texture = load_image_as_texture(file);
+  Texture texture = ::sgl::load_texture(file);
   int texture_handle = find_unused_handle();
   texture_library.insert({texture_handle, texture});
   return texture_handle;
