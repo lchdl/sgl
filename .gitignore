@@ -7,7 +7,12 @@ bin/
 lib/
 # ignore resource files (textures, models, ...)
 res/
+.cache/
+*.vim
+*.swp
 
+# gitignore templates below
+#
 # [C++] For the following git ignored items, see:
 # https://github.com/github/gitignore/blob/main/C%2B%2B.gitignore
 # Prerequisites

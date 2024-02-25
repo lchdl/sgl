@@ -45,10 +45,10 @@ class Pipeline {
                       const Vec4 &clear_color);
   /**
   Rasterize a single triangle.
-  @param vertex_buffer, index_buffer: The buffers describe the model.
+  @param vertex_buffer, index_buffer: Buffers that describe the mesh model.
   @param model_matrix: The model transformation applied before rendering.
-  @param color_texture: The color buffer, texture format should be RGBA8.
-  @param depth_texture: The depth buffer, texture format should be float64.
+  @param color_texture: The color texture, its format should be RGBA8.
+  @param depth_texture: The depth texture, its format should be float64.
   @note: the size of the color and depth buffer should be the same.
   **/
   void draw(const std::vector<Vertex> &vertex_buffer,

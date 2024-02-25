@@ -34,6 +34,7 @@ Texture::create(int32_t w, int32_t h, TextureFormat texture_format,
   this->h = h;
   this->format = texture_format;
   this->sampling = texture_sampling;
+  this->bypp = 0; /* set a default value here */
   if (texture_format == TextureFormat::texture_format_RGBA8) {
     this->bypp = 4;
   } else if (texture_format == TextureFormat::texture_format_float64) {
