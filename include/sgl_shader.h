@@ -97,6 +97,8 @@ struct Pass {
   /* input textures for vertex and fragment shaders (read only) */
   const Texture* in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
 
+  /* The default transformation applied to the model if its
+   * transformation is not explicitly given. */
   Mat4x4 model_transform;
 
   /* camera/eye settings */
@@ -125,8 +127,16 @@ struct Pass {
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * Default shader implementations  * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/** 
+Defines vertex and fragment shader function pointer types.
+This will enable users to design their own vertex and fragment shaders
+and link them to the pipeline.
+**/
+typedef void(*VS_func_t)(const Vertex &, const Uniforms &, Vertex_gl &);
+typedef void(*FS_func_t)(const Fragment_gl &, const Uniforms &, Vec4 &, bool&);
 
 /**
 Defines vertex shader (VS), which transforms vertices from model local space

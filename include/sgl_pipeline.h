@@ -1,7 +1,10 @@
 /*
   SGL - Software Graphics Library
-                                              by lchdl 2024-Feb
-  - A complete software implementation of OpenGL graphic pipeline.
+                                                by lchdl Feb-2024
+                  -> "I enjoy implementing simple math intuitions 
+                     behind complex (or seemingly complex) things 
+                     using code."
+  A complete software implementation of OpenGL graphic pipeline.
   This implementation also covers every details you need to know
   about writing a software rasterizer from scratch. The whole
   pipeline supports OpenMP accelerating, you can dynamically
@@ -10,7 +13,7 @@
   - TODO:
     1) replaceable vertex and fragment shaders support.
     2) replaceable vertex definition.
-    3) animation support.
+    3) animation support (working).
 */
 #pragma once
 #include <stdint.h>
@@ -25,14 +28,6 @@
 
 namespace sgl {
 
-/** 
-Defines vertex and fragment shader function pointer type.
-This will enable users to design their own vertex and fragment shaders
-and link them to the pipeline.
-**/
-typedef void(*VS_func_t)(const Vertex &, const Uniforms &, Vertex_gl &);
-typedef void(*FS_func_t)(const Fragment_gl &, const Uniforms &, Vec4 &, bool&);
-
 class Pipeline {
  public:
   /**
@@ -46,15 +41,15 @@ class Pipeline {
   /**
   Rasterize a single triangle.
   @param vertex_buffer, index_buffer: Buffers that describe the mesh model.
-  @param model_matrix: The model transformation applied before rendering.
-  @param color_texture: The color texture, its format should be RGBA8.
-  @param depth_texture: The depth texture, its format should be float64.
-  @note: the size of the color and depth buffer should be the same.
+  @param pass: The pass object describing how the pipeline should render
+         to the target texture.
+  @note: The sizes of color and depth texture should be the same, for 
+         efficiency reason, this function will not check the validity of
+         these two buffers.
   **/
   void draw(const std::vector<Vertex> &vertex_buffer,
             const std::vector<int32_t> &index_buffer,
             const Pass &pass);
-
  public:
 	/**
 	Set number of threads for rasterization.
@@ -219,9 +214,11 @@ class Pipeline {
 	/** DATA STORAGE **/
 	
 	struct {
+    /* render target */
+    /** @note: not owned **/
     Texture *color;
     Texture *depth;
-  } textures; /** @note: not owned **/
+  } target;
   struct {
     /* vertices after vertex processing */
     std::vector<Vertex_gl> Vertices;
@@ -240,9 +237,9 @@ class Pipeline {
  public:
   struct {
     /* recorded time stamps for performance benchmarking */
-    double VertexProcessing;
-    double VertexPostprocessing;
-    double FragmentProcessing;
+    double t_vp; /* time spent for Vertex Processing */
+    double t_vpp; /* time spent for Vertex Post-processing */
+    double t_fp; /* time spent for fragment processing */
   } dt;
 
  public:

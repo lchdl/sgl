@@ -6,16 +6,16 @@
 namespace sgl {
 
 Pipeline::Pipeline() {
-  textures.color = NULL;
-  textures.depth = NULL;
+  target.color = NULL;
+  target.depth = NULL;
 	shaders.VS = NULL;
 	shaders.FS = NULL;
   hwspec.num_threads = max(get_cpu_cores(), 1);
 }
 Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
 {
-	textures.color = NULL;
-	textures.depth = NULL;
+	target.color = NULL;
+	target.depth = NULL;
 	shaders.VS = VS;
 	shaders.FS = FS;
 	hwspec.num_threads = max(get_cpu_cores(), 1);
@@ -33,30 +33,31 @@ Pipeline::draw(const std::vector<Vertex> &vertex_buffer,
   Timer timer;
 
   /* Register textures and fill uniform variables */
-  this->textures.color = pass.color_texture;
-  this->textures.depth = pass.depth_texture;
+  this->target.color = pass.color_texture;
+  this->target.depth = pass.depth_texture;
   Uniforms uniforms;
   pass.to_uniforms(uniforms);
 
-  /* Stage I: Vertex processing. */
   timer.tick();
+  
+  /* Stage I: Vertex processing. */
   vertex_processing(vertex_buffer, uniforms);
-  dt.VertexProcessing = timer.tick();
+  dt.t_vp = timer.tick();
 
   /* Stage II: Vertex post-processing. */
   vertex_post_processing(index_buffer);
-  dt.VertexPostprocessing = timer.tick();
+  dt.t_vpp = timer.tick();
 
   /* Step 3: Rasterization & fragment processing */
   // fragment_processing(uniforms);
   fragment_processing_MT(uniforms, hwspec.num_threads);
-  dt.FragmentProcessing = timer.tick();
+  dt.t_fp = timer.tick();
 }
 
 void
 Pipeline::vertex_processing(const std::vector<Vertex> &vertex_buffer,
                             const Uniforms &uniforms) {
-  for (int i_vert = 0; i_vert < vertex_buffer.size(); i_vert++) {
+  for (uint32_t i_vert = 0; i_vert < vertex_buffer.size(); i_vert++) {
     Vertex_gl vertex_out;
     /* Map vertex from model local space to homogeneous clip space and stores to
     "gl_Position". */
@@ -67,7 +68,7 @@ Pipeline::vertex_processing(const std::vector<Vertex> &vertex_buffer,
 
 void
 Pipeline::vertex_post_processing(const std::vector<int> &index_buffer) {
-  for (int i_tri = 0; i_tri < index_buffer.size() / 3; i_tri++) {
+  for (uint32_t i_tri = 0; i_tri < index_buffer.size() / 3; i_tri++) {
     /* Step 2.1: Primitive assembly. */
     Triangle_gl tri_gl;
     tri_gl.v[0] = ppl.Vertices[index_buffer[i_tri * 3]];
@@ -96,7 +97,7 @@ Pipeline::vertex_post_processing(const std::vector<int> &index_buffer) {
 
 void
 Pipeline::fragment_processing(const Uniforms &uniforms) {
-  for (int i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
+  for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
     /* Step 3.1: Convert clip space to NDC space (perspective divide) */
     Triangle_gl tri_gl = ppl.Triangles[i_tri];
     Vertex_gl &v0 = tri_gl.v[0];
@@ -116,8 +117,8 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
     @note: The window space origin is at the lower-left corner of the screen,
     with +x axis pointing to the right and +y axis pointing to the top.
     **/
-    const double render_width = double(this->textures.color->w);
-    const double render_height = double(this->textures.color->h);
+    const double render_width = double(this->target.color->w);
+    const double render_height = double(this->target.color->h);
     const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
     const Vec3 iz = Vec3(1.0 / v0.gl_Position.w, 1.0 / v1.gl_Position.w,
                          1.0 / v2.gl_Position.w);
@@ -180,12 +181,13 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
     /**
     @note: interlaced rendering in MT mode. For example, if 4 threads (0~3)
     are used for rasterization, then:
-    - thread 0 will only render y = 0, 4, 8, 12, ...
-    - thread 1 will only render y = 1, 5, 9, 13, ...
-    - thread 2 will only render y = 2, 6, 10, 14, ...
-    - thread 3 will only render y = 3, 7, 11, 15, ...
+    - thread 0 will only render y (rows) = 0, 4, 8, 12, ...
+    - thread 1 will only render y (rows) = 1, 5, 9, 13, ...
+    - thread 2 will only render y (rows) = 2, 6, 10, 14, ...
+    - thread 3 will only render y (rows) = 3, 7, 11, 15, ...
+    This is a way to achieve decent workload balance among workers.
     **/
-    for (int i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
+    for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
       /* Step 3.1: Convert clip space to NDC space (perspective divide) */
       Triangle_gl tri_gl = ppl.Triangles[i_tri];
       Vertex_gl &v0 = tri_gl.v[0];
@@ -205,8 +207,8 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
       @note: The window space origin is at the lower-left corner of the screen,
       with +x axis pointing to the right and +y axis pointing to the top.
       **/
-      const double render_width = double(this->textures.color->w);
-      const double render_height = double(this->textures.color->h);
+      const double render_width = double(this->target.color->w);
+      const double render_height = double(this->target.color->h);
       const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
       const Vec3 iz = Vec3(1.0 / v0.gl_Position.w, 1.0 / v1.gl_Position.w,
                            1.0 / v2.gl_Position.w);
@@ -266,16 +268,16 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
 
 void
 Pipeline::write_textures(const Vec2 &p, const Vec4 &color, const double &z) {
-  int w = this->textures.color->w;
-  int h = this->textures.color->h;
+  int w = this->target.color->w;
+  int h = this->target.color->h;
   int ix = int(p.x);
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
-  uint8_t *pixels = (uint8_t *) this->textures.color->pixels;
+  uint8_t *pixels = (uint8_t *) this->target.color->pixels;
   int pixel_id = iy * w + ix;
   /* depth test */
-  double *depths = (double *) this->textures.depth->pixels;
+  double *depths = (double *) this->target.depth->pixels;
   double z_new = min(max(z, 0.0), 1.0);
   double z_orig = depths[pixel_id];
   if (z_orig < z_new)
@@ -297,10 +299,10 @@ Pipeline::clip_triangle(const Triangle_gl &triangle_in,
   Qcur->push_back(triangle_in);
   Vertex_gl q[4];
   int clip_signs[2] = {+1, -1};
-  for (int clip_axis = 0; clip_axis < 3; clip_axis++) {
-    for (int i_clip = 0; i_clip < 2; i_clip++) {
+  for (uint32_t clip_axis = 0; clip_axis < 3; clip_axis++) {
+    for (uint32_t i_clip = 0; i_clip < 2; i_clip++) {
       int clip_sign = clip_signs[i_clip];
-      for (int i_tri = 0; i_tri < Qcur->size(); i_tri++) {
+      for (uint32_t i_tri = 0; i_tri < Qcur->size(); i_tri++) {
         Triangle_gl &tri = (*Qcur)[i_tri];
         int n_tri;
         clip_triangle(tri.v[0], tri.v[1], tri.v[2], clip_axis, clip_sign, q[0],
@@ -319,7 +321,7 @@ Pipeline::clip_triangle(const Triangle_gl &triangle_in,
       Qnext = Qtemp;
     }
   }
-  for (int i_tri = 0; i_tri < Qcur->size(); i_tri++)
+  for (uint32_t i_tri = 0; i_tri < Qcur->size(); i_tri++)
     triangles_out.push_back((*Qcur)[i_tri]);
 }
 

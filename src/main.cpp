@@ -2,7 +2,7 @@
 
 #include "sgl_SDL.h"
 #include "sgl_pipeline.h"
-#include "sgl_Assimp.h"
+#include "sgl_model.h"
 #include "sgl_utils.h"
 
 using namespace sgl;
@@ -124,9 +124,11 @@ main(int argc, char* argv[]) {
 
   SDL_UpdateWindowSurface(pWindow);
 
-	sgl::Assimp::load_model("models/forest.zip");
+	//const aiScene* scene = sgl::Assimp::load_model("models/forest.zip");	
+  Mesh mesh;
+  mesh.load("models/test_plane.zip");
 
-  printf("System initialized.\n");
+  //printf("System initialized.\n");
 
   /* Start main loop */
   SDL_Event e;
@@ -155,7 +157,8 @@ main(int argc, char* argv[]) {
                             *render_pass.depth_texture,
                             Vec4(0.5, 0.5, 0.5, 1.0));
     frame_timer.tick();
-    pipeline.draw(vertex_buffer, index_buffer, render_pass);
+    mesh.draw(pipeline, render_pass);
+    //pipeline.draw(vertex_buffer, index_buffer, render_pass);
     double frame_time = frame_timer.tick();
 		total_frame_time += frame_time;
     sgl::SDL2::sgl_texture_to_SDL_surface(render_pass.color_texture, pWindowSurface);
