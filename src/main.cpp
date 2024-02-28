@@ -2,7 +2,7 @@
 
 #include "sgl_SDL.h"
 #include "sgl_pipeline.h"
-#include "sgl_Assimp.h"
+#include "sgl_model.h"
 #include "sgl_utils.h"
 
 using namespace sgl;
@@ -124,7 +124,9 @@ main(int argc, char* argv[]) {
 
   SDL_UpdateWindowSurface(pWindow);
 
-	sgl::Assimp::load_model("models/forest.zip");
+	//const aiScene* scene = sgl::Assimp::load_model("models/forest.zip");	
+  Mesh mesh;
+  mesh.load("models/forest.zip");
 
   printf("System initialized.\n");
 

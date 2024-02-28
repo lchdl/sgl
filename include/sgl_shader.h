@@ -97,6 +97,8 @@ struct Pass {
   /* input textures for vertex and fragment shaders (read only) */
   const Texture* in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
 
+  /* The default transformation applied to the model if its
+   * transformation is not explicitly given. */
   Mat4x4 model_transform;
 
   /* camera/eye settings */
