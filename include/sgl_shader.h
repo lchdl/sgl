@@ -127,8 +127,16 @@ struct Pass {
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * Default shader implementations  * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/** 
+Defines vertex and fragment shader function pointer types.
+This will enable users to design their own vertex and fragment shaders
+and link them to the pipeline.
+**/
+typedef void(*VS_func_t)(const Vertex &, const Uniforms &, Vertex_gl &);
+typedef void(*FS_func_t)(const Fragment_gl &, const Uniforms &, Vec4 &, bool&);
 
 /**
 Defines vertex shader (VS), which transforms vertices from model local space

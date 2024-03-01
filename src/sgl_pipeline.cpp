@@ -38,8 +38,9 @@ Pipeline::draw(const std::vector<Vertex> &vertex_buffer,
   Uniforms uniforms;
   pass.to_uniforms(uniforms);
 
-  /* Stage I: Vertex processing. */
   timer.tick();
+  
+  /* Stage I: Vertex processing. */
   vertex_processing(vertex_buffer, uniforms);
   dt.t_vp = timer.tick();
 
@@ -51,16 +52,6 @@ Pipeline::draw(const std::vector<Vertex> &vertex_buffer,
   // fragment_processing(uniforms);
   fragment_processing_MT(uniforms, hwspec.num_threads);
   dt.t_fp = timer.tick();
-}
-
-void 
-Pipeline::draw(const std::vector<Vertex> &vertex_buffer,
-     const std::vector<int32_t> &index_buffer,
-     const std::vector<Pass*> &passes) {
-  /* just simple chain multiple passes in a single draw call */
-  for (uint32_t pass_id = 0; pass_id < passes.size(); pass_id++) {
-    this->draw(vertex_buffer, index_buffer, *passes[pass_id]);
-  }
 }
 
 void

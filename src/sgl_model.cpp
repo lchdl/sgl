@@ -1,19 +1,26 @@
 #include "sgl_model.h"
 #include "assimp/Importer.hpp"
+#include <string>
 #include <vector>
 
 namespace sgl {
 
 Mesh::Mesh() { 
   importer = NULL;
+  transform = Mat4x4::identity();
 }
 Mesh::~Mesh() {
 }
 
 void
+Mesh::set_transform(const Mat4x4& transform) {
+  this->transform = transform;
+}
+
+void
 Mesh::unload() {
   this->parts.clear();
-  this->textures.clear();
+  this->materials.clear();
 }
 
 bool 
@@ -67,6 +74,14 @@ Mesh::load(const std::string& file) {
       rm(temp_folder);
     return false;
 	}
+  /* In Assimp, a scene consists of multiple meshes, each mesh can 
+   * only have one material. If a mesh uses multiple materials for 
+   * its surface, it will be split up to multiple sub-meshes so 
+   * that each sub-mesh only uses one material. Here we load all 
+   * sub-meshes in a scene, and each sub-mesh in Assimp will be 
+   * considered as a `mesh part` in here. Please note the slight 
+   * difference between the definition of mesh in Assimp and here.
+   * */
   /* parse scene to mesh */
   uint32_t n_parts = scene->mNumMeshes;
   this->parts.resize(n_parts);
@@ -82,7 +97,7 @@ Mesh::load(const std::string& file) {
       const aiVector3D* texcoord = part->HasTextureCoords(0) ? &part->mTextureCoords[0][i_vert] : &zvec;
       Vertex v;
       v.p = Vec3(double(position->x), double(position->y), double(position->z));
-      v.n = Vec3(double(normal->x), double(normal->y), double(normal->z));
+      v.n = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
       v.t = Vec2(double(texcoord->x), double(texcoord->y));
       this->parts[i_part].vertices.push_back(v);
     }
@@ -93,28 +108,33 @@ Mesh::load(const std::string& file) {
       this->parts[i_part].indices.push_back(face.mIndices[1]);
       this->parts[i_part].indices.push_back(face.mIndices[2]);
     }
+    this->parts[i_part].mat_id = part->mMaterialIndex;
   }
-  for (uint32_t i_mat = 0; i_mat < scene->mNumMaterials; i_mat++) {
+  uint32_t n_materials = scene->mNumMaterials;
+  this->materials.resize(n_parts);
+  for (uint32_t i_mat = 0; i_mat < n_materials; i_mat++) {
     /* load materials */
     const aiMaterial* material = scene->mMaterials[i_mat];
+    /* load diffuse texture (if exists) */
     if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0){
-      aiString texpath;
-      if (material->GetTexture(aiTextureType_DIFFUSE, 0, &texpath, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
-        printf("%s\n", texpath.data);
-
-        /*std::string FullPath = Dir + "/" + texpath.data;
-        m_Textures[i] = new Texture(GL_TEXTURE_2D, FullPath.c_str());
-        if (!m_Textures[i]->Load()) {
-          printf("Error loading texture '%s'\n", FullPath.c_str());
-          delete m_Textures[i];
-          m_Textures[i] = NULL;
-          Ret = false;
-        }*/
-      }
-      else{
-        printf("Error on loading mesh materials: cannot get diffuse texture.");
+      aiString _tp;
+      if (material->GetTexture(aiTextureType_DIFFUSE, 0, &_tp, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
+        std::string tp = _tp.data;
+#if defined (LINUX)
+        replace_all(tp, "\\", "/");
+        /* remove duplicated '/' characters in file path. "///" -> "/" */
+        while (tp.find("//") != std::string::npos)
+          replace_all(tp, "//", "/");
+#endif
+        std::string tex_full_path = join(gd(model_file), tp);
+        /* create texture object and append to mesh texture library */
+        this->materials[i_mat].diffuse_texture = load_texture(tex_full_path);
+        if (this->materials[i_mat].diffuse_texture.pixels == NULL) {
+          printf("Texture loading error: cannot load texture \"%s\". File not exist or have no access.\n", tex_full_path.c_str());
+        }
       }
     }
+    /* TODO: load other types of textures (if exists) */
   }
   /* parse ended, now cleaning up... */
   /* if model is loaded from an unpacked zip file, remove the temporary dir. */
@@ -126,5 +146,61 @@ Mesh::load(const std::string& file) {
   return true;
 }
 
+void
+Mesh::draw(Pipeline& ppl, Pass& pass) const {
+  /* draw the entire using the given pipeline object and pass object. */
+  /* the mesh object will first register its VS and FS to the pipeline, 
+   * then the pass object will provide some other important information
+   * that is relevant for software rendering (such as providing the 
+   * camera info and uniform variables). */
+  
+  /* Here we will not check the validity of VS and FS (!=NULL) to
+   * maximize efficiency. */
+  ppl.set_FS(mesh_FS);
+  ppl.set_VS(mesh_VS);
+  /* setup uniform variables */
+  /* passing model transformation matrix. */
+  pass.model_transform = this->transform;
+  /* since each mesh part will probably have different materials and 
+   * only one material can be used when rendering, so we need to use
+   * a loop to iterate through all mesh parts. */
+  for (uint32_t i_part = 0; i_part < this->parts.size(); i_part++) {
+    const MeshPart& part = this->parts[i_part];
+    const Material& mat  = this->materials[part.mat_id];
+    /* passing texture resources for VS and FS. */
+    pass.in_textures[0] = &mat.diffuse_texture;
+    for(uint32_t i_tex = 1; i_tex < MAX_TEXTURES_PER_SHADING_UNIT; i_tex++)
+      pass.in_textures[i_tex] = NULL;
+    /* draw mesh part */
+    ppl.draw(part.vertices, part.indices, pass);
+  }
+}
+
+void
+mesh_VS(const Vertex &vertex_in, const Uniforms &uniforms, 
+    Vertex_gl& vertex_out) { 
+  /* uniforms:
+   * in_textures[0]: diffuse texture.
+   * */
+  const Mat4x4 &model = uniforms.model;
+  const Mat4x4 &view = uniforms.view;
+  const Mat4x4 &projection = uniforms.projection;
+  Mat4x4 transform = mul(mul(projection, view), model);
+  Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
+  vertex_out.gl_Position = gl_Position;
+  vertex_out.t = vertex_in.t;
+  vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
+  vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
+}
+
+void 
+mesh_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
+                     Vec4 &color_out, bool& discard) {
+  Vec2 uv = fragment_in.t;
+  Vec3 wp = fragment_in.wp;
+  Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
+  Vec3 color = (wp + 2.0) / 3.0;
+  color_out = Vec4(color * textured, 1.0);
+}
 
 }; /* namespace sgl */

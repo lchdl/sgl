@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "sgl_utils.h"
 #include "zip.h" /* for loading zipped model files */
@@ -42,7 +43,9 @@ public:
     currently attached to the pipeline.
              mesh -> ppl -> pass -> texture
   */
-  void draw(Pipeline& ppl) const;
+  void draw(Pipeline& ppl, Pass& pass) const;
+  /* Set mesh transformation */
+  void set_transform(const Mat4x4& transform);
 
   /* ctor & dtor that we don't even care about much. */
   Mesh();
@@ -54,9 +57,18 @@ protected:
     /* a mesh is consists of multiple parts */
     std::vector<Vertex> vertices; 
     std::vector<int> indices;
+    uint32_t mat_id; /* material id */
+  };
+  struct Material {
+    /* each mesh part will only uses one material. */
+    Texture diffuse_texture;
   };
   std::vector<MeshPart> parts;
-  std::vector<Texture> textures;
+  std::vector<Material> materials;
+  /* global transformation for the whole mesh, will be
+   * applied before any other transformation during
+   * rendering. */
+  Mat4x4 transform;
 
 private:
   /* Assimp model importer.
@@ -67,15 +79,15 @@ private:
   /* Importer is not NULL if and only if the model is 
    * being loaded. After loading the model, the importer
    * itself is meaningless and will be destroyed. */
-  
-  /**
-  Wraps up the Assimp scene loading function.
-  Now load_model() also supports loading *.zip files.
-  **/
-  const aiScene* assimp_load(const std::string& file);
-
 };
 
+/* specialized VS and FS for mesh rendering. */
+void
+mesh_VS(const Vertex &vertex_in, const Uniforms &uniforms, 
+    Vertex_gl& vertex_out);
+void 
+mesh_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
+                     Vec4 &color_out, bool& discard);
 
 
 };

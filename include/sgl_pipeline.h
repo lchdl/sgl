@@ -28,14 +28,6 @@
 
 namespace sgl {
 
-/** 
-Defines vertex and fragment shader function pointer types.
-This will enable users to design their own vertex and fragment shaders
-and link them to the pipeline.
-**/
-typedef void(*VS_func_t)(const Vertex &, const Uniforms &, Vertex_gl &);
-typedef void(*FS_func_t)(const Fragment_gl &, const Uniforms &, Vec4 &, bool&);
-
 class Pipeline {
  public:
   /**
@@ -58,25 +50,6 @@ class Pipeline {
   void draw(const std::vector<Vertex> &vertex_buffer,
             const std::vector<int32_t> &index_buffer,
             const Pass &pass);
-  /**
-  You can chain multiple passes in a single draw call (such as shadow 
-  mapping). It is equivalent to calling draw() with each call passing
-  only one pass and repeats multiple times but this form is more clean
-  and elegant.
-  @param vertex_buffer, index_buffer: Buffers that describe the mesh model.
-  @param passes: A vector of pointers pointing to the pass object.
-     => Here I used pointers instead of instances because I want to make
-        pass objects to be reused among different pipelines as much as 
-        possible, so using pointers seems to be an effective way to reduce
-        object duplication.
-  @note: The sizes of color and depth texture should be the same, for 
-         efficiency reason, this function will not check the validity of
-         these two buffers.
-  **/
-  void draw(const std::vector<Vertex> &vertex_buffer,
-            const std::vector<int32_t> &index_buffer,
-            const std::vector<Pass*>& passes);
-
  public:
 	/**
 	Set number of threads for rasterization.
