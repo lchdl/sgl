@@ -111,7 +111,7 @@ Mesh::load(const std::string& file) {
     this->parts[i_part].mat_id = part->mMaterialIndex;
   }
   uint32_t n_materials = scene->mNumMaterials;
-  this->materials.resize(n_parts);
+  this->materials.resize(n_materials);
   for (uint32_t i_mat = 0; i_mat < n_materials; i_mat++) {
     /* load materials */
     const aiMaterial* material = scene->mMaterials[i_mat];
