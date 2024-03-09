@@ -11,60 +11,15 @@ int w = 800, h = 600;
 
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
+bool keystate[SDL_NUM_SCANCODES];
 
-Pass render_pass;
+ModelPass render_pass;
+Model model;
 Pipeline pipeline;
-std::vector<Vertex> vertex_buffer;
-std::vector<int32_t> index_buffer;
-Texture colortex, depthtex, modeltex;
-
-Vertex
-build_vertex(Vec3 p) {
-  Vertex v;
-  v.p = p;
-  v.n = normalize(p);
-  v.t = Vec2(p.x + 1.0, p.z + 1.0) / 2.0;
-  return v;
-}
+Texture colortex, depthtex;
 
 void
-build_face(std::vector<int>& i, int i0, int i1, int i2) {
-  i.push_back(i0);
-  i.push_back(i1);
-  i.push_back(i2);
-}
-
-void
-build_model(std::vector<Vertex>& v, std::vector<int>& i) {
-  using namespace sgl;
-  v.clear();
-  i.clear();
-  v.push_back(build_vertex(Vec3(-1, -1, -1)));
-  v.push_back(build_vertex(Vec3(-1, -1, +1)));
-  v.push_back(build_vertex(Vec3(+1, -1, +1)));
-  v.push_back(build_vertex(Vec3(+1, -1, -1)));
-  v.push_back(build_vertex(Vec3(-1, +1, -1)));
-  v.push_back(build_vertex(Vec3(-1, +1, +1)));
-  v.push_back(build_vertex(Vec3(+1, +1, +1)));
-  v.push_back(build_vertex(Vec3(+1, +1, -1)));
-  build_face(i, 2, 1, 0);
-  build_face(i, 2, 0, 3);
-  build_face(i, 4, 5, 6);
-  build_face(i, 4, 6, 7);
-
-  build_face(i, 6, 5, 1);
-  build_face(i, 6, 1, 2);
-  build_face(i, 6, 2, 3);
-  build_face(i, 6, 3, 7);
-
-  build_face(i, 0, 7, 3);
-  build_face(i, 0, 4, 7);
-  build_face(i, 0, 1, 5);
-  build_face(i, 0, 5, 4);
-}
-
-void
-init_pipeline() {
+init_render_pass() {
   /* Step 1: Setup resources. */
   int render_width = w;
   int render_height = h;
@@ -74,7 +29,6 @@ init_pipeline() {
   depthtex.create(render_width, render_height,
                   TextureFormat::texture_format_float64,
                   TextureSampling::texture_sampling_point);
-  modeltex = load_texture("textures/checker.png");
 
   /* Step 2: Setup render config. */
   render_pass.eye.position = Vec3(3, 3, 3);
@@ -84,20 +38,27 @@ init_pipeline() {
   render_pass.eye.perspective.near = 0.1;
   render_pass.eye.perspective.far = 10.0;
   render_pass.eye.perspective.field_of_view = PI / 3.0;
-
   render_pass.color_texture = &colortex;
   render_pass.depth_texture = &depthtex;
-  render_pass.in_textures[0] = &modeltex;
-  render_pass.model_transform = Mat4x4::identity();
+  render_pass.FS = model_FS;
+  render_pass.VS = model_VS;
 
-	pipeline.set_VS(vertex_shader);
-	pipeline.set_FS(fragment_shader);
+  /* Step 3: Initialize model. */ 
+  model.load("models/test_plane.zip");
+  render_pass.model = &model;
+}
 
-  /* Step 3: Setup model. */
-  build_model(vertex_buffer, index_buffer);
-
-  Mat4x4 model_matrix;
-  model_matrix = Mat4x4::identity();
+void handle_key(SDL_KeyboardEvent *key) { 
+  bool is_press = (key->type == SDL_KEYUP);
+  /* scancode is based on QWERTY layout,
+   * while keycode generated from the same key position 
+   * can be different from different keyboard layouts. */
+  uint32_t scancode = key->keysym.scancode;
+  uint32_t keycode = key->keysym.sym;
+  std::string keyname = SDL_GetKeyName(keycode);
+  
+  /* record key state */
+  keystate[scancode] = is_press ? true : false;
 }
 
 int
@@ -110,6 +71,9 @@ main(int argc, char* argv[]) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0)
     exit(1);
 
+  for (uint32_t i_key = 0; i_key < SDL_NUM_SCANCODES; i_key++)
+    keystate[i_key] = false;
+
   /* Create window */
   pWindow = SDL_CreateWindow("SGL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN);
   if (pWindow == NULL)
@@ -120,15 +84,9 @@ main(int argc, char* argv[]) {
   /* Get window surface */
   pWindowSurface = SDL_GetWindowSurface(pWindow);
 
-  init_pipeline();
+  init_render_pass();
 
   SDL_UpdateWindowSurface(pWindow);
-
-	//const aiScene* scene = sgl::Assimp::load_model("models/forest.zip");	
-  Mesh mesh;
-  mesh.load("models/test_plane.zip");
-
-  //printf("System initialized.\n");
 
   /* Start main loop */
   SDL_Event e;
@@ -141,27 +99,21 @@ main(int argc, char* argv[]) {
 	char buf[64];
   while (!quit) {
     SDL_PollEvent(&e);
-    if (e.type == SDL_QUIT) {
+    if (e.type == SDL_QUIT || keystate[SDL_SCANCODE_ESCAPE])
       quit = true;
-    }
+    else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
+      handle_key(&e.key);
+
     T = timer.elapsed() * time_factor;
     frameid++;
-		if (int(T/time_factor) % 2 == 0) {
-			pipeline.set_FS(fragment_shader);
-		}
-		else {
-			pipeline.set_FS(fragment_shader2);
-		}
     render_pass.eye.position = Vec3(3 * sin(T), 3, 3 * cos(T));
-    pipeline.clear_textures(*render_pass.color_texture,
-                            *render_pass.depth_texture,
-                            Vec4(0.5, 0.5, 0.5, 1.0));
     frame_timer.tick();
-    mesh.draw(pipeline, render_pass);
-    //pipeline.draw(vertex_buffer, index_buffer, render_pass);
+    render_pass.run(pipeline);
+    pipeline.set_num_threads(6);
     double frame_time = frame_timer.tick();
 		total_frame_time += frame_time;
-    sgl::SDL2::sgl_texture_to_SDL_surface(render_pass.color_texture, pWindowSurface);
+    sgl::SDL2::sgl_texture_to_SDL_surface(
+        render_pass.color_texture, pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
 		sprintf(buf, "%.2lfms", total_frame_time / frameid * 1000.0);
     std::string title = std::string("SGL | ") + buf +

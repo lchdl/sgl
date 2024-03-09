@@ -25,6 +25,7 @@
 #include "sgl_shader.h"
 #include "sgl_texture.h"
 #include "sgl_utils.h"
+#include "sgl_model.h"
 
 namespace sgl {
 
@@ -35,21 +36,43 @@ class Pipeline {
   @param color_texture: Color texture to be cleared.
   @param depth_texture: Depth texture to be cleared.
   @param clear_color: Color that will be filled to the color texture.
+  @note: NULL value will be ignored.
   **/
-  void clear_textures(Texture &color_texture, Texture &depth_texture,
-                      const Vec4 &clear_color);
+  void clear_textures(
+    Texture* color, 
+    Texture* depth,
+    const Vec4 &clear_color);
   /**
-  Rasterize a single triangle.
-  @param vertex_buffer, index_buffer: Buffers that describe the mesh model.
-  @param pass: The pass object describing how the pipeline should render
-         to the target texture.
-  @note: The sizes of color and depth texture should be the same, for 
-         efficiency reason, this function will not check the validity of
-         these two buffers.
+  Set vertex & fragment shaders.
+  @note: NULL value will be ignored.
   **/
-  void draw(const std::vector<Vertex> &vertex_buffer,
-            const std::vector<int32_t> &index_buffer,
-            const Pass &pass);
+  void set_shaders(
+      VS_func_t VS, 
+      FS_func_t FS) {
+    if (VS!=NULL) shaders.VS=VS;
+    if (FS!=NULL) shaders.FS=FS;
+  }
+  /**
+  Set render targets (color & depth textures).
+  @note: NULL value will be ignored.
+  **/
+  void set_render_targets(
+      Texture* color, 
+      Texture* depth) {
+    if (color!=NULL) target.color=color;
+    if (depth!=NULL) target.depth=depth;
+  }
+  /** 
+  Render triangles onto target textures.
+  @param vertices: Vertex buffer object.
+  @param indices: Index buffer object.
+  @param uniforms: Uniform variables used by vertex and
+    fragment shaders.
+  **/
+  void draw(const std::vector<Vertex>& vertices,
+            const std::vector<int32_t>& indices,
+            const Uniforms& uniforms);
+
  public:
 	/**
 	Set number of threads for rasterization.
@@ -58,12 +81,6 @@ class Pipeline {
 	void set_num_threads(const int& num_threads) {
 		hwspec.num_threads = num_threads;
 	}
-
-	/**
-	Set vertex and fragment shaders.
-	**/
-	void set_VS(VS_func_t VS) { shaders.VS = VS; }
-	void set_FS(FS_func_t FS) { shaders.FS = FS; }
 
  protected:
   /**
@@ -226,26 +243,80 @@ class Pipeline {
     std::vector<Triangle_gl> Triangles;
   } ppl;
 	struct {
-		/* number of cpu cores used for rendering */
+		/* number of cpu cores available */
 		int num_threads;
 	} hwspec;
 	struct {
 		VS_func_t VS;
 		FS_func_t FS;
 	} shaders;
-
- public:
-  struct {
-    /* recorded time stamps for performance benchmarking */
-    double t_vp; /* time spent for Vertex Processing */
-    double t_vpp; /* time spent for Vertex Post-processing */
-    double t_fp; /* time spent for fragment processing */
-  } dt;
+  /* all the uniform variables used in a single draw call */
+  Uniforms uniforms;
 
  public:
   Pipeline();
 	Pipeline(VS_func_t VS, FS_func_t FS);
 	~Pipeline();
 };
+
+/* `pass` is an object that describes a complete render operation 
+ * and stores all the resources used during rendering. All `pass` 
+ * objects should inherit from `Pass` class. */
+struct Pass {
+  /* `Pass` class does not do anything and it does not render
+   * anything to the screen, but it defines all the necessary
+   * things that all the passes need, and all passes should 
+   * inherit from this class. */
+  
+  /* output texture buffers (write only) */
+  Texture* color_texture;
+  Texture* depth_texture;
+
+  /* VS & FS */
+  VS_func_t VS;
+  FS_func_t FS;
+
+  /* camera/eye settings */
+  struct {
+    Vec3 position; /* eye position */
+    Vec3 look_at;  /* view target */
+    Vec3 up_dir;   /* up normal */
+    struct {
+      bool enabled;
+      double near, far, field_of_view;
+    } perspective;
+    struct {
+      bool enabled;
+      double width, height, depth;
+    } orthographic;
+  } eye;
+
+ public:
+  /* utility functions */
+  Mat4x4 get_view_matrix() const;
+  Mat4x4 get_projection_matrix() const;
+
+  /* run the whole pass (rendering) */
+  virtual void run(Pipeline& ppl) = 0;
+
+  /* default ctor & dtor */
+  Pass();
+  virtual ~Pass();
+ };
+
+struct ModelPass : public Pass {
+  /* a pointer to model object that is being drawn */
+  Model* model;
+
+public:
+  virtual void run(Pipeline& ppl);
+
+  ModelPass();
+  virtual ~ModelPass();
+};
+
+
+
+
 
 };   // namespace sgl

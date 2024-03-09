@@ -5,14 +5,22 @@
 
 namespace sgl {
 
+/* A vertex shader can only accept 8 input textures at maximum. */
 const int MAX_TEXTURES_PER_SHADING_UNIT = 8;
+/* A vertex can only be affected by no more than 4 bones. */
+const int MAX_BONE_INFLUENCE = 4; 
+/* A mesh model can only have less than 128 bones. */
+const int MAX_BONES_PER_MESH = 128;
 
 class Vertex {
  public:
-  /* vs_in */
+  /* static geometry */
   Vec3 p; /* vertex position (in model local space) */
   Vec3 n; /* vertex normal (in model local space)*/
   Vec2 t; /* vertex texture coordinate */
+  /* bones & animations */
+  //IVec4 bone_IDs; /* bones up to 4 */
+  //Vec4  bone_weights;
 };
 
 class Vertex_gl {
@@ -86,44 +94,8 @@ class Uniforms {
   Mat4x4 projection;
   /* texture objects */
   const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
-};
-
-/* Describes a complete pass when rendering */
-struct Pass {
-  /* output color texture (write only) */
-  Texture* color_texture;
-  /* output depth texture (write only) */
-  Texture* depth_texture;
-  /* input textures for vertex and fragment shaders (read only) */
-  const Texture* in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
-
-  /* The default transformation applied to the model if its
-   * transformation is not explicitly given. */
-  Mat4x4 model_transform;
-
-  /* camera/eye settings */
-  struct {
-    Vec3 position; /* eye position */
-    Vec3 look_at;  /* view target */
-    Vec3 up_dir;   /* up normal */
-    struct {
-      bool enabled;
-      double near, far, field_of_view;
-    } perspective;
-    struct {
-      bool enabled;
-      double width, height, depth;
-    } orthographic;
-  } eye;
-
- public:
-  /* default ctor */
-  Pass();
-  /* utility functions */
-  void to_uniforms(Uniforms& out_uniforms) const;
-  Mat4x4 get_view_matrix() const;
-  Mat4x4 get_projection_matrix() const;
-
+  /* final bone transformation matrices array (from root to leaf) for a mesh */
+  const Mat4x4* bone_matrices; /* [MAX_BONES_PER_MESH] */
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -139,14 +111,14 @@ typedef void(*VS_func_t)(const Vertex &, const Uniforms &, Vertex_gl &);
 typedef void(*FS_func_t)(const Fragment_gl &, const Uniforms &, Vec4 &, bool&);
 
 /**
-Defines vertex shader (VS), which transforms vertices from model local space
-to homogeneous clip space.
+Defines default vertex shader (VS), which transforms vertices from 
+model local space to homogeneous clip space.
   @param vertex_in: The input vertex.
   @param uniforms: Uniform variables used in vertex shader.
   @param vertex_out: The output vertex.
   @note: `gl_Position` of the  @param vertex_out must be properly set.
 **/
-void vertex_shader(const Vertex &vertex_in, const Uniforms &uniforms,
+void VS_default(const Vertex &vertex_in, const Uniforms &uniforms,
                    Vertex_gl &vertex_out);
 /**
 Assemble fragment from interpolated vertex. The assembled fragment will be sent
@@ -160,15 +132,13 @@ users, as this member will be properly set by the rasterization pipeline.
 void assemble_fragment(const Vertex_gl &vertex_in, Fragment_gl &fragment_out);
 
 /**
-Defines fragment shader (FS).
+Defines default fragment shader (FS), shades each fragment into color output.
   @param fragment_in: The input fragment.
   @param uniforms: The input uniform variables.
   @param color_out: The calculated output color (in normalized range [0, 1]).
 	@param discard: Whether this pixel is discarded or not.
 **/
-void fragment_shader(const Fragment_gl &fragment_in, const Uniforms &uniforms,
+void FS_default(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                      Vec4 &color_out, bool& discard);
-
-void fragment_shader2(const Fragment_gl & fragment_in, const Uniforms & uniforms, Vec4 & fragment_out, bool& discard);
 
 };   // namespace sgl

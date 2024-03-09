@@ -5,26 +5,27 @@
 
 namespace sgl {
 
-Mesh::Mesh() { 
+Model::Model() {
   importer = NULL;
   transform = Mat4x4::identity();
 }
-Mesh::~Mesh() {
+Model::~Model() {
+  this->unload();
 }
 
 void
-Mesh::set_transform(const Mat4x4& transform) {
-  this->transform = transform;
-}
-
-void
-Mesh::unload() {
-  this->parts.clear();
+Model::unload() {
+  if (this->importer != NULL) {
+    delete this->importer;
+    this->importer = NULL;
+  }
+  this->scene = NULL;
+  this->meshes.clear();
   this->materials.clear();
 }
 
 bool 
-Mesh::load(const std::string& file) {
+Model::load(const std::string& file) {
   /* clear trash data from previous load */
   this->unload(); 
   /* import model file using Assimp */
@@ -54,8 +55,8 @@ Mesh::load(const std::string& file) {
 			}
 		}
 		if (model_file == "") {
-			printf("Assimp import error: you need to provide a file named \"model.*\" in "
-				"zipped file \"%s\".", file.c_str());
+			printf("Assimp import error: you need to provide a file "
+          "named \"model.*\" in zipped file \"%s\".", file.c_str());
 			rm(temp_folder);
       return false;
 		}
@@ -64,7 +65,7 @@ Mesh::load(const std::string& file) {
     model_file = file;
   }
 	/* then import the file using assimp */
-  const aiScene* scene = this->importer->ReadFile(model_file.c_str(),
+  this->scene = this->importer->ReadFile(model_file.c_str(),
 		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs |
 		aiProcess_JoinIdenticalVertices);
 	if (!scene || !scene->mRootNode || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
@@ -83,12 +84,12 @@ Mesh::load(const std::string& file) {
    * difference between the definition of mesh in Assimp and here.
    * */
   /* parse scene to mesh */
-  uint32_t n_parts = scene->mNumMeshes;
-  this->parts.resize(n_parts);
+  uint32_t n_meshes = scene->mNumMeshes;
+  this->meshes.resize(n_meshes);
   const aiVector3D zvec = aiVector3D(0.0, 0.0, 0.0);
-  for(uint32_t i_part = 0; i_part < n_parts; i_part++) {
+  for(uint32_t i_mesh = 0; i_mesh < n_meshes; i_mesh++) {
     /* initialize each mesh part */
-    const aiMesh* part = scene->mMeshes[i_part];
+    const aiMesh* part = scene->mMeshes[i_mesh];
     const uint32_t n_vert = part->mNumVertices;  
     for (uint32_t i_vert = 0; i_vert < n_vert; i_vert++) {
       /* load vertex (positions, normals, and texture coordinates) */
@@ -99,16 +100,20 @@ Mesh::load(const std::string& file) {
       v.p = Vec3(double(position->x), double(position->y), double(position->z));
       v.n = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
       v.t = Vec2(double(texcoord->x), double(texcoord->y));
-      this->parts[i_part].vertices.push_back(v);
+      this->meshes[i_mesh].vertices.push_back(v);
     }
     for (uint32_t i_face = 0; i_face < part->mNumFaces; i_face++) {
       /* load triangle face indices */
       const aiFace& face = part->mFaces[i_face];
-      this->parts[i_part].indices.push_back(face.mIndices[0]);
-      this->parts[i_part].indices.push_back(face.mIndices[1]);
-      this->parts[i_part].indices.push_back(face.mIndices[2]);
+      this->meshes[i_mesh].indices.push_back(face.mIndices[0]);
+      this->meshes[i_mesh].indices.push_back(face.mIndices[1]);
+      this->meshes[i_mesh].indices.push_back(face.mIndices[2]);
     }
-    this->parts[i_part].mat_id = part->mMaterialIndex;
+    this->meshes[i_mesh].mat_id = part->mMaterialIndex;
+    for (uint32_t i_bone = 0; i_bone < part->mNumBones; i_bone++) {
+      /* load bones */
+      std::string bone_name = part->mBones[i_bone]->mName.data;
+    }
   }
   uint32_t n_materials = scene->mNumMaterials;
   this->materials.resize(n_materials);
@@ -140,44 +145,11 @@ Mesh::load(const std::string& file) {
   /* if model is loaded from an unpacked zip file, remove the temporary dir. */
   if (temp_folder != "")
     rm(temp_folder);
-  /* delete the importer since we don't need it anymore outside load() */
-  delete this->importer;
-  this->importer = NULL;
   return true;
 }
 
 void
-Mesh::draw(Pipeline& ppl, Pass& pass) const {
-  /* draw the entire using the given pipeline object and pass object. */
-  /* the mesh object will first register its VS and FS to the pipeline, 
-   * then the pass object will provide some other important information
-   * that is relevant for software rendering (such as providing the 
-   * camera info and uniform variables). */
-  
-  /* Here we will not check the validity of VS and FS (!=NULL) to
-   * maximize efficiency. */
-  ppl.set_FS(mesh_FS);
-  ppl.set_VS(mesh_VS);
-  /* setup uniform variables */
-  /* passing model transformation matrix. */
-  pass.model_transform = this->transform;
-  /* since each mesh part will probably have different materials and 
-   * only one material can be used when rendering, so we need to use
-   * a loop to iterate through all mesh parts. */
-  for (uint32_t i_part = 0; i_part < this->parts.size(); i_part++) {
-    const MeshPart& part = this->parts[i_part];
-    const Material& mat  = this->materials[part.mat_id];
-    /* passing texture resources for VS and FS. */
-    pass.in_textures[0] = &mat.diffuse_texture;
-    for(uint32_t i_tex = 1; i_tex < MAX_TEXTURES_PER_SHADING_UNIT; i_tex++)
-      pass.in_textures[i_tex] = NULL;
-    /* draw mesh part */
-    ppl.draw(part.vertices, part.indices, pass);
-  }
-}
-
-void
-mesh_VS(const Vertex &vertex_in, const Uniforms &uniforms, 
+model_VS(const Vertex &vertex_in, const Uniforms &uniforms, 
     Vertex_gl& vertex_out) { 
   /* uniforms:
    * in_textures[0]: diffuse texture.
@@ -194,13 +166,12 @@ mesh_VS(const Vertex &vertex_in, const Uniforms &uniforms,
 }
 
 void 
-mesh_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
+model_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                      Vec4 &color_out, bool& discard) {
   Vec2 uv = fragment_in.t;
-  Vec3 wp = fragment_in.wp;
   Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
-  Vec3 color = (wp + 2.0) / 3.0;
-  color_out = Vec4(color * textured, 1.0);
+  color_out = Vec4(textured, 1.0);
+  //color_out = Vec4(1.0,1.0,1.0,1.0);
 }
 
 }; /* namespace sgl */

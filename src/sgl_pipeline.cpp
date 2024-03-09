@@ -5,6 +5,108 @@
 
 namespace sgl {
 
+Mat4x4 
+Pass::get_view_matrix() const {
+  Vec3 front = normalize(eye.position - eye.look_at);
+  Vec3 left = normalize(cross(eye.up_dir, front));
+  Vec3 up = normalize(cross(front, left));
+  Vec3 &F = front, &L = left, &U = up;
+  const double &ex = eye.position.x, &ey = eye.position.y, &ez = eye.position.z;
+  Mat4x4 rotation(L.x, L.y, L.z, 0.0, U.x, U.y, U.z, 0.0, F.x, F.y, F.z, 0.0,
+                  0.0, 0.0, 0.0, 1.0);
+  Mat4x4 translation(1.0, 0.0, 0.0, -ex, 0.0, 1.0, 0.0, -ey, 0.0, 0.0, 1.0, -ez,
+                     0.0, 0.0, 0.0, 1.0);
+  Mat4x4 view_matrix = mul(rotation, translation);
+  return view_matrix;
+}
+
+Mat4x4
+Pass::get_projection_matrix() const {
+  Mat4x4 projection_matrix;
+  if (eye.perspective.enabled) {
+    double aspect_ratio = double(color_texture->w) / double(color_texture->h);
+    double inv_aspect = double(1.0) / aspect_ratio;
+    double near = eye.perspective.near;
+    double far = eye.perspective.far;
+    double field_of_view = eye.perspective.field_of_view;
+    double left = -tan(field_of_view / double(2.0)) * near;
+    double right = -left;
+    double top = inv_aspect * right;
+    double bottom = -top;
+    projection_matrix =
+        Mat4x4(2 * near / (right - left), 0, (right + left) / (right - left), 0,
+               0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0,
+               0, 0, -(far + near) / (far - near),
+               -2 * far * near / (far - near), 0, 0, -1.0, 0);
+    return projection_matrix;
+  } else {
+    /* not implemented now */
+    return projection_matrix;
+  }
+}
+
+Pass::Pass()
+{
+  color_texture = NULL;
+  depth_texture = NULL;
+
+  eye.look_at = Vec3(0, 0, 0);
+  eye.position = Vec3(10, 10, 10);
+  eye.up_dir = Vec3(0, 1, 0);
+
+  eye.perspective.enabled = true;
+  eye.perspective.near = 0.1;
+  eye.perspective.far = 100.0;
+  eye.perspective.field_of_view = PI / 4.0;
+
+  eye.orthographic.enabled = false;
+  eye.orthographic.width = 256.0;
+  eye.orthographic.height = 256.0;
+  eye.orthographic.depth = 256.0;
+
+  VS = NULL;
+  FS = NULL;
+}
+
+Pass::~Pass() {
+}
+
+ModelPass::ModelPass() {
+  model = NULL;
+}
+ModelPass::~ModelPass() {
+}
+
+void
+ModelPass::run(Pipeline& ppl) {
+  if (model==NULL) return;
+
+  ppl.set_shaders(model_VS, model_FS);
+  ppl.set_render_targets(this->color_texture, this->depth_texture);
+  ppl.clear_textures(this->color_texture, this->depth_texture, Vec4(0.5,0.5,0.5,1.0));
+
+  Uniforms uniforms;
+  uniforms.model = model->get_transform();
+  uniforms.view = this->get_view_matrix();
+  uniforms.projection = this->get_projection_matrix();
+
+  /* Rendering all the mesh parts in model */
+  const std::vector<MeshData>& mesh_data = model->get_mesh_data();
+  const std::vector<Material>& materials = model->get_materials();
+
+  for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
+    const std::vector<Vertex>& vertices = mesh_data[i_mesh].vertices;
+    const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
+    const int32_t mat_id = mesh_data[i_mesh].mat_id;
+    /* Setting up mesh materials. */
+    /* diffuse texture */
+    uniforms.in_textures[0] = &materials[mat_id].diffuse_texture;
+    /* Launch the pipeline to render the triangles */
+    ppl.draw(vertices, indices, uniforms);
+  }
+}
+
+
 Pipeline::Pipeline() {
   target.color = NULL;
   target.depth = NULL;
@@ -22,36 +124,26 @@ Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
 }
 Pipeline::~Pipeline() {}
 
-void
-Pipeline::draw(const std::vector<Vertex> &vertex_buffer,
-               const std::vector<int32_t> &index_buffer,
-               const Pass &pass) {
-  /* Clear data from last frame. */
+void Pipeline::draw(
+  const std::vector<Vertex>& vertices,
+  const std::vector<int32_t>& indices,
+  const Uniforms& uniforms) 
+{
+  if (shaders.VS == NULL || shaders.FS == NULL)
+    return;
+
+  /* Clear cached data generated from previous call. */
   ppl.Vertices.clear();
   ppl.Triangles.clear();
 
-  Timer timer;
-
-  /* Register textures and fill uniform variables */
-  this->target.color = pass.color_texture;
-  this->target.depth = pass.depth_texture;
-  Uniforms uniforms;
-  pass.to_uniforms(uniforms);
-
-  timer.tick();
-  
   /* Stage I: Vertex processing. */
-  vertex_processing(vertex_buffer, uniforms);
-  dt.t_vp = timer.tick();
+  vertex_processing(vertices, uniforms);
 
   /* Stage II: Vertex post-processing. */
-  vertex_post_processing(index_buffer);
-  dt.t_vpp = timer.tick();
+  vertex_post_processing(indices);
 
   /* Step 3: Rasterization & fragment processing */
-  // fragment_processing(uniforms);
   fragment_processing_MT(uniforms, hwspec.num_threads);
-  dt.t_fp = timer.tick();
 }
 
 void
@@ -422,20 +514,30 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
   }
 }
 void
-Pipeline::clear_textures(Texture &color_texture, Texture &depth_texture,
-                         const Vec4 &clear_color) {
+Pipeline::clear_textures(
+  Texture* color, 
+  Texture* depth,
+  const Vec4 &clear_color)
+{
   uint8_t R, G, B, A;
   convert_Vec4_to_RGBA8(clear_color, R, G, B, A);
-  int n_pixels = color_texture.w * color_texture.h;
-  uint8_t *pixels = (uint8_t *) color_texture.pixels;
-  double *depths = (double *) depth_texture.pixels;
-  for (int i = 0; i < n_pixels; i++) {
-    pixels[i * 4 + 0] = R;
-    pixels[i * 4 + 1] = G;
-    pixels[i * 4 + 2] = B;
-    pixels[i * 4 + 3] = A;
-    depths[i] = 100.0;
+  if (color != NULL) {
+    int n_pixels = color->w * color->h;
+    uint8_t *pixels = (uint8_t *) color->pixels;
+    for (int i = 0; i < n_pixels; i++) {
+      pixels[i * 4 + 0] = R;
+      pixels[i * 4 + 1] = G;
+      pixels[i * 4 + 2] = B;
+      pixels[i * 4 + 3] = A;
+    }
   }
-  return;
+  if (depth != NULL) {
+    int n_pixels = depth->w * depth->h;
+    double *pixels = (double *) depth->pixels;
+    for (int i = 0; i < n_pixels; i++) {
+      pixels[i] = 100.0;
+    }
+  }
 }
+
 };   // namespace sgl

@@ -40,6 +40,7 @@ struct Vec2 {
   Vec2() { x = y = 0.0; }
   Vec2(double _x, double _y) { x = _x, y = _y; }
   void operator*=(double _b) { x *= _b, y *= _b; }
+  double& operator[](const int& _idx) { return this->i[_idx]; }
 };
 struct Vec3 {
   union {
@@ -60,6 +61,7 @@ struct Vec3 {
   Vec2 xy() const { return Vec2(x, y); }
   Vec2 yz() const { return Vec2(y, z); }
 	Vec2 xz() const { return Vec2(x, z); }
+  double& operator[](const int& _idx) { return this->i[_idx]; }
 };
 struct Vec4 {
   union {
@@ -71,8 +73,6 @@ struct Vec4 {
     };
   };
   Vec4() { x = y = z = w = 0.0; }
-  Vec4(double _x) { x = _x, y = 0.0, z = 0.0, w = 0.0; }
-  Vec4(double _x, double _y) { x = _x, y = _y, z = 0.0, w = 0.0; }
   Vec4(double _x, double _y, double _z) { x = _x, y = _y, z = _z, w = 0.0; }
   Vec4(double _x, double _y, double _z, double _w) {
     x = _x, y = _y, z = _z, w = _w;
@@ -94,7 +94,71 @@ struct Vec4 {
   Vec3 xyz() const { return Vec3(x, y, z); }
   Vec2 xy() const { return Vec2(x, y); }
   Vec2 zw() const { return Vec2(z, w); }
+  double& operator[](const int& _idx) { return this->i[_idx]; }
 };
+struct IVec2 {
+  union {
+    struct {
+      int x, y;
+    };
+    struct {
+      int i[2];
+    };
+  };
+  IVec2() { x = y = 0; }
+  IVec2(int _x, int _y) { x = _x, y = _y; }
+  void operator*=(int _b) { x *= _b, y *= _b; }
+  int& operator[](const int& _idx) { return this->i[_idx]; }
+};
+struct IVec3 {
+  union {
+    struct {
+      int x, y, z;
+    };
+    struct {
+      int i[3];
+    };
+  };
+  IVec3() { x = y = z = 0; }
+  IVec3(int _x, int _y, int _z) { x = _x, y = _y, z = _z; }
+  void operator*=(int _b) { x *= _b, y *= _b, z *= _b; }
+  IVec2 xy() const { return IVec2(x, y); }
+  IVec2 yz() const { return IVec2(y, z); }
+	IVec2 xz() const { return IVec2(x, z); }
+  int& operator[](const int& _idx) { return this->i[_idx]; }
+};
+struct IVec4 {
+  union {
+    struct {
+      int x, y, z, w;
+    };
+    struct {
+      int i[4];
+    };
+  };
+  IVec4() { x = y = z = w = 0; }
+  IVec4(int _x) { x = _x, y = 0, z = 0, w = 0; }
+  IVec4(int _x, int _y) { x = _x, y = _y, z = 0, w = 0; }
+  IVec4(int _x, int _y, int _z) { x = _x, y = _y, z = _z, w = 0; }
+  IVec4(int _x, int _y, int _z, int _w) {
+    x = _x, y = _y, z = _z, w = _w;
+  }
+
+  IVec4(Vec2 _a, int _b, int _c) { x = _a.x, y = _a.y, z = _b, w = _c; }
+  IVec4(int _a, Vec2 _b, int _c) { x = _a, y = _b.x, z = _b.y, w = _c; }
+  IVec4(int _a, int _b, Vec2 _c) { x = _a, y = _b, z = _c.x, w = _c.y; }
+  IVec4(Vec3 _a, int _b) { x = _a.x, y = _a.y, z = _a.z, w = _b; }
+  IVec4(int _a, Vec3 _b) { x = _a, y = _b.x, z = _b.y, w = _b.z; }
+  IVec4(Vec2 _a, Vec2 _b) { x = _a.x, y = _a.y, z = _b.x, w = _b.y; }
+  void operator+=(int _b) { x += _b, y += _b, z += _b, w += _b; }
+  void operator-=(int _b) { x -= _b, y -= _b, z -= _b, w -= _b; }
+  void operator*=(int _b) { x *= _b, y *= _b, z *= _b, w *= _b; }
+  IVec3 xyz() const { return IVec3(x, y, z); }
+  IVec2 xy() const { return IVec2(x, y); }
+  IVec2 zw() const { return IVec2(z, w); }
+  int& operator[](const int& _idx) { return this->i[_idx]; }
+};
+
 struct Mat3x3 {
   union {
     struct {
@@ -120,6 +184,12 @@ struct Mat3x3 {
     i11 = _11, i12 = _12, i13 = _13;
     i21 = _21, i22 = _22, i23 = _23;
     i31 = _31, i32 = _32, i33 = _33;
+  }
+  static Mat3x3 identity() {
+    return Mat3x3(
+        1, 0, 0, 
+        0, 1, 0, 
+        0, 0, 1);
   }
 };
 struct Mat4x4 {
@@ -152,7 +222,11 @@ struct Mat4x4 {
     i41 = _41, i42 = _42, i43 = _43, i44 = _44;
   }
   static Mat4x4 identity() {
-    return Mat4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+    return Mat4x4(
+        1, 0, 0, 0, 
+        0, 1, 0, 0, 
+        0, 0, 1, 0, 
+        0, 0, 0, 1);
   }
 };
 
