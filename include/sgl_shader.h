@@ -7,8 +7,9 @@ namespace sgl {
 
 /* A vertex shader can only accept 8 input textures at maximum. */
 const int MAX_TEXTURES_PER_SHADING_UNIT = 8;
-/* A vertex can only be affected by no more than 4 bones. */
-const int MAX_BONE_INFLUENCE = 4; 
+/* A vertex can only be affected by no more than 4 bones.
+ * NOTE: this value cannot be changed. */
+const int MAX_BONES_INFLUENCE_PER_VERTEX = 4; 
 /* A mesh model can only have less than 128 bones. */
 const int MAX_BONES_PER_MESH = 128;
 
@@ -19,8 +20,8 @@ class Vertex {
   Vec3 n; /* vertex normal (in model local space)*/
   Vec2 t; /* vertex texture coordinate */
   /* bones & animations */
-  //IVec4 bone_IDs; /* bones up to 4 */
-  //Vec4  bone_weights;
+  IVec4 bone_IDs; /* bones up to 4 */
+  Vec4  bone_weights;
 };
 
 class Vertex_gl {

@@ -17,11 +17,27 @@
 
 namespace sgl {
 
-struct MeshData {
-  /* a mesh is consists of multiple parts */
+struct Bone {
+  struct VertexCtrl {
+    uint32_t index; /* vertex index */
+    double  weight; /* vertex weight */
+  };
+  /* bone name */
+  std::string name; 
+  /* vertices controlled by this bone */
+  std::vector<VertexCtrl> vertices;
+};
+struct Mesh {
+  /* A mesh is a unique part of a model that has only 
+   * one material. A mesh can contain multiple meshes. */
+  /* vertex buffer, used in rasterization */
   std::vector<Vertex> vertices; 
+  /* index buffer, used in rasterization */
   std::vector<int32_t> indices;
-  uint32_t mat_id; /* material id */
+  /* material id */
+  uint32_t mat_id; 
+  /* all the bones in this mesh */
+  std::vector<Bone> bones;
 };
 struct Material {
   /* each mesh part will only uses one material. */
@@ -48,7 +64,7 @@ public:
     this->transform = transform;
   }
   /* get loaded mesh data */
-  const std::vector<MeshData>& get_mesh_data() const {
+  const std::vector<Mesh>& get_mesh_data() const {
     return this->meshes;
   }
   /* get model materials */
@@ -65,7 +81,7 @@ public:
   ~Model(); /* currently i don't want to 
               declare it as "virtual". */
 protected:
-  std::vector<MeshData> meshes;
+  std::vector<Mesh> meshes;
   std::vector<Material> materials;
   /* global transformation for the whole mesh, will be
    * applied before any other transformation during
@@ -78,6 +94,9 @@ private:
    * it holds will also be destroyed. */
   ::Assimp::Importer* importer;
   const aiScene* scene;
+
+  void _register_vertex_weight(Vertex& v, uint32_t bone_index, double weight);
+
 };
 
 /* specialized VS and FS for mesh rendering. */

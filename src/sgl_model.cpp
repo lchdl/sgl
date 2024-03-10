@@ -89,30 +89,45 @@ Model::load(const std::string& file) {
   const aiVector3D zvec = aiVector3D(0.0, 0.0, 0.0);
   for(uint32_t i_mesh = 0; i_mesh < n_meshes; i_mesh++) {
     /* initialize each mesh part */
-    const aiMesh* part = scene->mMeshes[i_mesh];
-    const uint32_t n_vert = part->mNumVertices;  
+    const aiMesh* mesh = scene->mMeshes[i_mesh];
+    const uint32_t n_vert = mesh->mNumVertices;  
     for (uint32_t i_vert = 0; i_vert < n_vert; i_vert++) {
       /* load vertex (positions, normals, and texture coordinates) */
-      const aiVector3D* position = &part->mVertices[i_vert];
-      const aiVector3D* normal   = &part->mNormals[i_vert];
-      const aiVector3D* texcoord = part->HasTextureCoords(0) ? &part->mTextureCoords[0][i_vert] : &zvec;
+      const aiVector3D* position = &mesh->mVertices[i_vert];
+      const aiVector3D* normal   = &mesh->mNormals[i_vert];
+      const aiVector3D* texcoord = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
       Vertex v;
       v.p = Vec3(double(position->x), double(position->y), double(position->z));
       v.n = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
       v.t = Vec2(double(texcoord->x), double(texcoord->y));
       this->meshes[i_mesh].vertices.push_back(v);
     }
-    for (uint32_t i_face = 0; i_face < part->mNumFaces; i_face++) {
+    for (uint32_t i_face = 0; i_face < mesh->mNumFaces; i_face++) {
       /* load triangle face indices */
-      const aiFace& face = part->mFaces[i_face];
+      const aiFace& face = mesh->mFaces[i_face];
       this->meshes[i_mesh].indices.push_back(face.mIndices[0]);
       this->meshes[i_mesh].indices.push_back(face.mIndices[1]);
       this->meshes[i_mesh].indices.push_back(face.mIndices[2]);
     }
-    this->meshes[i_mesh].mat_id = part->mMaterialIndex;
-    for (uint32_t i_bone = 0; i_bone < part->mNumBones; i_bone++) {
-      /* load bones */
-      std::string bone_name = part->mBones[i_bone]->mName.data;
+    this->meshes[i_mesh].mat_id = mesh->mMaterialIndex;
+    for (uint32_t i_bone = 0; i_bone < mesh->mNumBones; i_bone++) {
+      /* load bones (here we just load it first, we will parse the
+       * bone info later). */
+      Bone bone;
+      bone.name = mesh->mBones[i_bone]->mName.data;
+      /* number of affected vertices by this bone */
+      uint32_t n_bone_verts = mesh->mBones[i_bone]->mNumWeights;
+      for (uint32_t i_vert = 0; i_vert < n_bone_verts; i_vert++) {
+        /* read and save all info about the affected vertices by this bone */
+        aiVertexWeight vw = mesh->mBones[i_bone]->mWeights[i_vert];
+        Bone::VertexCtrl vc;
+        vc.index = vw.mVertexId;
+        vc.weight = vw.mWeight;
+        bone.vertices.push_back(vc);
+        /* write bone info into affected vertex */
+        Vertex& affected_vert = this->meshes[i_mesh].vertices[vc.index];
+        _register_vertex_weight(affected_vert, vc.index, vc.weight);
+      }
     }
   }
   uint32_t n_materials = scene->mNumMaterials;
@@ -123,7 +138,8 @@ Model::load(const std::string& file) {
     /* load diffuse texture (if exists) */
     if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0){
       aiString _tp;
-      if (material->GetTexture(aiTextureType_DIFFUSE, 0, &_tp, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
+      if (material->GetTexture(aiTextureType_DIFFUSE, 0, &_tp, 
+            NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
         std::string tp = _tp.data;
 #if defined (LINUX)
         replace_all(tp, "\\", "/");
@@ -135,7 +151,8 @@ Model::load(const std::string& file) {
         /* create texture object and append to mesh texture library */
         this->materials[i_mat].diffuse_texture = load_texture(tex_full_path);
         if (this->materials[i_mat].diffuse_texture.pixels == NULL) {
-          printf("Texture loading error: cannot load texture \"%s\". File not exist or have no access.\n", tex_full_path.c_str());
+          printf("Texture loading error: cannot load texture \"%s\". "
+              "File not exist or have no access.\n", tex_full_path.c_str());
         }
       }
     }
@@ -146,6 +163,35 @@ Model::load(const std::string& file) {
   if (temp_folder != "")
     rm(temp_folder);
   return true;
+}
+
+void 
+Model::_register_vertex_weight(
+    Vertex& v, 
+    uint32_t bone_index, 
+    double weight) 
+{
+  /* insert & sort vertex weights in descent order */
+  bool registered = false;
+  for (uint32_t i=0; i<MAX_BONES_INFLUENCE_PER_VERTEX; i++) {
+    if (weight > v.bone_weights[i]) {
+      /* insert bone to this slot */
+      registered = true;
+      /* shift right */
+      for (uint32_t j=MAX_BONES_INFLUENCE_PER_VERTEX-1; j>i; j--) {
+        v.bone_weights[j] = v.bone_weights[j-1];
+        v.bone_IDs[j] = v.bone_IDs[j-1];
+      }
+      /* insert */
+      v.bone_weights[i] = weight;
+      v.bone_IDs[i] = bone_index;
+      break;
+    }
+  }
+  if (registered == false) {
+    /* all 4 slots have been occupied */
+    printf("[*] Cannot register vertex weight: all slots have been occupied.\n");
+  }
 }
 
 void

@@ -91,7 +91,7 @@ ModelPass::run(Pipeline& ppl) {
   uniforms.projection = this->get_projection_matrix();
 
   /* Rendering all the mesh parts in model */
-  const std::vector<MeshData>& mesh_data = model->get_mesh_data();
+  const std::vector<Mesh>& mesh_data = model->get_mesh_data();
   const std::vector<Material>& materials = model->get_materials();
 
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
