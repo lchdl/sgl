@@ -233,5 +233,13 @@ replace_all(std::string& str,
   }
 }
 
+/**
+Fast uint32_t memory buffer fill from:
+**/
+inline void
+fill_u32(uint32_t* src, uint32_t n_elem, uint32_t val) {
+
+}
+
 
 };   // namespace sgl

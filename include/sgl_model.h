@@ -26,6 +26,9 @@ struct Bone {
   std::string name; 
   /* vertices controlled by this bone */
   std::vector<VertexCtrl> vertices;
+  /* transform vertex from local model space to bone space
+   * when the model is in bind pose (default T-pose). */
+  Mat4x4 offset_matrix;
 };
 struct Mesh {
   /* A mesh is a unique part of a model that has only 
@@ -38,6 +41,8 @@ struct Mesh {
   uint32_t mat_id; 
   /* all the bones in this mesh */
   std::vector<Bone> bones;
+  /* mapping bone name to its id. */
+  std::map<std::string, uint32_t> bone_name_to_id; 
 };
 struct Material {
   /* each mesh part will only uses one material. */
@@ -61,7 +66,7 @@ public:
   void unload();
   /* Set mesh transformation */
   void set_transform(const Mat4x4& transform) {
-    this->transform = transform;
+    this->model_transform = transform;
   }
   /* get loaded mesh data */
   const std::vector<Mesh>& get_mesh_data() const {
@@ -73,8 +78,12 @@ public:
   }
   /* get model transform, will be applied before any other transforms. */
   const Mat4x4 get_transform() const {
-    return this->transform;
+    return this->model_transform;
   }
+
+  /* calculate bone final transformations and update
+   * the result to uniform variables. */
+  void update_bone_matrices_for_mesh(uint32_t i_mesh, Uniforms& uniforms);
 
   /* ctor & dtor that we don't even care about much. */
   Model();
@@ -83,21 +92,36 @@ public:
 protected:
   std::vector<Mesh> meshes;
   std::vector<Material> materials;
-  /* global transformation for the whole mesh, will be
+  /* global transformation for the whole model, will be
    * applied before any other transformation during
    * rendering. */
-  Mat4x4 transform;
+  Mat4x4 model_transform;
 
 private:
   /* Assimp model importer.
    * Note: if the importer is destoryed, the resources 
    * it holds will also be destroyed. */
-  ::Assimp::Importer* importer;
-  const aiScene* scene;
+  ::Assimp::Importer* _importer;
+  const aiScene* _scene;
 
   void _register_vertex_weight(Vertex& v, uint32_t bone_index, double weight);
+  void _update_bone_matrices_from_node(
+      const aiNode* node,
+      const Mat4x4& parent_transform,
+      const Mesh& mesh,
+      Uniforms& uniforms);
 
 };
+
+inline Mat4x4 convert_assimp_mat4x4(const aiMatrix4x4& m)
+{
+  return Mat4x4(
+    m.a1, m.a2, m.a3, m.a4,
+    m.b1, m.b2, m.b3, m.b4,
+    m.c1, m.c2, m.c3, m.c4,
+    m.d1, m.d2, m.d3, m.d4
+  );
+}
 
 /* specialized VS and FS for mesh rendering. */
 void

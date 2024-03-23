@@ -123,8 +123,8 @@ class Pipeline {
   Stage III: Fragment Processing.
   @param uniforms: The uniform variables given to the pipeline.
   @param num_threads: The number of concurrent threads used for rasterization.
-  @note: "MT" stands for "multi-threaded". If running in MT, OpenMP must be
-  enabled.
+  @note: "MT" stands for "multi-threaded" version. 
+          If running in MT, OpenMP must be enabled.
   **/
   void fragment_processing(const Uniforms &uniforms);
   void fragment_processing_MT(const Uniforms &uniforms, const int &num_threads);
@@ -168,8 +168,8 @@ class Pipeline {
   @param t: Output interpolation weight between A (when t=0) and B (when t=1).
   The intersection point C can be caluclated as follows: C = (1-t)A + tB;
   **/
-  void clip_segment(const Vertex_gl &A, const Vertex_gl &B, const int clip_axis,
-                    const int clip_sign, double &t) {
+  void clip_segment(const Vertex_gl &A, const Vertex_gl &B, 
+                    const int clip_axis, const int clip_sign, double &t) {
     double A_i = A.gl_Position.i[clip_axis], A_w = A.gl_Position.w;
     double B_i = B.gl_Position.i[clip_axis], B_w = B.gl_Position.w;
     double S1, S2;
@@ -307,6 +307,9 @@ struct Pass {
 struct ModelPass : public Pass {
   /* a pointer to model object that is being drawn */
   Model* model;
+
+  /* uniform variables */
+  Uniforms uniforms;
 
 public:
   virtual void run(Pipeline& ppl);

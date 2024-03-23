@@ -95,8 +95,8 @@ class Uniforms {
   Mat4x4 projection;
   /* texture objects */
   const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
-  /* final bone transformation matrices array (from root to leaf) for a mesh */
-  const Mat4x4* bone_matrices; /* [MAX_BONES_PER_MESH] */
+  /* final bone transformations */
+  Mat4x4 bone_matrices[MAX_BONES_PER_MESH];
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

@@ -85,7 +85,6 @@ ModelPass::run(Pipeline& ppl) {
   ppl.set_render_targets(this->color_texture, this->depth_texture);
   ppl.clear_textures(this->color_texture, this->depth_texture, Vec4(0.5,0.5,0.5,1.0));
 
-  Uniforms uniforms;
   uniforms.model = model->get_transform();
   uniforms.view = this->get_view_matrix();
   uniforms.projection = this->get_projection_matrix();
@@ -101,6 +100,8 @@ ModelPass::run(Pipeline& ppl) {
     /* Setting up mesh materials. */
     /* diffuse texture */
     uniforms.in_textures[0] = &materials[mat_id].diffuse_texture;
+    /* calculate bone tranformation matrices and update to uniforms */
+    this->model->update_bone_matrices_for_mesh(i_mesh, uniforms);
     /* Launch the pipeline to render the triangles */
     ppl.draw(vertices, indices, uniforms);
   }
@@ -518,7 +519,7 @@ Pipeline::clear_textures(
   Texture* color, 
   Texture* depth,
   const Vec4 &clear_color)
-{
+{ 
   uint8_t R, G, B, A;
   convert_Vec4_to_RGBA8(clear_color, R, G, B, A);
   if (color != NULL) {

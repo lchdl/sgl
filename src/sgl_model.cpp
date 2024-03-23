@@ -1,13 +1,14 @@
 #include "sgl_model.h"
 #include "assimp/Importer.hpp"
+#include "sgl_math.h"
 #include <string>
 #include <vector>
 
 namespace sgl {
 
 Model::Model() {
-  importer = NULL;
-  transform = Mat4x4::identity();
+  _importer = NULL;
+  model_transform = Mat4x4::identity();
 }
 Model::~Model() {
   this->unload();
@@ -15,11 +16,11 @@ Model::~Model() {
 
 void
 Model::unload() {
-  if (this->importer != NULL) {
-    delete this->importer;
-    this->importer = NULL;
+  if (this->_importer != NULL) {
+    delete this->_importer;
+    this->_importer = NULL;
   }
-  this->scene = NULL;
+  this->_scene = NULL;
   this->meshes.clear();
   this->materials.clear();
 }
@@ -29,7 +30,7 @@ Model::load(const std::string& file) {
   /* clear trash data from previous load */
   this->unload(); 
   /* import model file using Assimp */
-  this->importer = new ::Assimp::Importer();
+  this->_importer = new ::Assimp::Importer();
  	/* if the model is packed as a *.zip file, unpack it first */
   std::string temp_folder = "";
   std::string model_file = "";
@@ -65,12 +66,12 @@ Model::load(const std::string& file) {
     model_file = file;
   }
 	/* then import the file using assimp */
-  this->scene = this->importer->ReadFile(model_file.c_str(),
+  this->_scene = this->_importer->ReadFile(model_file.c_str(),
 		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs |
 		aiProcess_JoinIdenticalVertices);
-	if (!scene || !scene->mRootNode || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
+	if (!_scene || !_scene->mRootNode || _scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
 		printf("Assimp importer.ReadFile() error when loading file \"%s\": \"%s\".\n",
-			file.c_str(), this->importer->GetErrorString());
+			file.c_str(), this->_importer->GetErrorString());
 		if (temp_folder != "")
       rm(temp_folder);
     return false;
@@ -84,12 +85,12 @@ Model::load(const std::string& file) {
    * difference between the definition of mesh in Assimp and here.
    * */
   /* parse scene to mesh */
-  uint32_t n_meshes = scene->mNumMeshes;
+  uint32_t n_meshes = _scene->mNumMeshes;
   this->meshes.resize(n_meshes);
   const aiVector3D zvec = aiVector3D(0.0, 0.0, 0.0);
   for(uint32_t i_mesh = 0; i_mesh < n_meshes; i_mesh++) {
     /* initialize each mesh part */
-    const aiMesh* mesh = scene->mMeshes[i_mesh];
+    const aiMesh* mesh = _scene->mMeshes[i_mesh];
     const uint32_t n_vert = mesh->mNumVertices;  
     for (uint32_t i_vert = 0; i_vert < n_vert; i_vert++) {
       /* load vertex (positions, normals, and texture coordinates) */
@@ -100,6 +101,7 @@ Model::load(const std::string& file) {
       v.p = Vec3(double(position->x), double(position->y), double(position->z));
       v.n = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
       v.t = Vec2(double(texcoord->x), double(texcoord->y));
+      v.bone_IDs = IVec4(-1,-1,-1,-1);
       this->meshes[i_mesh].vertices.push_back(v);
     }
     for (uint32_t i_face = 0; i_face < mesh->mNumFaces; i_face++) {
@@ -110,11 +112,18 @@ Model::load(const std::string& file) {
       this->meshes[i_mesh].indices.push_back(face.mIndices[2]);
     }
     this->meshes[i_mesh].mat_id = mesh->mMaterialIndex;
+    
+    /* bones and animation support */
+    /* For each bone (aiBone) object, "mOffsetMatrix" stores the
+     * transformation from local model space directly to bone space 
+     * in bind pose (default T-pose).
+     * */
     for (uint32_t i_bone = 0; i_bone < mesh->mNumBones; i_bone++) {
-      /* load bones (here we just load it first, we will parse the
-       * bone info later). */
+      /* load bones */
       Bone bone;
       bone.name = mesh->mBones[i_bone]->mName.data;
+      aiMatrix4x4& matrix = mesh->mBones[i_bone]->mOffsetMatrix;
+      bone.offset_matrix = convert_assimp_mat4x4(matrix);
       /* number of affected vertices by this bone */
       uint32_t n_bone_verts = mesh->mBones[i_bone]->mNumWeights;
       for (uint32_t i_vert = 0; i_vert < n_bone_verts; i_vert++) {
@@ -124,17 +133,25 @@ Model::load(const std::string& file) {
         vc.index = vw.mVertexId;
         vc.weight = vw.mWeight;
         bone.vertices.push_back(vc);
-        /* write bone info into affected vertex */
+        /* write bone info into affected vertex (let the vertex know
+         * there is a bone that influences itself). */
         Vertex& affected_vert = this->meshes[i_mesh].vertices[vc.index];
         _register_vertex_weight(affected_vert, vc.index, vc.weight);
       }
+      this->meshes[i_mesh].bone_name_to_id.insert(
+        std::pair<std::string, uint32_t>(
+          bone.name, this->meshes[i_mesh].bones.size()
+        )
+      );
+      this->meshes[i_mesh].bones.push_back(bone);
     }
+
   }
-  uint32_t n_materials = scene->mNumMaterials;
+  uint32_t n_materials = _scene->mNumMaterials;
   this->materials.resize(n_materials);
   for (uint32_t i_mat = 0; i_mat < n_materials; i_mat++) {
     /* load materials */
-    const aiMaterial* material = scene->mMaterials[i_mat];
+    const aiMaterial* material = _scene->mMaterials[i_mat];
     /* load diffuse texture (if exists) */
     if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0){
       aiString _tp;
@@ -171,7 +188,9 @@ Model::_register_vertex_weight(
     uint32_t bone_index, 
     double weight) 
 {
-  /* insert & sort vertex weights in descent order */
+  /* insert & sort vertex weights in descent order,
+   * in this way, only top-k bones will be kept for
+   * each vertex. */
   bool registered = false;
   for (uint32_t i=0; i<MAX_BONES_INFLUENCE_PER_VERTEX; i++) {
     if (weight > v.bone_weights[i]) {
@@ -189,9 +208,45 @@ Model::_register_vertex_weight(
     }
   }
   if (registered == false) {
-    /* all 4 slots have been occupied */
-    printf("[*] Cannot register vertex weight: all slots have been occupied.\n");
+    /* All 4 slots have been occupied, we print a warning to let user
+     * know and then continue. */
+    printf("[*] Warning: Cannot register vertex weight (bone_index=%d, "
+           "weight=%.4lf), all slots have been occupied.\n", 
+           bone_index, weight);
   }
+}
+
+void Model::_update_bone_matrices_from_node(
+  const aiNode* node,
+  const Mat4x4& parent_transform,
+  const Mesh& mesh,
+  Uniforms& uniforms)
+{
+  std::string node_name = node->mName.data;
+  Mat4x4 node_transform = convert_assimp_mat4x4(node->mTransformation);
+  Mat4x4 accumulated_transform = mul(parent_transform, node_transform);
+  
+  if (mesh.bone_name_to_id.find(node_name) != mesh.bone_name_to_id.end()){
+    std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
+    uint32_t bone_index = item->second;
+    uniforms.bone_matrices[bone_index] = mul(
+      accumulated_transform, mesh.bones[bone_index].offset_matrix);
+  }
+
+  for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
+    _update_bone_matrices_from_node(node->mChildren[i_node], accumulated_transform, mesh, uniforms);
+  }
+
+  /* after this function returns all bone_matrices will be updated
+   * and ready for the subsequent draw call */
+  
+}
+
+void Model::update_bone_matrices_for_mesh(uint32_t i_mesh,
+  Uniforms& uniforms)
+{
+  Mesh& mesh = this->meshes[i_mesh];
+  this->_update_bone_matrices_from_node(_scene->mRootNode, Mat4x4::identity(), mesh, uniforms);
 }
 
 void
@@ -203,12 +258,20 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
   const Mat4x4 &model = uniforms.model;
   const Mat4x4 &view = uniforms.view;
   const Mat4x4 &projection = uniforms.projection;
-  Mat4x4 transform = mul(mul(projection, view), model);
-  Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
-  vertex_out.gl_Position = gl_Position;
-  vertex_out.t = vertex_in.t;
-  vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
-  vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
+  if (vertex_in.bone_IDs.i[0] < 0) {
+    /* vertex does not belong to any bone */
+    Mat4x4 transform = mul(projection, mul(view, model));
+    Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
+    vertex_out.gl_Position = gl_Position;
+    vertex_out.t = vertex_in.t;
+    vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
+    vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
+  }
+  else {
+    /* vertex is controlled by at least one bone */
+    /* TODO: Add code to handle vertex controlled by bone(s). */
+  }
+ 
 }
 
 void 
