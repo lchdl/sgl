@@ -191,6 +191,18 @@ struct Mat3x3 {
         0, 1, 0, 
         0, 0, 1);
   }
+  inline Mat3x3 operator+=(const Mat3x3& a) {
+    i11 += a.i11; i12 += a.i12; i13 += a.i13;
+    i21 += a.i21; i22 += a.i22; i23 += a.i23;
+    i31 += a.i31; i32 += a.i32; i33 += a.i33;
+    return (*this);
+  }
+  inline Mat3x3 operator-=(const Mat3x3& a) {
+    i11 -= a.i11; i12 -= a.i12; i13 -= a.i13;
+    i21 -= a.i21; i22 -= a.i22; i23 -= a.i23;
+    i31 -= a.i31; i32 -= a.i32; i33 -= a.i33;
+    return (*this);
+  }
 };
 struct Mat4x4 {
   union {
@@ -228,6 +240,21 @@ struct Mat4x4 {
         0, 0, 1, 0, 
         0, 0, 0, 1);
   }
+  inline Mat4x4 operator+=(const Mat4x4& a) {
+    i11 += a.i11; i12 += a.i12; i13 += a.i13; i14 += a.i14;
+    i21 += a.i21; i22 += a.i22; i23 += a.i23; i24 += a.i24;
+    i31 += a.i31; i32 += a.i32; i33 += a.i33; i34 += a.i34;
+    i41 += a.i41; i42 += a.i42; i43 += a.i43; i44 += a.i44;
+    return (*this);
+  }
+  inline Mat4x4 operator-=(const Mat4x4& a) {
+    i11 -= a.i11; i12 -= a.i12; i13 -= a.i13; i14 -= a.i14;
+    i21 -= a.i21; i22 -= a.i22; i23 -= a.i23; i24 -= a.i24;
+    i31 -= a.i31; i32 -= a.i32; i33 -= a.i33; i34 -= a.i34;
+    i41 -= a.i41; i42 -= a.i42; i43 -= a.i43; i44 -= a.i44;
+    return (*this);
+  }
+
 };
 
 inline Vec2

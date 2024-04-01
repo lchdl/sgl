@@ -27,11 +27,14 @@ Model::unload() {
 
 bool 
 Model::load(const std::string& file) {
+  
   /* clear trash data from previous load */
   this->unload(); 
+  
   /* import model file using Assimp */
   this->_importer = new ::Assimp::Importer();
- 	/* if the model is packed as a *.zip file, unpack it first */
+ 	
+  /* if the model is packed as a *.zip file, unpack it first */
   std::string temp_folder = "";
   std::string model_file = "";
   if (endswith(file, ".zip")) {
@@ -65,7 +68,8 @@ Model::load(const std::string& file) {
   else {
     model_file = file;
   }
-	/* then import the file using assimp */
+	
+  /* then import the file using assimp */
   this->_scene = this->_importer->ReadFile(model_file.c_str(),
 		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs |
 		aiProcess_JoinIdenticalVertices);
@@ -76,6 +80,7 @@ Model::load(const std::string& file) {
       rm(temp_folder);
     return false;
 	}
+
   /* In Assimp, a scene consists of multiple meshes, each mesh can 
    * only have one material. If a mesh uses multiple materials for 
    * its surface, it will be split up to multiple sub-meshes so 
@@ -84,7 +89,8 @@ Model::load(const std::string& file) {
    * considered as a `mesh part` in here. Please note the slight 
    * difference between the definition of mesh in Assimp and here.
    * */
-  /* parse scene to mesh */
+  
+  /* parse meshes */
   uint32_t n_meshes = _scene->mNumMeshes;
   this->meshes.resize(n_meshes);
   const aiVector3D zvec = aiVector3D(0.0, 0.0, 0.0);
@@ -145,8 +151,9 @@ Model::load(const std::string& file) {
       );
       this->meshes[i_mesh].bones.push_back(bone);
     }
-
   }
+
+  /* parse materials */
   uint32_t n_materials = _scene->mNumMaterials;
   this->materials.resize(n_materials);
   for (uint32_t i_mat = 0; i_mat < n_materials; i_mat++) {
@@ -258,9 +265,10 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
   const Mat4x4 &model = uniforms.model;
   const Mat4x4 &view = uniforms.view;
   const Mat4x4 &projection = uniforms.projection;
+  Mat4x4 transform = mul(projection, mul(view, model));
+  
   if (vertex_in.bone_IDs.i[0] < 0) {
     /* vertex does not belong to any bone */
-    Mat4x4 transform = mul(projection, mul(view, model));
     Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
     vertex_out.gl_Position = gl_Position;
     vertex_out.t = vertex_in.t;
@@ -269,9 +277,36 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
   }
   else {
     /* vertex is controlled by at least one bone */
-    /* TODO: Add code to handle vertex controlled by bone(s). */
+    /* calculate:
+     * p_final = sum( w[i]*m[i]*p, for i in [0,1,2,3] ), where
+     * p is the vertex position in local model space (T-pose),
+     * m[i] is the i-th final bone transformation matrix,
+     * w[i] is the i-th bone influence weight to the vertex.
+     * to make computation a little bit faster, we calculate
+     * w[i]*m[i] for i in [0,1,2,3], then multiply it with p.
+     * */
+    Mat4x4 final_matrix;
+    for (uint32_t i_bone=0; 
+         i_bone<MAX_BONES_INFLUENCE_PER_VERTEX; 
+         i_bone++) 
+    {
+      int32_t bone_id = vertex_in.bone_IDs.i[i_bone];
+      /* bone_id can be negative, which indicates that the
+       * corresponding slot is unused. */
+      if (bone_id < 0) break; 
+      double bone_weight = vertex_in.bone_weights.i[i_bone];
+      const Mat4x4& bone_matrix = uniforms.bone_matrices[bone_id];
+      final_matrix += bone_weight * bone_matrix;
+    }
+    /* apply final matrix to vertex position */
+    Vec4 p_rig = mul(final_matrix, Vec4(vertex_in.p, 1.0));
+    Vec4 n_rig = mul(final_matrix, Vec4(vertex_in.n, 1.0));
+    vertex_out.gl_Position = mul(transform, p_rig);
+    vertex_out.t = vertex_in.t;
+    vertex_out.wn = mul(model, n_rig).xyz();
+    vertex_out.wp = mul(model, p_rig).xyz();
   }
- 
+
 }
 
 void 

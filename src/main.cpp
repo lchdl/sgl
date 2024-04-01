@@ -44,7 +44,7 @@ init_render_pass() {
   render_pass.VS = model_VS;
 
   /* Step 3: Initialize model. */ 
-  model.load("models/test_plane.zip");
+  model.load("models/boblampclean.zip");
   render_pass.model = &model;
 }
 
@@ -86,15 +86,15 @@ main(int argc, char* argv[]) {
 
   init_render_pass();
 
+  pipeline.set_num_threads(6);
+  
   SDL_UpdateWindowSurface(pWindow);
 
   /* Start main loop */
   SDL_Event e;
   Timer timer, frame_timer;
   bool quit = false;
-  double T = 0.0;
   int frameid = 0;
-  const double time_factor = 0.3;
 	double total_frame_time = 0.0;
 	char buf[64];
   while (!quit) {
@@ -104,12 +104,11 @@ main(int argc, char* argv[]) {
     else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
       handle_key(&e.key);
 
-    T = timer.elapsed() * time_factor;
     frameid++;
-    render_pass.eye.position = Vec3(3 * sin(T), 3, 3 * cos(T));
     frame_timer.tick();
+    
     render_pass.run(pipeline);
-    pipeline.set_num_threads(6);
+    
     double frame_time = frame_timer.tick();
 		total_frame_time += frame_time;
     sgl::SDL2::sgl_texture_to_SDL_surface(

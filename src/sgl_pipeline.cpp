@@ -144,7 +144,7 @@ void Pipeline::draw(
   vertex_post_processing(indices);
 
   /* Step 3: Rasterization & fragment processing */
-  fragment_processing_MT(uniforms, hwspec.num_threads);
+  fragment_processing(uniforms);
 }
 
 void
