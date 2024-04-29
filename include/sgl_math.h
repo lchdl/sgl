@@ -144,12 +144,12 @@ struct IVec4 {
     x = _x, y = _y, z = _z, w = _w;
   }
 
-  IVec4(Vec2 _a, int _b, int _c) { x = _a.x, y = _a.y, z = _b, w = _c; }
-  IVec4(int _a, Vec2 _b, int _c) { x = _a, y = _b.x, z = _b.y, w = _c; }
-  IVec4(int _a, int _b, Vec2 _c) { x = _a, y = _b, z = _c.x, w = _c.y; }
-  IVec4(Vec3 _a, int _b) { x = _a.x, y = _a.y, z = _a.z, w = _b; }
-  IVec4(int _a, Vec3 _b) { x = _a, y = _b.x, z = _b.y, w = _b.z; }
-  IVec4(Vec2 _a, Vec2 _b) { x = _a.x, y = _a.y, z = _b.x, w = _b.y; }
+  IVec4(IVec2 _a, int _b, int _c) { x = _a.x, y = _a.y, z = _b, w = _c; }
+  IVec4(int _a, IVec2 _b, int _c) { x = _a, y = _b.x, z = _b.y, w = _c; }
+  IVec4(int _a, int _b, IVec2 _c) { x = _a, y = _b, z = _c.x, w = _c.y; }
+  IVec4(IVec3 _a, int _b) { x = _a.x, y = _a.y, z = _a.z, w = _b; }
+  IVec4(int _a, IVec3 _b) { x = _a, y = _b.x, z = _b.y, w = _b.z; }
+  IVec4(IVec2 _a, IVec2 _b) { x = _a.x, y = _a.y, z = _b.x, w = _b.y; }
   void operator+=(int _b) { x += _b, y += _b, z += _b, w += _b; }
   void operator-=(int _b) { x -= _b, y -= _b, z -= _b, w -= _b; }
   void operator*=(int _b) { x *= _b, y *= _b, z *= _b, w *= _b; }

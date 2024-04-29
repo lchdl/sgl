@@ -146,7 +146,7 @@ Model::load(const std::string& file) {
       }
       this->meshes[i_mesh].bone_name_to_id.insert(
         std::pair<std::string, uint32_t>(
-          bone.name, this->meshes[i_mesh].bones.size()
+          bone.name, uint32_t(this->meshes[i_mesh].bones.size())
         )
       );
       this->meshes[i_mesh].bones.push_back(bone);

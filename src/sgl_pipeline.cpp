@@ -111,17 +111,17 @@ ModelPass::run(Pipeline& ppl) {
 Pipeline::Pipeline() {
   target.color = NULL;
   target.depth = NULL;
-	shaders.VS = NULL;
-	shaders.FS = NULL;
+  shaders.VS = NULL;
+  shaders.FS = NULL;
   hwspec.num_threads = max(get_cpu_cores(), 1);
 }
 Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
 {
-	target.color = NULL;
-	target.depth = NULL;
-	shaders.VS = VS;
-	shaders.FS = FS;
-	hwspec.num_threads = max(get_cpu_cores(), 1);
+  target.color = NULL;
+  target.depth = NULL;
+  shaders.VS = VS;
+  shaders.FS = FS;
+  hwspec.num_threads = max(get_cpu_cores(), 1);
 }
 Pipeline::~Pipeline() {}
 
@@ -144,7 +144,8 @@ void Pipeline::draw(
   vertex_post_processing(indices);
 
   /* Step 3: Rasterization & fragment processing */
-  fragment_processing(uniforms);
+  //fragment_processing(uniforms);
+  fragment_processing_MT(uniforms, hwspec.num_threads);
 }
 
 void
@@ -219,6 +220,7 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
     const Vec4 p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
     const Vec4 p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
     double area = edge(p0, p1, p2);
+    if (isnan(area) || isinf(area)) continue; /* Ignore invalid triangles. */
     /** @note: p0, p1, p2 are actually gl_FragCoord. **/
     /* Step 3.3: Rasterization. */
     Vec4 rect = get_minimum_rect(p0, p1, p2);
@@ -254,13 +256,13 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
             Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
                  1.0 / v_lerp.gl_Position.w);
         Vec4 color_out;
-				bool discard = false;
-				shaders.FS(fragment, uniforms, color_out, discard);
+        bool discard = false;
+        shaders.FS(fragment, uniforms, color_out, discard);
         /* Step 3.5: Fragment processing */
-				if (!discard) {
-					write_textures(fragment.gl_FragCoord.xy(), color_out,
-						fragment.gl_FragCoord.z);
-				}
+        if (!discard) {
+          write_textures(fragment.gl_FragCoord.xy(), color_out,
+            fragment.gl_FragCoord.z);
+        }
       }
     }
   }
@@ -309,9 +311,13 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
       const Vec4 p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
       const Vec4 p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
       double area = edge(p0, p1, p2);
+      if (isnan(area) || isinf(area)) continue; /* Ignore invalid triangles. */
       /** @note: p0, p1, p2 are actually gl_FragCoord. **/
       /* Step 3.3: Rasterization. */
       Vec4 rect = get_minimum_rect(p0, p1, p2);
+      if (rect.i[0] < -1 || rect.i[1] < -1 || rect.i[2] > 801 || rect.i[2] > 801){
+        debugbreak();
+      }
       /* precomupte: divide by real z */
       v0 *= iz.i[0];
       v1 *= iz.i[1];
@@ -346,13 +352,13 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
               Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
                    1.0 / v_lerp.gl_Position.w);
           Vec4 color_out;
-					bool discard = false;
+          bool discard = false;
           shaders.FS(fragment, uniforms, color_out, discard);
           /* Step 3.5: Fragment processing */
-					if (!discard) {
-						write_textures(fragment.gl_FragCoord.xy(), color_out,
-							fragment.gl_FragCoord.z);
-					}
+          if (!discard) {
+            write_textures(fragment.gl_FragCoord.xy(), color_out,
+              fragment.gl_FragCoord.z);
+          }
         }
       }
     }

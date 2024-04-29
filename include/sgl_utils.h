@@ -23,6 +23,17 @@
 
 #include "sgl_math.h"
 
+#if defined(LINUX)
+#include "signal.h"
+inline void debugbreak(){
+  raise(SIGTRAP);
+}
+#elif defined(WINDOWS) || defined(WIN32)
+inline void debugbreak(){
+	__debugbreak();
+}
+#endif
+
 namespace sgl {
 
 inline void
@@ -115,8 +126,8 @@ get_cpu_cores() {
 
 inline std::string
 get_cwd() {
-	std::filesystem::path pwd = std::filesystem::current_path();
-	return std::string(pwd);
+	std::filesystem::path pwd = std::filesystem::current_path();	
+	return pwd.generic_string();
 }
 
 inline void

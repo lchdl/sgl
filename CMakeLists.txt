@@ -17,7 +17,9 @@ if (COMPILER STREQUAL "<Please select compiler.>")
 endif()
 
 # OPTION: BUILD TYPE (for non-IDE environments only)
-if (COMPILER STREQUAL "GCC")
+if (COMPILER STREQUAL "MSVC")
+	# MSVC IDE will let users select the build mode (Debug/Release) when building
+elseif (COMPILER STREQUAL "GCC")
   set(BUILD_TYPE "<Please select build type.>" CACHE STRING "")
   set_property(CACHE BUILD_TYPE PROPERTY STRINGS "Release" "Debug")
   if (BUILD_TYPE STREQUAL "<Please select build type.>")
@@ -32,6 +34,7 @@ if (COMPILER STREQUAL "GCC")
     endif()
   endif()
 else()
+	message(FATAL_ERROR "Invalid compiler selected.")
 endif()
 
 # SETUP COMPILER
@@ -105,7 +108,8 @@ else()
 endif()
 
 ############################################################
-#                     OUTPUT EXE & LIB                     #
+#                       MAIN FILES &                       #
+#                    INTERNAL LIBRARIES                    #
 ############################################################
 
 # "zip" (https://github.com/kuba--/zip) is used as internal library - compiled alongside with main
@@ -118,6 +122,7 @@ add_executable(sgl ${ALL_SRC_FILES} ${ALL_HEADER_FILES} ${ZIP_LIBRARY_FILES})
 
 target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ext/zip/src/")
 target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
+
 # stb_image
 target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ext/stb/")
 
@@ -127,9 +132,23 @@ target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ext/stb/")
 
 # SDL2
 if(COMPILER STREQUAL "MSVC")
-  message(FATAL_ERROR "Invalid compiler.")
+	# Setting up SDL2.lib, SDL2main.lib and SDL2 include dir
+  set(SDL2_LIB_PATH "<Please paste the compiled SDL2 library path (SDL2.lib).>" CACHE STRING "")
+  set(SDL2MAIN_LIB_PATH "<Please paste the path of SDL2main.lib.>" CACHE STRING "")
+  set(SDL2_INCLUDE_DIR "<Please paste the path of SDL2 include dir.>" CACHE STRING "")
+  if (NOT EXISTS "${SDL2_LIB_PATH}")
+    message(FATAL_ERROR "Please paste the path of SDL2.lib.")
+  endif()
+  if (NOT EXISTS "${SDL2MAIN_LIB_PATH}")
+    message(FATAL_ERROR "Please paste the path of SDL2main.lib.")
+  endif()
+  if (NOT EXISTS "${SDL2_INCLUDE_DIR}")
+    message(FATAL_ERROR "Please paste the path of SDL2 include dir.")
+  endif()
+  target_link_libraries(sgl "${SDL2_LIB_PATH}")
+  target_link_libraries(sgl "${SDL2MAIN_LIB_PATH}")
+  target_include_directories(sgl PUBLIC "${SDL2_INCLUDE_DIR}")
 elseif(COMPILER STREQUAL "GCC")
-  message(STATUS "* Selected compiler: GCC")
   # Setting up libSDL2.a, libSDL2main.a, and SDL2 include dir
   set(SDL2_LIB_PATH "<Please paste the compiled SDL2 library path (libSDL2.a).>" CACHE STRING "")
   set(SDL2MAIN_LIB_PATH "<Please paste the path of libSDL2main.a.>" CACHE STRING "")
@@ -152,12 +171,22 @@ endif()
 
 # Assimp
 if(COMPILER STREQUAL "MSVC")
-  message(FATAL_ERROR "Invalid compiler.")
+  set(ASSIMP_LIB_PATH "<Please paste the compiled Assimp library path (assimp-*.lib).>" CACHE STRING "")
+  #set(ASSIMP_ZLIB_PATH "<Please paste the compiled zlib library (libzlibstatic.a). It will be generated when statically compiling Assimp.>" CACHE STRING "")
+  set(ASSIMP_INCLUDE_DIR "<Please paste the path of Assimp include dir.>" CACHE STRING "")
+  if (NOT EXISTS "${ASSIMP_LIB_PATH}")
+    message(FATAL_ERROR "Cannot find libassimp. Please compile Assimp manually and then paste the library (*.lib) path to here.")
+  endif()
+  if (NOT EXISTS "${ASSIMP_INCLUDE_DIR}")
+    message(FATAL_ERROR "Please paste the path of Assimp include dir here.")
+  endif()
+  target_link_libraries(sgl "${ASSIMP_LIB_PATH}")
+  target_include_directories(sgl PUBLIC "${ASSIMP_INCLUDE_DIR}")
 elseif(COMPILER STREQUAL "GCC")
   # if compiler is gcc, then assimp and its internal zlib should build statically,
   # and developer should tell cmake the path of statically linked zlib here.
   set(ASSIMP_LIB_PATH "<Please paste the compiled Assimp library path (libassimp.a).>" CACHE STRING "")
-  set(ASSIMP_ZLIB_PATH "<Please paste the compiled zlib library path (libzlibstatic.a) when compiling Assimp.>" CACHE STRING "")
+  set(ASSIMP_ZLIB_PATH "<Please paste the compiled zlib library (libzlibstatic.a). It will be generated when statically compiling Assimp.>" CACHE STRING "")
   set(ASSIMP_INCLUDE_DIR "<Please paste the path of Assimp include dir.>" CACHE STRING "")
   if (NOT EXISTS "${ASSIMP_LIB_PATH}")
     message(FATAL_ERROR "Cannot find libassimp. Please compile Assimp manually and then paste the library *.a path to here. Also make sure to compile Assimp and its assiciated zlib in static mode.")

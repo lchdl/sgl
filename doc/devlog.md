@@ -23,8 +23,8 @@
 * Key definition: **Vertex**, **Vertex_gl**, **Fragment_gl**
 
 ### TODO
-* Assimp model loading.
-* Simple UI system.
+* BUG: solve inconsistent bug between MT debug/release mode.
+* Assimp model loading (working).
+* Simple UI system (hold).
 
-   
 

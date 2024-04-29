@@ -31,12 +31,12 @@ init_render_pass() {
                   TextureSampling::texture_sampling_point);
 
   /* Step 2: Setup render config. */
-  render_pass.eye.position = Vec3(3, 3, 3);
+  render_pass.eye.position = Vec3(100, 100, 100);
   render_pass.eye.look_at = Vec3(0, 0, 0);
   render_pass.eye.up_dir = Vec3(0, 1, 0);
   render_pass.eye.perspective.enabled = true;
-  render_pass.eye.perspective.near = 0.1;
-  render_pass.eye.perspective.far = 10.0;
+  render_pass.eye.perspective.near = 1;
+  render_pass.eye.perspective.far = 500.0;
   render_pass.eye.perspective.field_of_view = PI / 3.0;
   render_pass.color_texture = &colortex;
   render_pass.depth_texture = &depthtex;
@@ -86,7 +86,7 @@ main(int argc, char* argv[]) {
 
   init_render_pass();
 
-  pipeline.set_num_threads(6);
+  pipeline.set_num_threads(1);
   
   SDL_UpdateWindowSurface(pWindow);
 
