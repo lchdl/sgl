@@ -36,18 +36,37 @@ inline void debugbreak(){
 
 namespace sgl {
 
-inline void
-print(const std::string &prefix, const Vec2 &v) {
+inline void print(const Vec2 &v) {
+	printf("(%.4f, %.4f)\n", v.x, v.y);
+};
+inline void print(const Vec3 &v) {
+	printf("(%.4f, %.4f, %.4f)\n", v.x, v.y, v.z);
+};
+inline void print(const Vec4 &v) {
+	printf("(%.4f, %.4f, %.4f, %.4f)\n", v.x, v.y, v.z, v.w);
+};
+
+inline void print(const std::string &prefix, const Vec2 &v) {
   printf("%s (%.4f, %.4f)\n", prefix.c_str(), v.x, v.y);
 };
-inline void
-print(const std::string &prefix, const Vec3 &v) {
+inline void print(const std::string &prefix, const Vec3 &v) {
   printf("%s (%.4f, %.4f, %.4f)\n", prefix.c_str(), v.x, v.y, v.z);
 };
-inline void
-print(const std::string &prefix, const Vec4 &v) {
+inline void print(const std::string &prefix, const Vec4 &v) {
   printf("%s (%.4f, %.4f, %.4f, %.4f)\n", prefix.c_str(), v.x, v.y, v.z, v.w);
 };
+
+inline void print(const Mat3x3& m) {
+	printf("[ %.2lf %.2lf %.2lf\n", m.i11, m.i12, m.i13);
+	printf("  %.2lf %.2lf %.2lf\n", m.i21, m.i22, m.i23);
+	printf("  %.2lf %.2lf %.2lf ]\n", m.i31, m.i32, m.i33);
+}
+inline void print(const Mat4x4& m) {
+	printf("[ %.2lf %.2lf %.2lf %.2lf\n", m.i11, m.i12, m.i13, m.i14);
+	printf("  %.2lf %.2lf %.2lf %.2lf\n", m.i21, m.i22, m.i23, m.i24);
+	printf("  %.2lf %.2lf %.2lf %.2lf\n", m.i31, m.i32, m.i33, m.i34);
+	printf("  %.2lf %.2lf %.2lf %.2lf ]\n", m.i41, m.i42, m.i43, m.i44);
+}
 
 #if defined(WINDOWS) || defined(WIN32)
 class Timer {
@@ -146,7 +165,6 @@ endswith(std::string const &str,
 		return false;
 }
 
-
 inline bool 
 file_exists(const std::string& file) {
 	if (FILE *fobj = fopen(file.c_str(), "r")) {
@@ -243,14 +261,5 @@ replace_all(std::string& str,
     start_pos += to.length();
   }
 }
-
-/**
-Fast uint32_t memory buffer fill from:
-**/
-inline void
-fill_u32(uint32_t* src, uint32_t n_elem, uint32_t val) {
-
-}
-
 
 };   // namespace sgl

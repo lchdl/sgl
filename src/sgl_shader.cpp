@@ -5,8 +5,7 @@ namespace sgl {
 void
 VS_default(const Vertex &vertex_in, const Uniforms &uniforms,
               Vertex_gl &vertex_out) {
-  /* Implement default vertex shader with bones and 
-   * animation support. */
+  /* Implement default vertex shader. */
   const Mat4x4 &model = uniforms.model;
   const Mat4x4 &view = uniforms.view;
   const Mat4x4 &projection = uniforms.projection;

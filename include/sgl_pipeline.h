@@ -183,8 +183,7 @@ class Pipeline {
     t = (S1) / (S1 - S2);
   }
   /**
-  Get minimum rectangle in window space that completely covers the whole
-  triangle.
+  Get minimum rectangle in screen space that completely covers the whole triangle.
   @param p0, p1, p2: Window space coordinate (x,y,z,1/w), where (x,y) is the
   relative pixel location, z is the mapped NDC depth (see glFragDepth()), w is
   the real depth value in view space.
@@ -199,7 +198,7 @@ class Pipeline {
     return Vec4(bl.x, bl.y, tr.x, tr.y);
   }
   /**
-  Edge function. Determine which side the point p is at wrt. edge p0-p1.
+  Edge function. Determine which side the point p is at w.r.t. edge p0-p1.
   **/
   double edge(const Vec4 &p0, const Vec4 &p1, const Vec4 &p) {
     return (p0.y - p1.y) * p.x + (p1.x - p0.x) * p.y +
@@ -223,7 +222,7 @@ class Pipeline {
   @param color: Output color from the fragment shader.
   @param z: Depth value in window space [0, +1], 0/1: near/far.
   **/
-  void write_textures(const Vec2 &p, const Vec4 &color, const double &z);
+  void write_render_targets(const Vec2 &p, const Vec4 &color, const double &z);
 
 
  protected:
@@ -261,7 +260,7 @@ class Pipeline {
 
 /* `pass` is an object that describes a complete render operation 
  * and stores all the resources used during rendering. All `pass` 
- * objects should inherit from `Pass` class. */
+ * objects & instances should inherit from `Pass` class. */
 struct Pass {
   /* `Pass` class does not do anything and it does not render
    * anything to the screen, but it defines all the necessary

@@ -1,6 +1,7 @@
 #include "sgl_model.h"
 #include "assimp/Importer.hpp"
 #include "sgl_math.h"
+#include "sgl_utils.h"
 #include <string>
 #include <vector>
 
@@ -86,9 +87,7 @@ Model::load(const std::string& file) {
    * its surface, it will be split up to multiple sub-meshes so 
    * that each sub-mesh only uses one material. Here we load all 
    * sub-meshes in a scene, and each sub-mesh in Assimp will be 
-   * considered as a `mesh part` in here. Please note the slight 
-   * difference between the definition of mesh in Assimp and here.
-   * */
+   * considered as a `mesh part` in here. */
   
   /* parse meshes */
   uint32_t n_meshes = _scene->mNumMeshes;
@@ -119,11 +118,10 @@ Model::load(const std::string& file) {
     }
     this->meshes[i_mesh].mat_id = mesh->mMaterialIndex;
     
-    /* bones and animation support */
-    /* For each bone (aiBone) object, "mOffsetMatrix" stores the
+    /* bones and animation support:
+		 * For each bone (aiBone) object, "mOffsetMatrix" stores the
      * transformation from local model space directly to bone space 
-     * in bind pose (default T-pose).
-     * */
+     * in bind pose (default T-pose). */
     for (uint32_t i_bone = 0; i_bone < mesh->mNumBones; i_bone++) {
       /* load bones */
       Bone bone;
@@ -259,6 +257,7 @@ void Model::update_bone_matrices_for_mesh(uint32_t i_mesh,
 void
 model_VS(const Vertex &vertex_in, const Uniforms &uniforms, 
     Vertex_gl& vertex_out) { 
+	//printf("DEBUG: vertex_in: %.2f, %.2f, %.2f\n", vertex_in.p.x, vertex_in.p.y, vertex_in.p.z);
   /* uniforms:
    * in_textures[0]: diffuse texture.
    * */
@@ -266,9 +265,15 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
   const Mat4x4 &view = uniforms.view;
   const Mat4x4 &projection = uniforms.projection;
   Mat4x4 transform = mul(projection, mul(view, model));
-  
-  if (vertex_in.bone_IDs.i[0] < 0) {
+
+	/*print(model);
+	print(view);
+	print(projection);
+	print(transform);*/
+
+  if (/*vertex_in.bone_IDs.i[0] < 0*/1) {
     /* vertex does not belong to any bone */
+		//printf("vertex does not belong to any bone.\n");
     Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
     vertex_out.gl_Position = gl_Position;
     vertex_out.t = vertex_in.t;
@@ -276,15 +281,15 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
     vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
   }
   else {
-    /* vertex is controlled by at least one bone */
+		printf("vertex controlled by at least one bone.\n");
+		/* vertex is controlled by at least one bone */
     /* calculate:
      * p_final = sum( w[i]*m[i]*p, for i in [0,1,2,3] ), where
      * p is the vertex position in local model space (T-pose),
      * m[i] is the i-th final bone transformation matrix,
      * w[i] is the i-th bone influence weight to the vertex.
      * to make computation a little bit faster, we calculate
-     * w[i]*m[i] for i in [0,1,2,3], then multiply it with p.
-     * */
+     * w[i]*m[i] for i in [0,1,2,3], then multiply it with p. */
     Mat4x4 final_matrix;
     for (uint32_t i_bone=0; 
          i_bone<MAX_BONES_INFLUENCE_PER_VERTEX; 
@@ -296,6 +301,8 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
       if (bone_id < 0) break; 
       double bone_weight = vertex_in.bone_weights.i[i_bone];
       const Mat4x4& bone_matrix = uniforms.bone_matrices[bone_id];
+			printf("%.2f\n", bone_weight);
+			print(bone_matrix);
       final_matrix += bone_weight * bone_matrix;
     }
     /* apply final matrix to vertex position */
@@ -306,6 +313,8 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
     vertex_out.wn = mul(model, n_rig).xyz();
     vertex_out.wp = mul(model, p_rig).xyz();
   }
+
+	//printf("DEBUG: vertex_out: %.2f, %.2f, %.2f\n", vertex_out.wp.x, vertex_out.wp.y, vertex_out.wp.z);
 
 }
 

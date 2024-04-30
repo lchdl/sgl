@@ -24,6 +24,15 @@ class Vertex {
   Vec4  bone_weights;
 };
 
+/**
+Internal vertex format used by the pipeline.
+After vertex processing stage is finished, all vertices will be 
+stored using this format. The vertex shader actually tells the 
+pipeline how to convert raw `Vertex` to `Vertex_gl`.
+@NOTE: vertex shader should at least fill the `gl_Position` member
+properly, it will be used by the fragment shader in fragment 
+processing stage.
+**/
 class Vertex_gl {
  public:
   /* vs_out */
@@ -117,7 +126,7 @@ model local space to homogeneous clip space.
   @param vertex_in: The input vertex.
   @param uniforms: Uniform variables used in vertex shader.
   @param vertex_out: The output vertex.
-  @note: `gl_Position` of the  @param vertex_out must be properly set.
+  @note: `gl_Position` of the @param vertex_out must be properly set.
 **/
 void VS_default(const Vertex &vertex_in, const Uniforms &uniforms,
                    Vertex_gl &vertex_out);

@@ -155,9 +155,12 @@ Pipeline::vertex_processing(const std::vector<Vertex> &vertex_buffer,
     Vertex_gl vertex_out;
     /* Map vertex from model local space to homogeneous clip space and stores to
     "gl_Position". */
+		/*printf("=========\n");
+		printf("DEBUG: vertex id=%d\n", i_vert);*/
     shaders.VS(vertex_buffer[i_vert], uniforms, vertex_out);
     ppl.Vertices.push_back(vertex_out);
   }
+	//debugbreak();
 }
 
 void
@@ -260,7 +263,7 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
         shaders.FS(fragment, uniforms, color_out, discard);
         /* Step 3.5: Fragment processing */
         if (!discard) {
-          write_textures(fragment.gl_FragCoord.xy(), color_out,
+          write_render_targets(fragment.gl_FragCoord.xy(), color_out,
             fragment.gl_FragCoord.z);
         }
       }
@@ -283,6 +286,7 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
     This is a way to achieve decent workload balance among workers.
     **/
     for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
+			//printf("itri=%d\n", i_tri);
       /* Step 3.1: Convert clip space to NDC space (perspective divide) */
       Triangle_gl tri_gl = ppl.Triangles[i_tri];
       Vertex_gl &v0 = tri_gl.v[0];
@@ -315,9 +319,6 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
       /** @note: p0, p1, p2 are actually gl_FragCoord. **/
       /* Step 3.3: Rasterization. */
       Vec4 rect = get_minimum_rect(p0, p1, p2);
-      if (rect.i[0] < -1 || rect.i[1] < -1 || rect.i[2] > 801 || rect.i[2] > 801){
-        debugbreak();
-      }
       /* precomupte: divide by real z */
       v0 *= iz.i[0];
       v1 *= iz.i[1];
@@ -356,7 +357,7 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
           shaders.FS(fragment, uniforms, color_out, discard);
           /* Step 3.5: Fragment processing */
           if (!discard) {
-            write_textures(fragment.gl_FragCoord.xy(), color_out,
+            write_render_targets(fragment.gl_FragCoord.xy(), color_out,
               fragment.gl_FragCoord.z);
           }
         }
@@ -366,7 +367,7 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
 }
 
 void
-Pipeline::write_textures(const Vec2 &p, const Vec4 &color, const double &z) {
+Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z) {
   int w = this->target.color->w;
   int h = this->target.color->h;
   int ix = int(p.x);
@@ -485,25 +486,27 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
     }
     /**
     Then, clip segments p0-p1 and p0-p2.
-    Assume we have two vertices A and B, segment A-B will be clipped by a
-    plane, assume the intersection is C, such that C = (1-t)A + tB. Then we
-    have:
+		-------------------------------------
+    Assume we have two vertices A(A_x, A_y, A_z, A_w) and B(B_x, B_y, B_z, B_w), 
+		segment A-B will be clipped by a plane, assume the intersection is C, such 
+		that C = (1-t)A + tB, where 0 < t < 1.
+		Then we have:
                               C_w = (1-t)*A_w + t*B_w.
     For the near plane (z-axis) clipping, we have:
                                      C_z = -C_w.
-    Since C_z =(1-t)*A_z + t*B_z, then we also have:
+    Since C_z = (1-t)*A_z + t*B_z, then we also have:
                      -(1-t)*A_w - t*B_w = (1-t)*A_z + t*B_z.
-    We can solve scalar t:
+    We can solve for scalar t:
                        t = (A_z+A_w) / ((A_z+A_w)-(B_z+B_w)).
     Similarily, we can solve scalar t for far plane clipping:
                        t = (A_z-A_w) / ((A_z-A_w)-(B_z-B_w)).
-    Clipping with other axes is also the same. Just replace A_z to A_x, A_y; B_z
-    to B_x or B_y.
-    @note: The scalar t can also be used to interpolate all the associated
+    Clipping with other axes is also the same. Just replace A_z to A_x or A_y 
+		and B_z to B_x or B_y.
+    @NOTE: The scalar t can also be used to interpolate all the associated
     vertex attributes for C. The linear interpolation is perfectly sufficient
     even in perspective distorted cases, because we are before the perspective
     divide here, were the whole perspective transformation is perfectly affine
-    wrt. the 4D space we work in.
+    w.r.t. the 4D space we work in.
     **/
     double t[2];
     clip_segment(*v[0], *v[1], clip_axis, clip_sign, t[0]);
