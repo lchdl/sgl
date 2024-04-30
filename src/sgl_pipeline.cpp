@@ -5,123 +5,24 @@
 
 namespace sgl {
 
-Mat4x4 
-Pass::get_view_matrix() const {
-  Vec3 front = normalize(eye.position - eye.look_at);
-  Vec3 left = normalize(cross(eye.up_dir, front));
-  Vec3 up = normalize(cross(front, left));
-  Vec3 &F = front, &L = left, &U = up;
-  const double &ex = eye.position.x, &ey = eye.position.y, &ez = eye.position.z;
-  Mat4x4 rotation(L.x, L.y, L.z, 0.0, U.x, U.y, U.z, 0.0, F.x, F.y, F.z, 0.0,
-                  0.0, 0.0, 0.0, 1.0);
-  Mat4x4 translation(1.0, 0.0, 0.0, -ex, 0.0, 1.0, 0.0, -ey, 0.0, 0.0, 1.0, -ez,
-                     0.0, 0.0, 0.0, 1.0);
-  Mat4x4 view_matrix = mul(rotation, translation);
-  return view_matrix;
-}
-
-Mat4x4
-Pass::get_projection_matrix() const {
-  Mat4x4 projection_matrix;
-  if (eye.perspective.enabled) {
-    double aspect_ratio = double(color_texture->w) / double(color_texture->h);
-    double inv_aspect = double(1.0) / aspect_ratio;
-    double near = eye.perspective.near;
-    double far = eye.perspective.far;
-    double field_of_view = eye.perspective.field_of_view;
-    double left = -tan(field_of_view / double(2.0)) * near;
-    double right = -left;
-    double top = inv_aspect * right;
-    double bottom = -top;
-    projection_matrix =
-        Mat4x4(2 * near / (right - left), 0, (right + left) / (right - left), 0,
-               0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0,
-               0, 0, -(far + near) / (far - near),
-               -2 * far * near / (far - near), 0, 0, -1.0, 0);
-    return projection_matrix;
-  } else {
-    /* not implemented now */
-    return projection_matrix;
-  }
-}
-
-Pass::Pass()
+void Pipeline::_zero_init()
 {
-  color_texture = NULL;
-  depth_texture = NULL;
-
-  eye.look_at = Vec3(0, 0, 0);
-  eye.position = Vec3(10, 10, 10);
-  eye.up_dir = Vec3(0, 1, 0);
-
-  eye.perspective.enabled = true;
-  eye.perspective.near = 0.1;
-  eye.perspective.far = 100.0;
-  eye.perspective.field_of_view = PI / 4.0;
-
-  eye.orthographic.enabled = false;
-  eye.orthographic.width = 256.0;
-  eye.orthographic.height = 256.0;
-  eye.orthographic.depth = 256.0;
-
-  VS = NULL;
-  FS = NULL;
+	targets.color = NULL;
+	targets.depth = NULL;
+	shaders.VS = NULL;
+	shaders.FS = NULL;
+	ppl.num_threads = max(get_cpu_cores(), 1);
+	ppl.backface_culling = true;
 }
-
-Pass::~Pass() {
-}
-
-ModelPass::ModelPass() {
-  model = NULL;
-}
-ModelPass::~ModelPass() {
-}
-
-void
-ModelPass::run(Pipeline& ppl) {
-  if (model==NULL) return;
-
-  ppl.set_shaders(model_VS, model_FS);
-  ppl.set_render_targets(this->color_texture, this->depth_texture);
-  ppl.clear_textures(this->color_texture, this->depth_texture, Vec4(0.5,0.5,0.5,1.0));
-
-  uniforms.model = model->get_transform();
-  uniforms.view = this->get_view_matrix();
-  uniforms.projection = this->get_projection_matrix();
-
-  /* Rendering all the mesh parts in model */
-  const std::vector<Mesh>& mesh_data = model->get_mesh_data();
-  const std::vector<Material>& materials = model->get_materials();
-
-  for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
-    const std::vector<Vertex>& vertices = mesh_data[i_mesh].vertices;
-    const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
-    const int32_t mat_id = mesh_data[i_mesh].mat_id;
-    /* Setting up mesh materials. */
-    /* diffuse texture */
-    uniforms.in_textures[0] = &materials[mat_id].diffuse_texture;
-    /* calculate bone tranformation matrices and update to uniforms */
-    this->model->update_bone_matrices_for_mesh(i_mesh, uniforms);
-    /* Launch the pipeline to render the triangles */
-    ppl.draw(vertices, indices, uniforms);
-  }
-}
-
 
 Pipeline::Pipeline() {
-  target.color = NULL;
-  target.depth = NULL;
-  shaders.VS = NULL;
-  shaders.FS = NULL;
-  hwspec.num_threads = max(get_cpu_cores(), 1);
+	_zero_init();
 }
 Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
 {
-  target.color = NULL;
-  target.depth = NULL;
+	_zero_init();
   shaders.VS = VS;
   shaders.FS = FS;
-  hwspec.num_threads = max(get_cpu_cores(), 1);
 }
 Pipeline::~Pipeline() {}
 
@@ -145,7 +46,7 @@ void Pipeline::draw(
 
   /* Step 3: Rasterization & fragment processing */
   //fragment_processing(uniforms);
-  fragment_processing_MT(uniforms, hwspec.num_threads);
+  fragment_processing_MT(uniforms, ppl.num_threads);
 }
 
 void
@@ -155,12 +56,9 @@ Pipeline::vertex_processing(const std::vector<Vertex> &vertex_buffer,
     Vertex_gl vertex_out;
     /* Map vertex from model local space to homogeneous clip space and stores to
     "gl_Position". */
-		/*printf("=========\n");
-		printf("DEBUG: vertex id=%d\n", i_vert);*/
     shaders.VS(vertex_buffer[i_vert], uniforms, vertex_out);
     ppl.Vertices.push_back(vertex_out);
   }
-	//debugbreak();
 }
 
 void
@@ -182,7 +80,7 @@ Pipeline::vertex_post_processing(const std::vector<int> &index_buffer) {
     Vec3 p2 = tri_gl.v[2].gl_Position.xyz();
 
     Vec3 facing = cross(p1 - p0, p2 - p0);
-    if (facing.z < 0.0)
+    if (facing.z < 0.0 && ppl.backface_culling)
       continue;
     /** Step 2.3: Clipping.
     @note: For detailed explanation of how to do clipping in homogeneous space,
@@ -214,8 +112,8 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
     @note: The window space origin is at the lower-left corner of the screen,
     with +x axis pointing to the right and +y axis pointing to the top.
     **/
-    const double render_width = double(this->target.color->w);
-    const double render_height = double(this->target.color->h);
+    const double render_width = double(this->targets.color->w);
+    const double render_height = double(this->targets.color->h);
     const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
     const Vec3 iz = Vec3(1.0 / v0.gl_Position.w, 1.0 / v1.gl_Position.w,
                          1.0 / v2.gl_Position.w);
@@ -286,7 +184,6 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
     This is a way to achieve decent workload balance among workers.
     **/
     for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
-			//printf("itri=%d\n", i_tri);
       /* Step 3.1: Convert clip space to NDC space (perspective divide) */
       Triangle_gl tri_gl = ppl.Triangles[i_tri];
       Vertex_gl &v0 = tri_gl.v[0];
@@ -306,8 +203,8 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
       @note: The window space origin is at the lower-left corner of the screen,
       with +x axis pointing to the right and +y axis pointing to the top.
       **/
-      const double render_width = double(this->target.color->w);
-      const double render_height = double(this->target.color->h);
+      const double render_width = double(this->targets.color->w);
+      const double render_height = double(this->targets.color->h);
       const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
       const Vec3 iz = Vec3(1.0 / v0.gl_Position.w, 1.0 / v1.gl_Position.w,
                            1.0 / v2.gl_Position.w);
@@ -368,16 +265,16 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
 
 void
 Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z) {
-  int w = this->target.color->w;
-  int h = this->target.color->h;
+  int w = this->targets.color->w;
+  int h = this->targets.color->h;
   int ix = int(p.x);
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
-  uint8_t *pixels = (uint8_t *) this->target.color->pixels;
+  uint8_t *pixels = (uint8_t *) this->targets.color->pixels;
   int pixel_id = iy * w + ix;
   /* depth test */
-  double *depths = (double *) this->target.depth->pixels;
+  double *depths = (double *) this->targets.depth->pixels;
   double z_new = min(max(z, 0.0), 1.0);
   double z_orig = depths[pixel_id];
   if (z_orig < z_new)
@@ -548,6 +445,110 @@ Pipeline::clear_textures(
       pixels[i] = 100.0;
     }
   }
+}
+
+
+Mat4x4
+Pass::get_view_matrix() const {
+	Vec3 front = normalize(eye.position - eye.look_at);
+	Vec3 left = normalize(cross(eye.up_dir, front));
+	Vec3 up = normalize(cross(front, left));
+	Vec3 &F = front, &L = left, &U = up;
+	const double &ex = eye.position.x, &ey = eye.position.y, &ez = eye.position.z;
+	Mat4x4 rotation(L.x, L.y, L.z, 0.0, U.x, U.y, U.z, 0.0, F.x, F.y, F.z, 0.0,
+		0.0, 0.0, 0.0, 1.0);
+	Mat4x4 translation(1.0, 0.0, 0.0, -ex, 0.0, 1.0, 0.0, -ey, 0.0, 0.0, 1.0, -ez,
+		0.0, 0.0, 0.0, 1.0);
+	Mat4x4 view_matrix = mul(rotation, translation);
+	return view_matrix;
+}
+
+Mat4x4
+Pass::get_projection_matrix() const {
+	Mat4x4 projection_matrix;
+	if (eye.perspective.enabled) {
+		double aspect_ratio = double(color_texture->w) / double(color_texture->h);
+		double inv_aspect = double(1.0) / aspect_ratio;
+		double near = eye.perspective.near;
+		double far = eye.perspective.far;
+		double field_of_view = eye.perspective.field_of_view;
+		double left = -tan(field_of_view / double(2.0)) * near;
+		double right = -left;
+		double top = inv_aspect * right;
+		double bottom = -top;
+		projection_matrix =
+			Mat4x4(2 * near / (right - left), 0, (right + left) / (right - left), 0,
+				0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0,
+				0, 0, -(far + near) / (far - near),
+				-2 * far * near / (far - near), 0, 0, -1.0, 0);
+		return projection_matrix;
+	}
+	else {
+		/* not implemented now */
+		return projection_matrix;
+	}
+}
+
+Pass::Pass()
+{
+	color_texture = NULL;
+	depth_texture = NULL;
+
+	eye.look_at = Vec3(0, 0, 0);
+	eye.position = Vec3(10, 10, 10);
+	eye.up_dir = Vec3(0, 1, 0);
+
+	eye.perspective.enabled = true;
+	eye.perspective.near = 0.1;
+	eye.perspective.far = 100.0;
+	eye.perspective.field_of_view = PI / 4.0;
+
+	eye.orthographic.enabled = false;
+	eye.orthographic.width = 256.0;
+	eye.orthographic.height = 256.0;
+	eye.orthographic.depth = 256.0;
+
+	VS = NULL;
+	FS = NULL;
+}
+
+Pass::~Pass() {
+}
+
+ModelPass::ModelPass() {
+	model = NULL;
+}
+ModelPass::~ModelPass() {
+}
+
+void
+ModelPass::run(Pipeline& ppl) {
+	if (model == NULL) return;
+
+	ppl.set_shaders(model_VS, model_FS);
+	ppl.set_render_targets(this->color_texture, this->depth_texture);
+	ppl.clear_textures(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
+
+	uniforms.model = model->get_transform();
+	uniforms.view = this->get_view_matrix();
+	uniforms.projection = this->get_projection_matrix();
+
+	/* Rendering all the mesh parts in model */
+	const std::vector<Mesh>& mesh_data = model->get_mesh_data();
+	const std::vector<Material>& materials = model->get_materials();
+
+	for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
+		const std::vector<Vertex>& vertices = mesh_data[i_mesh].vertices;
+		const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
+		const int32_t mat_id = mesh_data[i_mesh].mat_id;
+		/* Setting up mesh materials. */
+		/* diffuse texture */
+		uniforms.in_textures[0] = &materials[mat_id].diffuse_texture;
+		/* calculate bone tranformation matrices and update to uniforms */
+		this->model->update_bone_matrices_for_mesh(i_mesh, uniforms);
+		/* Launch the pipeline to render the triangles */
+		ppl.draw(vertices, indices, uniforms);
+	}
 }
 
 };   // namespace sgl

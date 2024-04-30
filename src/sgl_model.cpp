@@ -126,8 +126,8 @@ Model::load(const std::string& file) {
       /* load bones */
       Bone bone;
       bone.name = mesh->mBones[i_bone]->mName.data;
-      aiMatrix4x4& matrix = mesh->mBones[i_bone]->mOffsetMatrix;
-      bone.offset_matrix = convert_assimp_mat4x4(matrix);
+      bone.offset_matrix = convert_assimp_mat4x4(
+				mesh->mBones[i_bone]->mOffsetMatrix);
       /* number of affected vertices by this bone */
       uint32_t n_bone_verts = mesh->mBones[i_bone]->mNumWeights;
       for (uint32_t i_vert = 0; i_vert < n_bone_verts; i_vert++) {
@@ -140,7 +140,7 @@ Model::load(const std::string& file) {
         /* write bone info into affected vertex (let the vertex know
          * there is a bone that influences itself). */
         Vertex& affected_vert = this->meshes[i_mesh].vertices[vc.index];
-        _register_vertex_weight(affected_vert, vc.index, vc.weight);
+        _register_vertex_weight(affected_vert, i_bone, vc.weight);
       }
       this->meshes[i_mesh].bone_name_to_id.insert(
         std::pair<std::string, uint32_t>(
@@ -216,7 +216,7 @@ Model::_register_vertex_weight(
     /* All 4 slots have been occupied, we print a warning to let user
      * know and then continue. */
     printf("[*] Warning: Cannot register vertex weight (bone_index=%d, "
-           "weight=%.4lf), all slots have been occupied.\n", 
+           "weight=%.4lf), all 4 slots have been occupied. Ignored.\n", 
            bone_index, weight);
   }
 }
@@ -257,7 +257,6 @@ void Model::update_bone_matrices_for_mesh(uint32_t i_mesh,
 void
 model_VS(const Vertex &vertex_in, const Uniforms &uniforms, 
     Vertex_gl& vertex_out) { 
-	//printf("DEBUG: vertex_in: %.2f, %.2f, %.2f\n", vertex_in.p.x, vertex_in.p.y, vertex_in.p.z);
   /* uniforms:
    * in_textures[0]: diffuse texture.
    * */
@@ -266,14 +265,8 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
   const Mat4x4 &projection = uniforms.projection;
   Mat4x4 transform = mul(projection, mul(view, model));
 
-	/*print(model);
-	print(view);
-	print(projection);
-	print(transform);*/
-
-  if (/*vertex_in.bone_IDs.i[0] < 0*/1) {
+  if (vertex_in.bone_IDs.i[0] < 0) {
     /* vertex does not belong to any bone */
-		//printf("vertex does not belong to any bone.\n");
     Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
     vertex_out.gl_Position = gl_Position;
     vertex_out.t = vertex_in.t;
@@ -281,7 +274,6 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
     vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
   }
   else {
-		printf("vertex controlled by at least one bone.\n");
 		/* vertex is controlled by at least one bone */
     /* calculate:
      * p_final = sum( w[i]*m[i]*p, for i in [0,1,2,3] ), where
@@ -301,8 +293,6 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
       if (bone_id < 0) break; 
       double bone_weight = vertex_in.bone_weights.i[i_bone];
       const Mat4x4& bone_matrix = uniforms.bone_matrices[bone_id];
-			printf("%.2f\n", bone_weight);
-			print(bone_matrix);
       final_matrix += bone_weight * bone_matrix;
     }
     /* apply final matrix to vertex position */
@@ -314,17 +304,14 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
     vertex_out.wp = mul(model, p_rig).xyz();
   }
 
-	//printf("DEBUG: vertex_out: %.2f, %.2f, %.2f\n", vertex_out.wp.x, vertex_out.wp.y, vertex_out.wp.z);
-
 }
 
 void 
 model_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                      Vec4 &color_out, bool& discard) {
-  Vec2 uv = fragment_in.t;
+  Vec2 uv = Vec2(fragment_in.t.x, 1.0 - fragment_in.t.y);
   Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
   color_out = Vec4(textured, 1.0);
-  //color_out = Vec4(1.0,1.0,1.0,1.0);
 }
 
 }; /* namespace sgl */

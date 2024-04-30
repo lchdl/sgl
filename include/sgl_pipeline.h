@@ -1,7 +1,7 @@
 /*
   SGL - Software Graphics Library
                                                 by lchdl Feb-2024
-                  -> "I enjoy implementing simple math intuitions 
+                  * "I enjoy implementing simple math intuitions 
                      behind complex (or seemingly complex) things 
                      using code."
   A complete software implementation of OpenGL graphic pipeline.
@@ -59,9 +59,18 @@ class Pipeline {
   void set_render_targets(
       Texture* color, 
       Texture* depth) {
-    if (color!=NULL) target.color=color;
-    if (depth!=NULL) target.depth=depth;
+    if (color!=NULL) targets.color=color;
+    if (depth!=NULL) targets.depth=depth;
   }
+	/**
+	Enable/disable backface culling.
+	**/
+	void enable_backface_culling(bool state = true) {
+		ppl.backface_culling = state;
+	}
+	void disable_backface_culling() {
+		ppl.backface_culling = false;
+	}
   /** 
   Render triangles onto target textures.
   @param vertices: Vertex buffer object.
@@ -79,7 +88,7 @@ class Pipeline {
 	@param num_threads: Number of concurrent threads.
 	**/
 	void set_num_threads(const int& num_threads) {
-		hwspec.num_threads = num_threads;
+		ppl.num_threads = num_threads;
 	}
 
  protected:
@@ -230,27 +239,21 @@ class Pipeline {
 	/** DATA STORAGE **/
 	
 	struct {
-    /* render target */
-    /** @note: not owned **/
-    Texture *color;
-    Texture *depth;
-  } target;
+    Texture *color; /* not owned */
+    Texture *depth; /* not owned */
+  } targets; /* render targets */
   struct {
-    /* vertices after vertex processing */
-    std::vector<Vertex_gl> Vertices;
-    /* geometry generated after vertex post-processing */
-    std::vector<Triangle_gl> Triangles;
-  } ppl;
-	struct {
-		/* number of cpu cores available */
-		int num_threads;
-	} hwspec;
+    std::vector<Vertex_gl> Vertices; /* vertices after vertex processing */
+    std::vector<Triangle_gl> Triangles; /* geometry generated after vertex post-processing */
+		int num_threads; /* number of cpu cores used when running the pipeline */
+		bool backface_culling; /* enable/disable backface culling when rendering */
+	} ppl; /* pipeline internal states */
 	struct {
 		VS_func_t VS;
 		FS_func_t FS;
-	} shaders;
-  /* all the uniform variables used in a single draw call */
-  Uniforms uniforms;
+	} shaders; /* shaders used by the pipeline */
+
+	void _zero_init();
 
  public:
   Pipeline();

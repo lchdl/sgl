@@ -86,7 +86,7 @@ main(int argc, char* argv[]) {
 
   init_render_pass();
 
-  pipeline.set_num_threads(1);
+  //pipeline.set_num_threads(1);
   
   SDL_UpdateWindowSurface(pWindow);
 

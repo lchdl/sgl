@@ -27,7 +27,7 @@ struct Bone {
   /* vertices controlled by this bone */
   std::vector<VertexCtrl> vertices;
   /* transform vertex from local model space to bone space
-   * when the model is in bind pose (default T-pose). */
+     when the model is in bind pose (default T-pose). */
   Mat4x4 offset_matrix;
 };
 struct Mesh {

@@ -203,6 +203,14 @@ struct Mat3x3 {
     i31 -= a.i31; i32 -= a.i32; i33 -= a.i33;
     return (*this);
   }
+	/* check if all elements in the matrix are close to zero */
+	inline bool is_zero(const double eps = 1e-6) const {
+		for (int t = 0; t < 9; t++) {
+			if (i[t] < -fabs(eps) || i[t] > +fabs(eps))
+				return false;
+		}
+		return true;
+	}
 };
 struct Mat4x4 {
   union {
@@ -254,6 +262,14 @@ struct Mat4x4 {
     i41 -= a.i41; i42 -= a.i42; i43 -= a.i43; i44 -= a.i44;
     return (*this);
   }
+	/* check if all elements in the matrix are close to zero */
+	inline bool is_zero(const double eps = 1e-6) const {
+		for (int t = 0; t < 16; t++) {
+			if (i[t] < -fabs(eps) || i[t] > +fabs(eps))
+				return false;
+		}
+		return true;
+	}
 
 };
 
