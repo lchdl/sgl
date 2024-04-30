@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "sgl_SDL.h"
+#include "sgl_SDL2.h"
 #include "sgl_pipeline.h"
 #include "sgl_model.h"
 #include "sgl_utils.h"
