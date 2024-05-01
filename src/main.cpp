@@ -107,6 +107,7 @@ main(int argc, char* argv[]) {
     frameid++;
     frame_timer.tick();
     
+    /* render the whole frame */
     render_pass.run(pipeline);
     
     double frame_time = frame_timer.tick();
