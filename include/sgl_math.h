@@ -179,17 +179,42 @@ struct Mat3x3 {
   Mat3x3() {
     for (int t = 0; t < 9; t++) i[t] = 0.0;
   }
-  Mat3x3(double _11, double _12, double _13, double _21, double _22, double _23,
-         double _31, double _32, double _33) {
+  Mat3x3(
+    double _11, double _12, double _13, 
+    double _21, double _22, double _23,
+    double _31, double _32, double _33) {
     i11 = _11, i12 = _12, i13 = _13;
     i21 = _21, i22 = _22, i23 = _23;
     i31 = _31, i32 = _32, i33 = _33;
+  }
+  Mat3x3(double* _data) {
+    for (int t = 0; t < 9; t++)
+      this->i[t] = _data[t];
   }
   static Mat3x3 identity() {
     return Mat3x3(
         1, 0, 0, 
         0, 1, 0, 
         0, 0, 1);
+  }
+  inline Mat3x3 inverse() {
+    double inv[9], det;
+    inv[0] = (i[4] * i[8] - i[7] * i[5]);
+    inv[1] = (i[2] * i[7] - i[1] * i[8]);
+    inv[2] = (i[1] * i[5] - i[2] * i[4]);
+    inv[3] = (i[5] * i[6] - i[3] * i[8]);
+    inv[4] = (i[0] * i[8] - i[2] * i[6]);
+    inv[5] = (i[3] * i[2] - i[0] * i[5]);
+    inv[6] = (i[3] * i[7] - i[6] * i[4]);
+    inv[7] = (i[6] * i[1] - i[0] * i[7]);
+    inv[8] = (i[0] * i[4] - i[3] * i[1]);
+
+    det = i[0] * inv[0] + i[1] * inv[3] + i[2] * inv[6];
+    det = 1.0 / det;
+
+    for (int t = 0; t < 9; t++)
+      inv[t] *= det;
+    return Mat3x3(inv);
   }
   inline Mat3x3 operator+=(const Mat3x3& a) {
     i11 += a.i11; i12 += a.i12; i13 += a.i13;
@@ -233,13 +258,19 @@ struct Mat4x4 {
   Mat4x4() {
     for (int t = 0; t < 16; t++) i[t] = 0.0;
   }
-  Mat4x4(double _11, double _12, double _13, double _14, double _21, double _22,
-         double _23, double _24, double _31, double _32, double _33, double _34,
-         double _41, double _42, double _43, double _44) {
+  Mat4x4(
+    double _11, double _12, double _13, double _14,
+    double _21, double _22, double _23, double _24,
+    double _31, double _32, double _33, double _34,
+    double _41, double _42, double _43, double _44) {
     i11 = _11, i12 = _12, i13 = _13, i14 = _14;
     i21 = _21, i22 = _22, i23 = _23, i24 = _24;
     i31 = _31, i32 = _32, i33 = _33, i34 = _34;
     i41 = _41, i42 = _42, i43 = _43, i44 = _44;
+  }
+  Mat4x4(double* _data) {
+    for (int t = 0; t < 16; t++) 
+      this->i[t] = _data[t];
   }
   static Mat4x4 identity() {
     return Mat4x4(
@@ -247,6 +278,32 @@ struct Mat4x4 {
         0, 1, 0, 0, 
         0, 0, 1, 0, 
         0, 0, 0, 1);
+  }
+  inline Mat4x4 inverse() {
+    double inv[16], det;
+    inv[0] = i[5] * i[10] * i[15] - i[5] * i[11] * i[14] - i[9] * i[6] * i[15] + i[9] * i[7] * i[14] + i[13] * i[6] * i[11] - i[13] * i[7] * i[10];
+    inv[4] = -i[4] * i[10] * i[15] + i[4] * i[11] * i[14] + i[8] * i[6] * i[15] - i[8] * i[7] * i[14] - i[12] * i[6] * i[11] + i[12] * i[7] * i[10];
+    inv[8] = i[4] * i[9] * i[15] - i[4] * i[11] * i[13] - i[8] * i[5] * i[15] + i[8] * i[7] * i[13] + i[12] * i[5] * i[11] - i[12] * i[7] * i[9];
+    inv[12] = -i[4] * i[9] * i[14] + i[4] * i[10] * i[13] + i[8] * i[5] * i[14] - i[8] * i[6] * i[13] - i[12] * i[5] * i[10] + i[12] * i[6] * i[9];
+    inv[1] = -i[1] * i[10] * i[15] + i[1] * i[11] * i[14] + i[9] * i[2] * i[15] - i[9] * i[3] * i[14] - i[13] * i[2] * i[11] + i[13] * i[3] * i[10];
+    inv[5] = i[0] * i[10] * i[15] - i[0] * i[11] * i[14] - i[8] * i[2] * i[15] + i[8] * i[3] * i[14] + i[12] * i[2] * i[11] - i[12] * i[3] * i[10];
+    inv[9] = -i[0] * i[9] * i[15] + i[0] * i[11] * i[13] + i[8] * i[1] * i[15] - i[8] * i[3] * i[13] - i[12] * i[1] * i[11] + i[12] * i[3] * i[9];
+    inv[13] = i[0] * i[9] * i[14] - i[0] * i[10] * i[13] - i[8] * i[1] * i[14] + i[8] * i[2] * i[13] + i[12] * i[1] * i[10] - i[12] * i[2] * i[9];
+    inv[2] = i[1] * i[6] * i[15] - i[1] * i[7] * i[14] - i[5] * i[2] * i[15] + i[5] * i[3] * i[14] + i[13] * i[2] * i[7] - i[13] * i[3] * i[6];
+    inv[6] = -i[0] * i[6] * i[15] + i[0] * i[7] * i[14] + i[4] * i[2] * i[15] - i[4] * i[3] * i[14] - i[12] * i[2] * i[7] + i[12] * i[3] * i[6];
+    inv[10] = i[0] * i[5] * i[15] - i[0] * i[7] * i[13] - i[4] * i[1] * i[15] + i[4] * i[3] * i[13] + i[12] * i[1] * i[7] - i[12] * i[3] * i[5];
+    inv[14] = -i[0] * i[5] * i[14] + i[0] * i[6] * i[13] + i[4] * i[1] * i[14] - i[4] * i[2] * i[13] - i[12] * i[1] * i[6] + i[12] * i[2] * i[5];
+    inv[3] = -i[1] * i[6] * i[11] + i[1] * i[7] * i[10] + i[5] * i[2] * i[11] - i[5] * i[3] * i[10] - i[9] * i[2] * i[7] + i[9] * i[3] * i[6];
+    inv[7] = i[0] * i[6] * i[11] - i[0] * i[7] * i[10] - i[4] * i[2] * i[11] + i[4] * i[3] * i[10] + i[8] * i[2] * i[7] - i[8] * i[3] * i[6];
+    inv[11] = -i[0] * i[5] * i[11] + i[0] * i[7] * i[9] + i[4] * i[1] * i[11] - i[4] * i[3] * i[9] - i[8] * i[1] * i[7] + i[8] * i[3] * i[5];
+    inv[15] = i[0] * i[5] * i[10] - i[0] * i[6] * i[9] - i[4] * i[1] * i[10] + i[4] * i[2] * i[9] + i[8] * i[1] * i[6] - i[8] * i[2] * i[5];
+
+    det = i[0] * inv[0] + i[1] * inv[4] + i[2] * inv[8] + i[3] * inv[12];
+    det = 1.0 / det;
+
+    for (int t = 0; t < 16; t++)
+      inv[t] *= det;
+    return Mat4x4(inv);
   }
   inline Mat4x4 operator+=(const Mat4x4& a) {
     i11 += a.i11; i12 += a.i12; i13 += a.i13; i14 += a.i14;

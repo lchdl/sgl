@@ -30,6 +30,9 @@ struct Bone {
      when the model is in bind pose (default T-pose). */
   Mat4x4 offset_matrix;
 };
+struct Animation {
+  /*  */
+};
 struct Mesh {
   /* A mesh is a unique part of a model that has only 
    * one material. A mesh can contain multiple meshes. */
@@ -49,9 +52,6 @@ struct Material {
   Texture diffuse_texture;
 };
 
-/**
-Here we define our scene/model class to hold the model data.
-**/
 class Model {
   /* mesh represents a standalone object that can be 
    * rendered onto screen. A single draw call renders
@@ -141,10 +141,16 @@ public:
 protected:
   std::vector<Mesh> meshes;
   std::vector<Material> materials;
+  std::vector<Animation> animations;
   /* global transformation for the whole model, will be
    * applied before any other transformation during
    * rendering. */
   Mat4x4 model_transform;
+  /* the model is not gauranteed to be placed at the world's origin,
+   * we need to place the model to the origin by multiplying the
+   * global inverse transform matrix that is calculated when loading
+   * the model data. */
+  Mat4x4 global_inverse_transform;
 
 private:
   /* Assimp model importer.
@@ -175,17 +181,13 @@ convert_assimp_mat4x4(const aiMatrix4x4& m)
 }
 
 /* specialized VS and FS for mesh rendering. */
-void
-model_VS(const Vertex &vertex_in, const Uniforms &uniforms, 
-    Vertex_gl& vertex_out);
-void 
-model_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
-                     Vec4 &color_out, bool& discard);
-
-
-class Animation {
-  /*  */
-};
-
+void model_VS(
+  const Vertex &vertex_in, 
+  const Uniforms &uniforms, 
+  Vertex_gl& vertex_out);
+void model_FS(
+  const Fragment_gl &fragment_in, 
+  const Uniforms &uniforms,
+  Vec4 &color_out, bool& discard);
 
 };

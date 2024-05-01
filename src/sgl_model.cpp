@@ -38,6 +38,7 @@ Model::load(const std::string& file) {
   /* if the model is packed as a *.zip file, unpack it first */
   std::string temp_folder = "";
   std::string model_file = "";
+
   if (endswith(file, ".zip")) {
     temp_folder = mktdir(gd(file));
 		int zipret = zip_extract(file.c_str(), temp_folder.c_str(), NULL, NULL);
@@ -52,8 +53,7 @@ Model::load(const std::string& file) {
 			std::string file_no_ext = file.substr(0, dpos);
 			std::string file_ext = file.substr(dpos + 1);
 			if (endswith(file_no_ext, "model")) {
-				if (file_ext != "mtl") {
-					/* ignore wavefront OBJ mtl file */
+				if (file_ext == "obj" || file_ext == "md5mesh") {
 					model_file = file;
 					break;
 				}
@@ -93,12 +93,12 @@ Model::load(const std::string& file) {
   uint32_t n_meshes = _scene->mNumMeshes;
   this->meshes.resize(n_meshes);
   const aiVector3D zvec = aiVector3D(0.0, 0.0, 0.0);
+  /* load each mesh part */
   for(uint32_t i_mesh = 0; i_mesh < n_meshes; i_mesh++) {
-    /* initialize each mesh part */
     const aiMesh* mesh = _scene->mMeshes[i_mesh];
     const uint32_t n_vert = mesh->mNumVertices;  
+    /* load vertex (positions, normals, and texture coordinates) */
     for (uint32_t i_vert = 0; i_vert < n_vert; i_vert++) {
-      /* load vertex (positions, normals, and texture coordinates) */
       const aiVector3D* position = &mesh->mVertices[i_vert];
       const aiVector3D* normal   = &mesh->mNormals[i_vert];
       const aiVector3D* texcoord = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
@@ -109,8 +109,8 @@ Model::load(const std::string& file) {
       v.bone_IDs = IVec4(-1,-1,-1,-1);
       this->meshes[i_mesh].vertices.push_back(v);
     }
+    /* load triangle face indices */
     for (uint32_t i_face = 0; i_face < mesh->mNumFaces; i_face++) {
-      /* load triangle face indices */
       const aiFace& face = mesh->mFaces[i_face];
       this->meshes[i_mesh].indices.push_back(face.mIndices[0]);
       this->meshes[i_mesh].indices.push_back(face.mIndices[1]);
@@ -122,8 +122,13 @@ Model::load(const std::string& file) {
 		 * For each bone (aiBone) object, "mOffsetMatrix" stores the
      * transformation from local model space directly to bone space 
      * in bind pose (default T-pose). */
+
+    /* read and calculate global inverse transformation matrix */
+    this->global_inverse_transform = convert_assimp_mat4x4(
+      this->_scene->mRootNode->mTransformation).inverse();
+
+    /* load all the bones */
     for (uint32_t i_bone = 0; i_bone < mesh->mNumBones; i_bone++) {
-      /* load bones */
       Bone bone;
       bone.name = mesh->mBones[i_bone]->mName.data;
       bone.offset_matrix = convert_assimp_mat4x4(
@@ -151,7 +156,7 @@ Model::load(const std::string& file) {
     }
   }
 
-  /* parse materials */
+  /* load materials */
   uint32_t n_materials = _scene->mNumMaterials;
   this->materials.resize(n_materials);
   for (uint32_t i_mat = 0; i_mat < n_materials; i_mat++) {
@@ -234,7 +239,8 @@ void Model::_update_bone_matrices_from_node(
   if (mesh.bone_name_to_id.find(node_name) != mesh.bone_name_to_id.end()){
     std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
     uint32_t bone_index = item->second;
-    uniforms.bone_matrices[bone_index] = mul(accumulated_transform, mesh.bones[bone_index].offset_matrix);
+    uniforms.bone_matrices[bone_index] = mul(this->global_inverse_transform, 
+        mul(accumulated_transform, mesh.bones[bone_index].offset_matrix));
   }
 
   for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
@@ -244,7 +250,8 @@ void Model::_update_bone_matrices_from_node(
    * and ready for the subsequent draw call */  
 }
 
-void Model::update_bone_matrices_for_mesh(uint32_t i_mesh,
+void Model::update_bone_matrices_for_mesh(
+  uint32_t i_mesh,
   Uniforms& uniforms)
 {
   Mesh& mesh = this->meshes[i_mesh];
