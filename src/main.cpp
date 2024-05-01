@@ -21,12 +21,10 @@ Texture colortex, depthtex;
 void
 init_render_pass() {
   /* Step 1: Setup resources. */
-  int render_width = w;
-  int render_height = h;
-  colortex.create(render_width, render_height,
+  colortex.create(w, h,
                   TextureFormat::texture_format_RGBA8,
                   TextureSampling::texture_sampling_point);
-  depthtex.create(render_width, render_height,
+  depthtex.create(w, h,
                   TextureFormat::texture_format_float64,
                   TextureSampling::texture_sampling_point);
 
@@ -46,6 +44,9 @@ init_render_pass() {
   /* Step 3: Initialize model. */ 
   model.load("models/boblampclean.zip");
   render_pass.model = &model;
+
+	//pipeline.set_num_threads(1);
+
 }
 
 void handle_key(SDL_KeyboardEvent *key) { 
@@ -86,8 +87,6 @@ main(int argc, char* argv[]) {
 
   init_render_pass();
 
-  //pipeline.set_num_threads(1);
-  
   SDL_UpdateWindowSurface(pWindow);
 
   /* Start main loop */

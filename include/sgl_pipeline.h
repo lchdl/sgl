@@ -38,7 +38,7 @@ class Pipeline {
   @param clear_color: Color that will be filled to the color texture.
   @note: NULL value will be ignored.
   **/
-  void clear_textures(
+  void clear_render_targets(
     Texture* color, 
     Texture* depth,
     const Vec4 &clear_color);
@@ -225,6 +225,10 @@ class Pipeline {
     B = uint8_t(min(max(int(color.z * 255.0), 0), 255));
     A = uint8_t(min(max(int(color.w * 255.0), 0), 255));
   }
+	void convert_RGBA8_to_uint32(const uint8_t& R, const uint8_t& G,
+		const uint8_t& B, const uint8_t& A, uint32_t& RGBA) {
+		RGBA = ((A << 24) | (B << 16) | (G << 8) | R);
+	}
   /**
   Write final color data into targeted textures.
   @param p: Window coordinate (x, y), origin is at lower-left corner.
@@ -233,11 +237,8 @@ class Pipeline {
   **/
   void write_render_targets(const Vec2 &p, const Vec4 &color, const double &z);
 
-
  protected:
-	
-	/** DATA STORAGE **/
-	
+
 	struct {
     Texture *color; /* not owned */
     Texture *depth; /* not owned */
@@ -303,25 +304,17 @@ struct Pass {
 
   /* default ctor & dtor */
   Pass();
-  virtual ~Pass();
+	virtual ~Pass() {}
  };
 
 struct ModelPass : public Pass {
-  /* a pointer to model object that is being drawn */
-  Model* model;
-
-  /* uniform variables */
-  Uniforms uniforms;
-
+  Model* model; /* a pointer to model object that is being drawn */
+  Uniforms uniforms; /* uniform variables */
 public:
   virtual void run(Pipeline& ppl);
 
-  ModelPass();
-  virtual ~ModelPass();
+	ModelPass() { model = NULL; }
+	virtual ~ModelPass() {}
 };
-
-
-
-
 
 };   // namespace sgl

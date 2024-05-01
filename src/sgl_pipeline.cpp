@@ -246,9 +246,9 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
           /* Step 3.4: Assemble fragment and render pixel. */
           Fragment_gl fragment;
           assemble_fragment(v_lerp, fragment);
-          fragment.gl_FragCoord =
-              Vec4(p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
-                   1.0 / v_lerp.gl_Position.w);
+          fragment.gl_FragCoord = Vec4(
+						p.x, p.y, (1.0 + v_lerp.gl_Position.z) / 2.0,
+						1.0 / v_lerp.gl_Position.w);
           Vec4 color_out;
           bool discard = false;
           shaders.FS(fragment, uniforms, color_out, discard);
@@ -271,7 +271,6 @@ Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
-  uint8_t *pixels = (uint8_t *) this->targets.color->pixels;
   int pixel_id = iy * w + ix;
   /* depth test */
   double *depths = (double *) this->targets.depth->pixels;
@@ -281,11 +280,11 @@ Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z
     return;
   depths[pixel_id] = z_new;
   uint8_t R, G, B, A;
+	uint32_t RGBA;
   convert_Vec4_to_RGBA8(color, R, G, B, A);
-  pixels[pixel_id * 4 + 0] = R;
-  pixels[pixel_id * 4 + 1] = G;
-  pixels[pixel_id * 4 + 2] = B;
-  pixels[pixel_id * 4 + 3] = A;
+	convert_RGBA8_to_uint32(R, G, B, A, RGBA);
+  uint32_t *pixels = (uint32_t *) this->targets.color->pixels;
+  pixels[pixel_id] = RGBA;
 }
 
 void
@@ -421,32 +420,33 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
   }
 }
 void
-Pipeline::clear_textures(
+Pipeline::clear_render_targets(
   Texture* color, 
   Texture* depth,
   const Vec4 &clear_color)
 { 
-  uint8_t R, G, B, A;
+	/**
+	clear_render_targets() will cache cleared frame buffer from
+	previous run to save time.
+	**/
+	uint8_t R, G, B, A;
+	uint32_t RGBA;
   convert_Vec4_to_RGBA8(clear_color, R, G, B, A);
-  if (color != NULL) {
+	convert_RGBA8_to_uint32(R, G, B, A, RGBA);
+
+	if (color != NULL) {
     int n_pixels = color->w * color->h;
-    uint8_t *pixels = (uint8_t *) color->pixels;
-    for (int i = 0; i < n_pixels; i++) {
-      pixels[i * 4 + 0] = R;
-      pixels[i * 4 + 1] = G;
-      pixels[i * 4 + 2] = B;
-      pixels[i * 4 + 3] = A;
-    }
+    uint32_t *pixels = (uint32_t *) color->pixels;
+    for (int i = 0; i < n_pixels; i++) 
+			pixels[i] = RGBA;
   }
   if (depth != NULL) {
     int n_pixels = depth->w * depth->h;
     double *pixels = (double *) depth->pixels;
-    for (int i = 0; i < n_pixels; i++) {
+    for (int i = 0; i < n_pixels; i++)
       pixels[i] = 100.0;
-    }
   }
 }
-
 
 Mat4x4
 Pass::get_view_matrix() const {
@@ -512,22 +512,13 @@ Pass::Pass()
 	FS = NULL;
 }
 
-Pass::~Pass() {
-}
-
-ModelPass::ModelPass() {
-	model = NULL;
-}
-ModelPass::~ModelPass() {
-}
-
 void
 ModelPass::run(Pipeline& ppl) {
 	if (model == NULL) return;
 
 	ppl.set_shaders(model_VS, model_FS);
 	ppl.set_render_targets(this->color_texture, this->depth_texture);
-	ppl.clear_textures(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
+	ppl.clear_render_targets(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
 
 	uniforms.model = model->get_transform();
 	uniforms.view = this->get_view_matrix();
@@ -551,4 +542,4 @@ ModelPass::run(Pipeline& ppl) {
 	}
 }
 
-};   // namespace sgl
+}; // namespace sgl

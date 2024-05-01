@@ -113,7 +113,8 @@ private:
 
 };
 
-inline Mat4x4 convert_assimp_mat4x4(const aiMatrix4x4& m)
+inline Mat4x4 
+convert_assimp_mat4x4(const aiMatrix4x4& m)
 {
   return Mat4x4(
     m.a1, m.a2, m.a3, m.a4,
