@@ -46,6 +46,7 @@ init_render_pass() {
   render_pass.model = &model;
 
 	//pipeline.set_num_threads(1);
+	//pipeline.disable_backface_culling();
 
 }
 

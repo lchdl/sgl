@@ -69,20 +69,7 @@ Pipeline::vertex_post_processing(const std::vector<int> &index_buffer) {
     tri_gl.v[0] = ppl.Vertices[index_buffer[i_tri * 3]];
     tri_gl.v[1] = ppl.Vertices[index_buffer[i_tri * 3 + 1]];
     tri_gl.v[2] = ppl.Vertices[index_buffer[i_tri * 3 + 2]];
-    /** Step 2.2: Face culling.
-    @note: After vertex shader, all vertices are in homogeneous space,
-    and since all vertices were transformed by view matrix, now the eye vector
-    is fixed to (0,0,-1), and dot product between eye vector and triangle normal
-    simply becomes -n.z. If -n.z > 0.0, then ignore this face.
-    **/
-    Vec3 p0 = tri_gl.v[0].gl_Position.xyz();
-    Vec3 p1 = tri_gl.v[1].gl_Position.xyz();
-    Vec3 p2 = tri_gl.v[2].gl_Position.xyz();
-
-    Vec3 facing = cross(p1 - p0, p2 - p0);
-    if (facing.z < 0.0 && ppl.backface_culling)
-      continue;
-    /** Step 2.3: Clipping.
+    /** Step 2.2: Clipping.
     @note: For detailed explanation of how to do clipping in homogeneous space,
     see: "How to clip in homogeneous space?" in "doc/graphics_pipeline.md".
     **/
@@ -213,6 +200,7 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
       const Vec4 p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
       double area = edge(p0, p1, p2);
       if (isnan(area) || isinf(area)) continue; /* Ignore invalid triangles. */
+      if (area < 0.0 && ppl.backface_culling) continue; /* Backface culling. */
       /** @note: p0, p1, p2 are actually gl_FragCoord. **/
       /* Step 3.3: Rasterization. */
       Vec4 rect = get_minimum_rect(p0, p1, p2);
@@ -271,6 +259,8 @@ Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
+	/* here (ix,iy) is the final output pixel location in window space 
+	(origin is at the top-left corner of the screen). */
   int pixel_id = iy * w + ix;
   /* depth test */
   double *depths = (double *) this->targets.depth->pixels;

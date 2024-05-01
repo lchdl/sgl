@@ -222,9 +222,9 @@ Model::_register_vertex_weight(
 }
 
 void Model::_update_bone_matrices_from_node(
-  const aiNode* node,
-  const Mat4x4& parent_transform,
-  const Mesh& mesh,
+  const aiNode* node, /* current node being traversed */
+  const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
+  const Mesh& mesh, /* mesh that contains all the bones */
   Uniforms& uniforms)
 {
   std::string node_name = node->mName.data;
@@ -234,17 +234,14 @@ void Model::_update_bone_matrices_from_node(
   if (mesh.bone_name_to_id.find(node_name) != mesh.bone_name_to_id.end()){
     std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
     uint32_t bone_index = item->second;
-    uniforms.bone_matrices[bone_index] = mul(
-      accumulated_transform, mesh.bones[bone_index].offset_matrix);
+    uniforms.bone_matrices[bone_index] = mul(accumulated_transform, mesh.bones[bone_index].offset_matrix);
   }
 
   for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
     _update_bone_matrices_from_node(node->mChildren[i_node], accumulated_transform, mesh, uniforms);
   }
-
   /* after this function returns all bone_matrices will be updated
-   * and ready for the subsequent draw call */
-  
+   * and ready for the subsequent draw call */  
 }
 
 void Model::update_bone_matrices_for_mesh(uint32_t i_mesh,

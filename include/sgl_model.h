@@ -59,8 +59,7 @@ class Model {
    * the future plans I want to let each mesh object
    * stores their own animation(s). */
 public:
-  /* initialize mesh object from external/internal 
-   * file formats. */
+  /* initialize mesh object from external/internal file formats. */
   bool load(const std::string& file);
   /* unload mesh and return allocated resources to OS. */
   void unload();
@@ -81,14 +80,64 @@ public:
     return this->model_transform;
   }
 
-  /* calculate bone final transformations and update
-   * the result to uniform variables. */
+  /**
+	update_bone_matrices_for_mesh():
+	Calculate bone final transformations and update the result to 
+	uniform variables.
+
+	              * THE PRINCIPLE BEHIND BONE ANIMATION *              
+	-------------------------------------------------------------------
+	If a model has the following bone hierarchy (B0->B1->B2),
+	and a vertex `v` is affected by bone B2 (shown as follows):
+	
+	B0
+	+--B1
+		+--B2
+				+--v
+	
+	There are two kinds of matrices we need to know:
+	1. The bone's OFFSET MATRIX
+	2. The bone's TRANSFORMATION MATRIX
+	
+	The OFFSET MATRIX is used to transform a vertex from local model
+	space directly to bone's local space, while the TRANSFORMATION
+	MATRIX is used to transform a vertex from bone's local space to
+	parent bone's local space. Here we assume the TRANSFORMATION 
+	MATRIX for bone B0, B1, and B2 are T0, T1 and T2, respectively. 
+	B2's OFFSET MATRIX is Q.
+	Q represents the transformation from model space to B2's local space.
+	T2 represents the transformation from B2's local space to B1's local space, 
+	T1 represents the transformation from B1's local space to B0's local space.
+	T0 represents the transformation from B0's local space to model space.
+
+	To calculate the real position for vertex v, first we need
+	to transform vertex v from local model space to B2's local space,
+	which can be calculated from: Q*v.
+	Then we can transform from B2's local space back to model space by
+	calculating:
+	                       v' = (T0*T1*T2*Q)*v = S*v,              (1)
+	where `S` is the collapsed transformation matrix. We call it `bone
+	matrix` here to be convenient.
+	
+	Function update_bone_matrices_for_mesh() is used to calculate `S`
+	for each bone, so that each vertex controlled by that bone can 
+	quickly gain access to `S` when rendering. If a vertex is controlled
+	by multiple bones B_i with weights w_i, then we need to do a simple
+	linear interpolation for each bone, which means to calculate:
+	                        v' = sum(S_i*v) for i,                 (2)
+	where S_i = w_i*S.
+
+	During an animation sequence, we update each T_i in eq. (1) and 
+	update the final vertex v' by calculating eq. (2).
+
+	NOTE: If the model is in bind pose (default T-pose), then we will
+	      have: T0*T1*T2 = Q^-1, which means S is the identity matrix.
+	**/
   void update_bone_matrices_for_mesh(uint32_t i_mesh, Uniforms& uniforms);
 
   /* ctor & dtor that we don't even care about much. */
   Model();
-  ~Model(); /* currently i don't want to 
-              declare it as "virtual". */
+  ~Model(); /* currently i don't want to declare it as "virtual". */
 protected:
   std::vector<Mesh> meshes;
   std::vector<Material> materials;
@@ -105,6 +154,7 @@ private:
   const aiScene* _scene;
 
   void _register_vertex_weight(Vertex& v, uint32_t bone_index, double weight);
+
   void _update_bone_matrices_from_node(
       const aiNode* node,
       const Mat4x4& parent_transform,
