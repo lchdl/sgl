@@ -1,8 +1,6 @@
 # [*] Project specific
 ext/
 build/
-temp/
-legacy/
 bin/
 lib/
 # ignore resource files (textures, models, ...)
