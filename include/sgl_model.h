@@ -66,11 +66,10 @@ struct Material {
 };
 
 class Model {
-  /* mesh represents a standalone object that can be 
-   * rendered onto screen. A single draw call renders
-   * a single mesh onto the frame buffer. Also from
-   * the future plans I want to let each mesh object
-   * stores their own animation(s). */
+  /* The model represents a standalone object that 
+	 * can be rendered onto screen. A model can contain
+	 * one or multiple meshes. A single draw call only
+	 * renders a single mesh onto the frame buffer. */
 public:
   /* initialize mesh object from external/internal file formats. */
   bool load(const std::string& file);
@@ -146,7 +145,8 @@ public:
 	NOTE: If the model is in bind pose (default T-pose), then we will
 	      have: T0*T1*T2 = Q^-1, which means S is the identity matrix.
 	**/
-  void update_bone_matrices_for_mesh(uint32_t i_mesh, Uniforms& uniforms);
+  void update_skeletal_animation(
+		const std::string& anim_name, double time, Uniforms& uniforms);
 
   /* ctor & dtor that we don't even care about much. */
   Model();
@@ -158,11 +158,13 @@ protected:
    * applied before any other transformation during
    * rendering. */
   Mat4x4 model_transform;
-  /* the model is not gauranteed to be placed at the world's origin,
+  /* the model is not guaranteed to be placed at the world's origin,
    * we need to place the model to the origin by multiplying the
    * global inverse transform matrix that is calculated when loading
    * the model data. */
   Mat4x4 global_inverse_transform;
+	/* animation name to animation id mapping */
+	std::map<std::string, uint32_t> anim_name_to_id;
 
 private:
   /* Assimp model importer.
@@ -173,11 +175,14 @@ private:
 
   void _register_vertex_weight(Vertex& v, uint32_t bone_index, double weight);
 
-  void _update_bone_matrices_from_node(
-      const aiNode* node,
-      const Mat4x4& parent_transform,
-      const Mesh& mesh,
-      Uniforms& uniforms);
+  void _update_mesh_skeletal_animation_from_node(
+		const aiNode* node,             /* current node being traversed */
+		const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
+		const Mesh& mesh,               /* mesh that contains all the bones */
+		const uint32_t& anim_id,        /* id of the animation currently being played */
+		double time,                    /* elapsed time since the start of the animation (sec.) */
+    Uniforms& uniforms              /* uniform variables that will be written to */
+	);
 
   Bone* _find_bone_by_name(const std::string& name);
   Animation* _find_bone_animation_by_name(Bone& bone, const std::string & name);

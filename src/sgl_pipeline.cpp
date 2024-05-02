@@ -517,6 +517,8 @@ ModelPass::run(Pipeline& ppl) {
 	/* Rendering all the mesh parts in model */
 	const std::vector<Mesh>& mesh_data = model->get_mesh_data();
 	const std::vector<Material>& materials = model->get_materials();
+		
+	this->model->update_skeletal_animation(this->anim_name, this->time, uniforms);
 
 	for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
 		const std::vector<Vertex>& vertices = mesh_data[i_mesh].vertices;
@@ -526,7 +528,6 @@ ModelPass::run(Pipeline& ppl) {
 		/* diffuse texture */
 		uniforms.in_textures[0] = &materials[mat_id].diffuse_texture;
 		/* calculate bone tranformation matrices and update to uniforms */
-		this->model->update_bone_matrices_for_mesh(i_mesh, uniforms);
 		/* Launch the pipeline to render the triangles */
 		ppl.draw(vertices, indices, uniforms);
 	}

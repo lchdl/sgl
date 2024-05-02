@@ -163,6 +163,12 @@ Model::load(const std::string& file) {
     if (ticks_per_second < 1.0) ticks_per_second = 25.0;
     uint32_t n_ctrl_bones = anim->mNumChannels; /* number of bones this animation controls */
     std::string anim_name = anim->mName.data;
+		/* register this animation */
+		std::map<std::string, uint32_t>::const_iterator item = anim_name_to_id.find(anim_name);
+		if (item != anim_name_to_id.end()) {
+			printf("Found duplicated animation \"%s\".\n", anim_name.c_str());
+		}
+		anim_name_to_id.insert_or_assign(anim_name, (uint32_t)anim_name_to_id.size());
     /* loop for each bone this animation controls */
     for (uint32_t i_channel = 0; i_channel < n_ctrl_bones; i_channel++) {
       const aiNodeAnim* bone_anim = anim->mChannels[i_channel];
@@ -275,32 +281,40 @@ Model::_register_vertex_weight(
   }
 }
 
-void Model::_update_bone_matrices_from_node(
-  const aiNode* node, /* current node being traversed */
-  const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
-  const Mesh& mesh, /* mesh that contains all the bones */
-  Uniforms& uniforms)
+void Model::_update_mesh_skeletal_animation_from_node(
+  const aiNode* node, const Mat4x4& parent_transform, const Mesh& mesh,
+	const uint32_t& anim_id, double time, Uniforms& uniforms)
 {
   std::string node_name = node->mName.data;
   Mat4x4 node_transform = convert_assimp_mat4x4(node->mTransformation);
   Mat4x4 accumulated_transform = mul(parent_transform, node_transform);
   
-  /* 
-  in Assimp, if a node is actually a bone, then the node name will be set
-  to be the same as the bone name. 
-  */
+  /* in Assimp, if a node is actually a bone, then the node name will be set
+  to be the same as the bone name. */
   std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
   if (item != mesh.bone_name_to_id.end()){
     uint32_t bone_index = item->second;
+		/* if this bone contains animation key frame, then we calculate interpolated
+		local skeletal animation transformation matrix instead of using offset matrix
+		directly. */
+		Mat4x4 bone_transform_matrix = mesh.bones[bone_index].offset_matrix;
+		if (mesh.bones[bone_index].animations.size() > 0) {
+			/* TODO: add animations here */
+			const Animation& anim = mesh.bones[bone_index].animations[anim_id];
+			double anim_tick = time * anim.ticks_per_second;
+		}
+		else {
+			bone_transform_matrix = mesh.bones[bone_index].offset_matrix;
+		}
     uniforms.bone_matrices[bone_index] = mul(this->global_inverse_transform, 
-        mul(accumulated_transform, mesh.bones[bone_index].offset_matrix));
+        mul(accumulated_transform, bone_transform_matrix));
   }
 
   for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
-    _update_bone_matrices_from_node(node->mChildren[i_node], accumulated_transform, mesh, uniforms);
-  }
-  /* after this function returns all bone_matrices will be updated
-   * and ready for the subsequent draw call */  
+    _update_mesh_skeletal_animation_from_node(
+			node->mChildren[i_node], accumulated_transform, mesh, 
+			anim_id, time, uniforms);
+  } 
 }
 
 Bone*
@@ -329,12 +343,21 @@ Animation * Model::_find_bone_animation_by_name(
   return NULL;
 }
 
-void Model::update_bone_matrices_for_mesh(
-  uint32_t i_mesh,
-  Uniforms& uniforms)
+void Model::update_skeletal_animation(
+	const std::string& anim_name, double time, Uniforms& uniforms)
 {
-  Mesh& mesh = this->meshes[i_mesh];
-  this->_update_bone_matrices_from_node(_scene->mRootNode, Mat4x4::identity(), mesh, uniforms);
+	std::map<std::string, uint32_t>::const_iterator item = anim_name_to_id.find(anim_name);
+	if (item == anim_name_to_id.end()) {
+		printf("Cannot find animation \"%s\".\n", anim_name.c_str());
+		return;
+	}
+	uint32_t anim_id = item->second;
+	for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
+		Mesh& mesh = this->meshes[i_mesh];
+		this->_update_mesh_skeletal_animation_from_node(
+			_scene->mRootNode, Mat4x4::identity(), mesh, 
+			anim_id, time, uniforms);
+	}
 }
 
 void

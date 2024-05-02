@@ -312,11 +312,12 @@ protected:
   Uniforms uniforms; /* uniform variables */
 public:
   Model* model; /* a pointer to model object that is being drawn */
+	std::string anim_name; /* name of the current animation being played */
   double time; /* time value for controlling the skeletal animation (sec.) */
 public:
   virtual void run(Pipeline& ppl);
 
-	ModelPass() { model = NULL; }
+	ModelPass() { model = NULL; time = 0.0; }
 	virtual ~ModelPass() {}
 };
 
