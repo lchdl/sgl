@@ -1,6 +1,7 @@
 # [*] Project specific
 ext/
 build/
+build_deps/
 bin/
 lib/
 # ignore resource files (textures, models, ...)
