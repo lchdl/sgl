@@ -160,6 +160,7 @@ Model::load(const std::string& file) {
   for (uint32_t i_anim = 0; i_anim < n_anims; i_anim++) {
     const aiAnimation* anim = _scene->mAnimations[i_anim];
     double ticks_per_second = anim->mTicksPerSecond;
+    if (ticks_per_second < 1.0) ticks_per_second = 25.0;
     uint32_t n_ctrl_bones = anim->mNumChannels; /* number of bones this animation controls */
     std::string anim_name = anim->mName.data;
     /* loop for each bone this animation controls */
@@ -181,21 +182,21 @@ Model::load(const std::string& file) {
         /* read scaling key frames */
         for (uint32_t i_key = 0; i_key < bone_anim->mNumScalingKeys; i_key++) {
           KeyFrame<Vec3> key_frame;
-          key_frame.time = bone_anim->mScalingKeys[i_key].mTime;
+          key_frame.tick = bone_anim->mScalingKeys[i_key].mTime;
           key_frame.value = convert_assimp_vec3(bone_anim->mScalingKeys[i_key].mValue);
           dst_anim->scaling_key_frames.push_back(key_frame);
         }
         /* read position key frames */
         for (uint32_t i_key = 0; i_key < bone_anim->mNumPositionKeys; i_key++) {
           KeyFrame<Vec3> key_frame;
-          key_frame.time = bone_anim->mPositionKeys[i_key].mTime;
+          key_frame.tick = bone_anim->mPositionKeys[i_key].mTime;
           key_frame.value = convert_assimp_vec3(bone_anim->mPositionKeys[i_key].mValue);
           dst_anim->position_key_frames.push_back(key_frame);
         }
         /* read rotation key frames */
         for (uint32_t i_key = 0; i_key < bone_anim->mNumRotationKeys; i_key++) {
           KeyFrame<Quat> key_frame;
-          key_frame.time = bone_anim->mRotationKeys[i_key].mTime;
+          key_frame.tick = bone_anim->mRotationKeys[i_key].mTime;
           key_frame.value = convert_assimp_quat(bone_anim->mRotationKeys[i_key].mValue);
           dst_anim->rotation_key_frames.push_back(key_frame);
         }

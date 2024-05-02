@@ -20,7 +20,7 @@ namespace sgl {
 
 template <typename T> 
 struct KeyFrame {
-  double time; 
+  double tick; 
   T value;
 };
 struct Animation {

@@ -308,8 +308,11 @@ struct Pass {
  };
 
 struct ModelPass : public Pass {
-  Model* model; /* a pointer to model object that is being drawn */
+protected:
   Uniforms uniforms; /* uniform variables */
+public:
+  Model* model; /* a pointer to model object that is being drawn */
+  double time; /* time value for controlling the skeletal animation (sec.) */
 public:
   virtual void run(Pipeline& ppl);
 
@@ -317,4 +320,4 @@ public:
 	virtual ~ModelPass() {}
 };
 
-};   // namespace sgl
+}; /* namespace sgl */
