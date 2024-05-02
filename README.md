@@ -5,6 +5,8 @@
   - Header files and inline implementations (*.h).
 * `src/`
   - Source files (*.cpp).
+* `tests/`
+  - All CI test cases (*.cpp sources will be compiled and linked as executables).
 * `doc/`
   - Documentations, devlog, tutorials, notes, etc.
 * `res/`

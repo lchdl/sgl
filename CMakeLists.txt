@@ -112,19 +112,26 @@ endif()
 #                    INTERNAL LIBRARIES                    #
 ############################################################
 
-# "zip" (https://github.com/kuba--/zip) is used as internal library - compiled alongside with main
+# zip (https://github.com/kuba--/zip) is used as internal library - compiled alongside with sgl
 file(GLOB_RECURSE ZIP_LIBRARY_FILES "${CMAKE_CURRENT_SOURCE_DIR}/ext/zip/src/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/ext/zip/src/*.c") 
 
 # sgl
-file(GLOB_RECURSE ALL_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-file(GLOB_RECURSE ALL_HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp")
-add_executable(sgl ${ALL_SRC_FILES} ${ALL_HEADER_FILES} ${ZIP_LIBRARY_FILES})
+## sgl main library
+file(GLOB_RECURSE SGL_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE SGL_HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp")
+add_library(sgl ${SGL_SRC_FILES} ${SGL_HEADER_FILES} ${ZIP_LIBRARY_FILES})
+## sgl tests
+file(GLOB_RECURSE SGL_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
+foreach(test_source ${SGL_TESTS})
+    get_filename_component(test_name ${test_source} NAME_WE) # Cut off the file extension and directory path
+    add_executable(${test_name} ${test_source})
+    target_link_libraries(${test_name} sgl) # Make sure YourLib is linked to each app
+endforeach(test_source ${APP_SOURCES})
 
+# includes
 target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ext/zip/src/")
 target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
-
-# stb_image
-target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ext/stb/")
+target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ext/stb/") # stb_image
 
 ############################################################
 #                    EXTERNAL LIBRARIES                    #
