@@ -93,7 +93,6 @@ Model::load(const std::string& file) {
   uint32_t n_meshes = _scene->mNumMeshes;
   this->meshes.resize(n_meshes);
   const aiVector3D zvec = aiVector3D(0.0, 0.0, 0.0);
-  /* load each mesh part */
   for(uint32_t i_mesh = 0; i_mesh < n_meshes; i_mesh++) {
     const aiMesh* mesh = _scene->mMeshes[i_mesh];
     const uint32_t n_vert = mesh->mNumVertices;  
@@ -156,6 +155,54 @@ Model::load(const std::string& file) {
     }
   }
 
+  /* parse model animation(s) (if exists) */
+  uint32_t n_anims = _scene->mNumAnimations;
+  for (uint32_t i_anim = 0; i_anim < n_anims; i_anim++) {
+    const aiAnimation* anim = _scene->mAnimations[i_anim];
+    double ticks_per_second = anim->mTicksPerSecond;
+    uint32_t n_ctrl_bones = anim->mNumChannels; /* number of bones this animation controls */
+    std::string anim_name = anim->mName.data;
+    /* loop for each bone this animation controls */
+    for (uint32_t i_channel = 0; i_channel < n_ctrl_bones; i_channel++) {
+      const aiNodeAnim* bone_anim = anim->mChannels[i_channel];
+      std::string bone_name = bone_anim->mNodeName.data;
+      Bone* bone = _find_bone_by_name(bone_name);
+      if (bone != NULL) {
+        /* read bone animation key frames */
+        Animation* dst_anim = _find_bone_animation_by_name(*bone, anim_name);
+        if (dst_anim == NULL) {
+          /* create new animation if not exist */
+          Animation new_anim;
+          new_anim.name = anim_name;
+          new_anim.ticks_per_second = ticks_per_second;
+          bone->animations.push_back(new_anim);
+          dst_anim = &(bone->animations[bone->animations.size() - 1]);
+        }
+        /* read scaling key frames */
+        for (uint32_t i_key = 0; i_key < bone_anim->mNumScalingKeys; i_key++) {
+          KeyFrame<Vec3> key_frame;
+          key_frame.time = bone_anim->mScalingKeys[i_key].mTime;
+          key_frame.value = convert_assimp_vec3(bone_anim->mScalingKeys[i_key].mValue);
+          dst_anim->scaling_key_frames.push_back(key_frame);
+        }
+        /* read position key frames */
+        for (uint32_t i_key = 0; i_key < bone_anim->mNumPositionKeys; i_key++) {
+          KeyFrame<Vec3> key_frame;
+          key_frame.time = bone_anim->mPositionKeys[i_key].mTime;
+          key_frame.value = convert_assimp_vec3(bone_anim->mPositionKeys[i_key].mValue);
+          dst_anim->position_key_frames.push_back(key_frame);
+        }
+        /* read rotation key frames */
+        for (uint32_t i_key = 0; i_key < bone_anim->mNumRotationKeys; i_key++) {
+          KeyFrame<Quat> key_frame;
+          key_frame.time = bone_anim->mRotationKeys[i_key].mTime;
+          key_frame.value = convert_assimp_quat(bone_anim->mRotationKeys[i_key].mValue);
+          dst_anim->rotation_key_frames.push_back(key_frame);
+        }
+      }
+    }
+  }
+
   /* load materials */
   uint32_t n_materials = _scene->mNumMaterials;
   this->materials.resize(n_materials);
@@ -185,6 +232,7 @@ Model::load(const std::string& file) {
     }
     /* TODO: load other types of textures (if exists) */
   }
+  
   /* parse ended, now cleaning up... */
   /* if model is loaded from an unpacked zip file, remove the temporary dir. */
   if (temp_folder != "")
@@ -236,8 +284,12 @@ void Model::_update_bone_matrices_from_node(
   Mat4x4 node_transform = convert_assimp_mat4x4(node->mTransformation);
   Mat4x4 accumulated_transform = mul(parent_transform, node_transform);
   
-  if (mesh.bone_name_to_id.find(node_name) != mesh.bone_name_to_id.end()){
-    std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
+  /* 
+  in Assimp, if a node is actually a bone, then the node name will be set
+  to be the same as the bone name. 
+  */
+  std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
+  if (item != mesh.bone_name_to_id.end()){
     uint32_t bone_index = item->second;
     uniforms.bone_matrices[bone_index] = mul(this->global_inverse_transform, 
         mul(accumulated_transform, mesh.bones[bone_index].offset_matrix));
@@ -248,6 +300,32 @@ void Model::_update_bone_matrices_from_node(
   }
   /* after this function returns all bone_matrices will be updated
    * and ready for the subsequent draw call */  
+}
+
+Bone*
+Model::_find_bone_by_name(const std::string & name)
+{
+  for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
+    Mesh& mesh = this->meshes[i_mesh];
+    std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(name);
+    if (item != mesh.bone_name_to_id.end()) {
+      uint32_t bone_index = item->second;
+      return &(mesh.bones[bone_index]);
+    }
+  }
+  return NULL;
+}
+
+Animation * Model::_find_bone_animation_by_name(
+  Bone& bone, const std::string & name)
+{
+  for (uint32_t i_anim = 0; i_anim < bone.animations.size(); i_anim++) {
+    std::string anim_name = bone.animations[i_anim].name;
+    if (anim_name == name) {
+      return &(bone.animations[i_anim]);
+    }
+  }
+  return NULL;
 }
 
 void Model::update_bone_matrices_for_mesh(

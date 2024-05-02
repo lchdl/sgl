@@ -65,6 +65,7 @@ void handle_key(SDL_KeyboardEvent *key) {
 
 int
 main(int argc, char* argv[]) {
+
   SDL_SetMainReady();
 
   set_cwd(gd(argv[0]));

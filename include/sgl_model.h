@@ -14,9 +14,23 @@
 #include "assimp/postprocess.h"
 #include "assimp/mesh.h"
 #include "assimp/material.h"
+#include "assimp/anim.h"
 
 namespace sgl {
 
+template <typename T> 
+struct KeyFrame {
+  double time; 
+  T value;
+};
+struct Animation {
+  /* animation for a single bone */
+  std::string name; /* name of the animation */
+  std::vector<KeyFrame<Vec3>> scaling_key_frames;
+  std::vector<KeyFrame<Vec3>> position_key_frames;
+  std::vector<KeyFrame<Quat>> rotation_key_frames;
+  double ticks_per_second; /* default = 25 */
+};
 struct Bone {
   struct VertexCtrl {
     uint32_t index; /* vertex index */
@@ -29,9 +43,8 @@ struct Bone {
   /* transform vertex from local model space to bone space
      when the model is in bind pose (default T-pose). */
   Mat4x4 offset_matrix;
-};
-struct Animation {
-  /*  */
+  /* skeletal animations */
+  std::vector<Animation> animations;
 };
 struct Mesh {
   /* A mesh is a unique part of a model that has only 
@@ -141,7 +154,6 @@ public:
 protected:
   std::vector<Mesh> meshes;
   std::vector<Material> materials;
-  std::vector<Animation> animations;
   /* global transformation for the whole model, will be
    * applied before any other transformation during
    * rendering. */
@@ -167,6 +179,9 @@ private:
       const Mesh& mesh,
       Uniforms& uniforms);
 
+  Bone* _find_bone_by_name(const std::string& name);
+  Animation* _find_bone_animation_by_name(Bone& bone, const std::string & name);
+
 };
 
 inline Mat4x4 
@@ -178,6 +193,14 @@ convert_assimp_mat4x4(const aiMatrix4x4& m)
     m.c1, m.c2, m.c3, m.c4,
     m.d1, m.d2, m.d3, m.d4
   );
+}
+inline Vec3
+convert_assimp_vec3(const aiVector3D& v) {
+  return Vec3(v.x, v.y, v.z);
+}
+inline Quat
+convert_assimp_quat(const aiQuaternion& q) {
+  return Quat(q.w, q.x, q.y, q.z);
 }
 
 /* specialized VS and FS for mesh rendering. */

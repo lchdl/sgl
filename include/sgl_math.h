@@ -330,6 +330,26 @@ struct Mat4x4 {
 
 };
 
+/* Defines a quaternion `q` with q = s + xi + yj + zk. */
+struct Quat {
+  union {
+    double i[4];
+    struct {
+      double s, x, y, z;
+    };
+  };
+
+  Quat() { x = y = z = s = 0.0;}
+  Quat(double _s, double _x, double _y, double _z) { this->s = _s; this->x = _x; this->y = _y; this->z = _z; }
+  Quat(double _s, Vec3 _v) { this->s = _s; this->x = _v.x; this->y = _v.y; this->z = _v.z; }
+
+  static Quat identity() { return Quat(1.0, 0.0, 0.0, 0.0); }
+  static Quat rot_x(double angle) { return Quat(cos(angle / 2.0), sin(angle / 2.0), 0.0, 0.0); }
+  static Quat rot_y(double angle) { return Quat(cos(angle / 2.0), 0.0, sin(angle / 2.0), 0.0); }
+  static Quat rot_z(double angle) { return Quat(cos(angle / 2.0), 0.0, 0.0, sin(angle / 2.0)); }
+
+};
+
 inline Vec2
 operator+(Vec2 _a, Vec2 _b) {
   return Vec2(_a.x + _b.x, _a.y + _b.y);
@@ -584,17 +604,177 @@ operator*(double _a, Mat4x4 _b) {
   for (int i = 0; i < 16; i++) c.i[i] = _a * _b.i[i];
   return c;
 }
-inline Mat4x4
-operator&(Mat4x4 _a, Mat4x4 _b) {
-  return mul(_a, _b);
+
+inline Quat
+operator+(Quat q1, Quat q2) { 
+  return Quat(q1.s + q2.s, q1.x + q2.x, q1.y + q2.y, q1.z + q2.z); 
 }
-inline Vec4
-operator&(Mat4x4 _a, Vec4 _b) {
-  return mul(_a, _b);
+inline Quat 
+operator-(Quat q1, Quat q2) { 
+  return Quat(q1.s - q2.s, q1.x - q2.x, q1.y - q2.y, q1.z - q2.z); 
 }
-inline Vec4
-operator&(Vec4 _a, Mat4x4 _b) {
-  return mul(_a, _b);
+inline Quat
+operator*(Quat q, double a) {
+  return Quat(q.s * a, q.x * a, q.y * a, q.z * a);
+}
+
+inline Quat operator*(double a, Quat q) {
+  return Quat(a * q.s, a * q.x, a * q.y, a * q.z);
+}
+inline Quat
+operator/(Quat q, double a) {
+  return Quat(q.s / a, q.x / a, q.y / a, q.z / a);
+}
+inline Quat 
+conjugate(Quat q) {
+  return Quat(q.s, -q.x, -q.y, -q.z);
+}
+inline double
+norm(Quat q) {
+  return sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.s * q.s);
+}
+inline double
+squared_norm(Quat q) {
+  return (q.x * q.x + q.y * q.y + q.z * q.z + q.s * q.s);
+}
+inline Quat 
+inverse(Quat q) {
+  double d = squared_norm(q);
+  return conjugate(q) / d;
+}
+inline Quat operator/(double a, Quat q) {
+  return a * inverse(q);
+}
+inline Quat 
+operator*(Quat q1, Quat q2) {
+  Vec3 v1 = Vec3(q1.x, q1.y, q1.z);
+  Vec3 v2 = Vec3(q2.x, q2.y, q2.z);
+  double s1 = q1.s;
+  double s2 = q2.s;
+  return Quat(
+    s1 * s2 - dot(v1, v2),
+    s1 * v2 + s2 * v1 + cross(v1, v2)
+  );
+}
+inline Quat 
+operator/(Quat q1, Quat q2) {
+  return q1 * inverse(q2);
+}
+inline Quat 
+normalize(Quat q) {
+  double d = norm(q);
+  return q / d;
+}
+inline double 
+dot(Quat q1, Quat q2)
+{
+  return q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.s * q2.s;
+}
+inline Quat
+slerp(Quat q1, Quat q2, double t) {
+  double theta = acos(dot(q1, q2));
+  Quat q = (sin((1 - t)*theta) * q1 + sin(t*theta) * q2) / sin(theta);
+  return q;
+}
+inline Mat3x3
+quat_to_mat3x3(Quat q)
+{
+  double t1, t2;
+  Mat3x3 m;
+
+  m.i11 = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
+  m.i22 = 1.0 - 2.0 * (q.x * q.x + q.z * q.z);
+  m.i33 = 1.0 - 2.0 * (q.x * q.x + q.y * q.y);
+
+  t1 = q.x * q.y;
+  t2 = q.s * q.z;
+  m.i12 = 2.0 * (t1 - t2);
+  m.i21 = 2.0 * (t1 + t2);
+
+  t1 = q.x * q.z;
+  t2 = q.s * q.y;
+  m.i13 = 2.0 * (t1 + t2);
+  m.i31 = 2.0 * (t1 - t2);
+
+  t1 = q.y * q.z;
+  t2 = q.s * q.x;
+  m.i23 = 2.0 * (t1 - t2);
+  m.i32 = 2.0 * (t1 + t2);
+
+  return m;
+}
+inline Quat
+mat3x3_to_quat(Mat3x3 m)
+{
+  double tr, s;
+  int di = 0;
+  Quat q;
+
+  tr = m.i11 + m.i22 + m.i33;
+
+  if (tr >= 0) {
+    s = sqrt(tr + 1.0);
+    q.s = 0.5 * s;
+    s = 0.5 / s;
+    q.x = (m.i32 - m.i23) * s;
+    q.y = (m.i13 - m.i31) * s;
+    q.z = (m.i21 - m.i12) * s;
+  }
+  else {
+    if (m.i22 > m.i11) di = 4;
+    if (m.i33 > m.i[di]) di = 8;
+    switch (di) {
+    case 0:
+      s = sqrt((m.i11 - (m.i22 + m.i33)) + 1.0);
+      q.x = 0.5 * s;
+      s = 0.5 / s;
+      q.y = (m.i12 + m.i21) * s;
+      q.z = (m.i31 + m.i13) * s;
+      q.s = (m.i32 - m.i23) * s;
+      break;
+    case 4:
+      s = sqrt((m.i22 - (m.i33 + m.i11)) + 1.0);
+      q.y = 0.5 * s;
+      s = 0.5 / s;
+      q.z = (m.i23 + m.i32) * s;
+      q.x = (m.i12 + m.i21) * s;
+      q.s = (m.i13 - m.i31) * s;
+      break;
+    case 8:
+      s = sqrt((m.i33 - (m.i11 + m.i22)) + 1.0);
+      q.z = 0.5 * s;
+      s = 0.5 / s;
+      q.x = (m.i31 + m.i13) * s;
+      q.y = (m.i23 + m.i32) * s;
+      q.s = (m.i21 - m.i12) * s;
+      break;
+    }
+  }
+  return q;
+}
+inline Quat
+mul(Vec3 v, Quat q)
+{
+  Quat t(0.0, v); /* expand vector to quaternion */
+  return t * q;
+}
+inline Quat
+euler_to_quat(double yaw, double pitch, double roll)
+{
+  /* https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles */
+
+  double cy = cos(yaw * 0.5);
+  double sy = sin(yaw * 0.5);
+  double cp = cos(pitch * 0.5);
+  double sp = sin(pitch * 0.5);
+  double cr = cos(roll * 0.5);
+  double sr = sin(roll * 0.5);
+
+  return Quat(
+    cr * cp * cy + sr * sp * sy,
+    sr * cp * cy - cr * sp * sy,
+    cr * sp * cy + sr * cp * sy,
+    cr * cp * sy - sr * sp * cy);
 }
 
 };   // namespace sgl
