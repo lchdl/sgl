@@ -1,5 +1,4 @@
 #include "sgl_model.h"
-#include "assimp/Importer.hpp"
 #include "sgl_math.h"
 #include "sgl_utils.h"
 #include <string>
@@ -280,49 +279,175 @@ Model::_register_vertex_weight(
            bone_index, weight);
   }
 }
-
-void Model::_update_mesh_skeletal_animation_from_node(
+void
+Model::_update_mesh_skeletal_animation_from_node(
   const aiNode* node, const Mat4x4& parent_transform, const Mesh& mesh,
-	const uint32_t& anim_id, double time, Uniforms& uniforms)
+  const uint32_t& anim_id, double time, Uniforms& uniforms)
 {
   std::string node_name = node->mName.data;
+
+  /* Compute node transform. If the node belongs to a bone and it contains
+  animation key frame(s), then compute the node transform matrix based on
+  key frame interpolation. If the bone does not have animation, simply use
+  its default transformation matrix. NOTE: in Assimp, if a node is actually
+  a bone, then the node name will be set to be the same as the bone name. */
   Mat4x4 node_transform = convert_assimp_mat4x4(node->mTransformation);
-  Mat4x4 accumulated_transform = mul(parent_transform, node_transform);
-  
-  /* in Assimp, if a node is actually a bone, then the node name will be set
-  to be the same as the bone name. */
   std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
-  if (item != mesh.bone_name_to_id.end()){
+
+  //if (item != mesh.bone_name_to_id.end()) { /* this node belongs to a bone. */
+  //  uint32_t bone_index = item->second;
+  //  const Bone& bone = mesh.bones[bone_index];
+  //  if (bone.animations.size() > 0) {
+  //    /* this bone have one or more animation key frames. */
+  //    const Animation& anim = bone.animations[anim_id];
+  //    double anim_tick = time * anim.ticks_per_second;
+  //    /* compute local translation, rotation and scaling
+  //    by interpolating animation key frames, then overwrite
+  //    node transform matrix. */
+  //    node_transform = _interpolate_skeletal_animation(anim, anim_tick);
+  //  }
+  //}
+
+  /* Compute accumulated node transform for recursion */
+  Mat4x4 accumulated_transform = mul(parent_transform, node_transform);
+
+  /* Compute bone final tranformation matrix and save to uniform variable */
+  if (item != mesh.bone_name_to_id.end()) {
     uint32_t bone_index = item->second;
-		/* if this bone contains animation key frame, then we calculate interpolated
-		local skeletal animation transformation matrix instead of using offset matrix
-		directly. */
-		Mat4x4 bone_transform_matrix = mesh.bones[bone_index].offset_matrix;
-		if (mesh.bones[bone_index].animations.size() > 0) {
-			/* TODO: add animations here */
-			const Animation& anim = mesh.bones[bone_index].animations[anim_id];
-			double anim_tick = time * anim.ticks_per_second;
-		}
-		else {
-			bone_transform_matrix = mesh.bones[bone_index].offset_matrix;
-		}
-    uniforms.bone_matrices[bone_index] = mul(this->global_inverse_transform, 
-        mul(accumulated_transform, bone_transform_matrix));
+    const Bone& bone = mesh.bones[bone_index];
+    //uniforms.bone_matrices[bone_index] = mul(this->global_inverse_transform,
+    //  mul(accumulated_transform, bone.offset_matrix));
+    uniforms.bone_matrices[bone_index] = mul(accumulated_transform, bone.offset_matrix);
   }
 
   for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
     _update_mesh_skeletal_animation_from_node(
-			node->mChildren[i_node], accumulated_transform, mesh, 
-			anim_id, time, uniforms);
-  } 
+      node->mChildren[i_node], accumulated_transform, mesh,
+      anim_id, time, uniforms);
+  }
+}
+
+template<typename T>
+inline T 
+_key_frame_interpolation(
+  const std::vector<KeyFrame<T>>& key_frames, 
+  double tick) 
+{
+  uint32_t n_frames = (uint32_t)key_frames.size();
+  if (n_frames == 1) 
+    return key_frames[0].value;
+  if (tick <= key_frames[0].tick) 
+    return key_frames[0].value;
+  if (tick >= key_frames[n_frames - 1].tick) 
+    return key_frames[n_frames - 1].value;
+
+  /* binary search */
+  uint32_t left = 0, right = (uint32_t)key_frames.size() - 1;
+  while (left < right) {
+    uint32_t mid = (left + right) / 2;
+    if (key_frames[mid].tick <= tick && tick < key_frames[mid + 1].tick) {
+      /* found */
+      left = mid;
+      right = mid + 1;
+      break;
+    }
+    else {
+      if (key_frames[mid].tick < tick) 
+        left = mid + 1;
+      else 
+        right = mid;
+    }
+  }
+
+  /* interpolate left and right (=left+1) */
+  double weight = (tick - key_frames[left].tick) / 
+    (key_frames[left + 1].tick - key_frames[left].tick);
+  if (weight < 0.0) weight = 0.0;
+  if (weight > 1.0) weight = 1.0;
+  
+  return key_frames[left].value * (1 - weight) + 
+    key_frames[left + 1].value * weight;
+}
+
+template<>
+inline Quat 
+_key_frame_interpolation(
+  const std::vector<KeyFrame<Quat>>& key_frames,
+  double tick)
+{
+  uint32_t n_frames = (uint32_t)key_frames.size();
+  if (n_frames == 1)
+    return key_frames[0].value;
+  if (tick <= key_frames[0].tick)
+    return key_frames[0].value;
+  if (tick >= key_frames[n_frames - 1].tick)
+    return key_frames[n_frames - 1].value;
+
+  /* binary search */
+  uint32_t left = 0, right = (uint32_t)key_frames.size() - 1;
+  while (left < right) {
+    uint32_t mid = (left + right) / 2;
+    if (key_frames[mid].tick <= tick && tick < key_frames[mid + 1].tick) {
+      /* found */
+      left = mid;
+      right = mid + 1;
+      break;
+    }
+    else {
+      if (key_frames[mid].tick < tick)
+        left = mid + 1;
+      else
+        right = mid;
+    }
+  }
+
+  /* interpolate left and right (=left+1) */
+  double weight = (tick - key_frames[left].tick) / (key_frames[right].tick - key_frames[left].tick);
+  if (weight < 0.0) weight = 0.0;
+  if (weight > 1.0) weight = 1.0;
+
+  Quat q1 = key_frames[left].value;
+  Quat q2 = key_frames[right].value;
+  Quat q = slerp(q1, q2, weight);
+  if (isnan(q.s)) {
+    debugbreak();
+  }
+  return normalize(q);
+}
+
+Mat4x4 
+Model::_interpolate_skeletal_animation(
+  const Animation& anim, double tick)
+{
+  /* interpolate position, scaling, and rotation (key frames are sorted) */
+  Vec3 position = _key_frame_interpolation<Vec3>(anim.position_key_frames, tick);
+  Vec3 scaling = _key_frame_interpolation<Vec3>(anim.scaling_key_frames, tick);
+  Quat rotation = _key_frame_interpolation<Quat>(anim.rotation_key_frames, tick);
+
+  /* build matrices and combine them */
+  Mat4x4 position_transform(
+    1.0, 0.0, 0.0, position.x,
+    0.0, 1.0, 0.0, position.y,
+    0.0, 0.0, 1.0, position.z,
+    0.0, 0.0, 0.0, 1.0
+  );
+  Mat4x4 scaling_transform(
+    scaling.x, 0.0, 0.0, 0.0,
+    0.0, scaling.y, 0.0, 0.0,
+    0.0, 0.0, scaling.z, 0.0,
+    0.0, 0.0, 0.0, 1.0
+  );
+  Mat4x4 rotation_transform(quat_to_mat3x3(rotation));
+
+  return mul(position_transform, mul(rotation_transform, scaling_transform));
 }
 
 Bone*
-Model::_find_bone_by_name(const std::string & name)
+Model::_find_bone_by_name(const std::string & bone_name)
 {
   for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
     Mesh& mesh = this->meshes[i_mesh];
-    std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(name);
+    std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(bone_name);
     if (item != mesh.bone_name_to_id.end()) {
       uint32_t bone_index = item->second;
       return &(mesh.bones[bone_index]);
@@ -331,19 +456,20 @@ Model::_find_bone_by_name(const std::string & name)
   return NULL;
 }
 
-Animation * Model::_find_bone_animation_by_name(
-  Bone& bone, const std::string & name)
+Animation* 
+Model::_find_bone_animation_by_name(Bone& bone, const std::string & anim_name)
 {
   for (uint32_t i_anim = 0; i_anim < bone.animations.size(); i_anim++) {
     std::string anim_name = bone.animations[i_anim].name;
-    if (anim_name == name) {
+    if (anim_name == anim_name) {
       return &(bone.animations[i_anim]);
     }
   }
   return NULL;
 }
 
-void Model::update_skeletal_animation(
+void 
+Model::update_skeletal_animation(
 	const std::string& anim_name, double time, Uniforms& uniforms)
 {
 	std::map<std::string, uint32_t>::const_iterator item = anim_name_to_id.find(anim_name);

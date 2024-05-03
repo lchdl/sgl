@@ -32,11 +32,15 @@ FS_default(const Fragment_gl &fragment_in, const Uniforms &uniforms,
 	// 	discard=true;
 	// 	return;
 	// }
-  Vec2 uv = fragment_in.t;
-  Vec3 wp = fragment_in.wp;
-  Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
-  Vec3 color = (wp + 2.0) / 3.0;
-  fragment_out = Vec4(color * textured, 1.0);
+
+  //Vec2 uv = fragment_in.t;
+  //Vec3 wp = fragment_in.wp;
+  //Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
+  //Vec3 color = (wp + 2.0) / 3.0;
+  //fragment_out = Vec4(color * textured, 1.0);
+
+  fragment_out = Vec4((fragment_in.wn + 1.0) / 2.0, 1.0);
+
 }
 
 }; // namespace sgl

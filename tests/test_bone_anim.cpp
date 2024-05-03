@@ -5,6 +5,9 @@
 #include "sgl_model.h"
 #include "sgl_utils.h"
 
+
+#include "assimp/quaternion.h"
+
 using namespace sgl;
 
 int w = 800, h = 600;
@@ -29,7 +32,7 @@ init_render_pass() {
                   TextureSampling::texture_sampling_point);
 
   /* Step 2: Setup render config. */
-  render_pass.eye.position = Vec3(100, 100, 100);
+  render_pass.eye.position = Vec3(0, 100, 100);
   render_pass.eye.look_at = Vec3(0, 0, 0);
   render_pass.eye.up_dir = Vec3(0, 1, 0);
   render_pass.eye.perspective.enabled = true;
@@ -50,7 +53,7 @@ init_render_pass() {
 
 }
 
-void handle_key(SDL_KeyboardEvent *key) { 
+void record_key(SDL_KeyboardEvent *key) { 
   bool is_press = (key->type == SDL_KEYUP);
   /* scancode is based on QWERTY layout,
    * while keycode generated from the same key position 
@@ -58,10 +61,13 @@ void handle_key(SDL_KeyboardEvent *key) {
   uint32_t scancode = key->keysym.scancode;
   uint32_t keycode = key->keysym.sym;
   std::string keyname = SDL_GetKeyName(keycode);
-  
   /* record key state */
   keystate[scancode] = is_press ? true : false;
 }
+//
+//void handle_key() {
+//  if (keystate[SDL_SCANCODE_W])
+//}
 
 int
 main(int argc, char* argv[]) {
@@ -96,19 +102,22 @@ main(int argc, char* argv[]) {
   Timer timer, frame_timer;
   bool quit = false;
   int frameid = 0;
-	double total_frame_time = 0.0;
+	double total_frame_time = 0.0, T = 0.0;
 	char buf[64];
   while (!quit) {
     SDL_PollEvent(&e);
     if (e.type == SDL_QUIT || keystate[SDL_SCANCODE_ESCAPE])
       quit = true;
     else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
-      handle_key(&e.key);
+      record_key(&e.key);
 
     frameid++;
     frame_timer.tick();
+    T += timer.tick();
     
     /* render the whole frame */
+    render_pass.time = fmod(T, 5.0);
+    render_pass.anim_name = "";
     render_pass.run(pipeline);
     
     double frame_time = frame_timer.tick();

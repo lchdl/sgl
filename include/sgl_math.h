@@ -1,11 +1,14 @@
 #pragma once
 #include <math.h>
 
+#include <stdio.h>
+
 namespace sgl {
 
 /* Simple math operations should be inlined as much as possible. */
 
 static const double PI = 3.141592653589793238462643383279502884197;
+static const double PI_INV = 1.0 / 3.141592653589793238462643383279502884197;
 
 template <typename T>
 T
@@ -26,6 +29,15 @@ template <typename T1, typename T2>
 T1
 lerp(T1 _a, T1 _b, T2 _w) {
   return (T2(1) - _w) * _a + _w * _b;
+}
+
+inline double
+radians_to_degrees(double radians) {
+  return radians * 57.29577951308232;
+}
+inline double
+degrees_to_radians(double degrees) {
+  return degrees * 0.017453292519943295;
 }
 
 struct Vec2 {
@@ -268,6 +280,14 @@ struct Mat4x4 {
     i31 = _31, i32 = _32, i33 = _33, i34 = _34;
     i41 = _41, i42 = _42, i43 = _43, i44 = _44;
   }
+  Mat4x4(const Mat3x3& _m) {
+    i11 = _m.i11, i12 = _m.i12, i13 = _m.i13, i14 = 0.0;
+    i21 = _m.i21, i22 = _m.i22, i23 = _m.i23, i24 = 0.0;
+    i31 = _m.i31, i32 = _m.i32, i33 = _m.i33, i34 = 0.0;
+    i41 = 0.0, i42 = 0.0, i43 = 0.0, i44 = 1.0;
+  }
+
+
   Mat4x4(double* _data) {
     for (int t = 0; t < 16; t++) 
       this->i[t] = _data[t];
@@ -672,8 +692,46 @@ dot(Quat q1, Quat q2)
 }
 inline Quat
 slerp(Quat q1, Quat q2, double t) {
-  double theta = acos(dot(q1, q2));
-  Quat q = (sin((1 - t)*theta) * q1 + sin(t*theta) * q2) / sin(theta);
+  /*
+  Quaternion spherical interpolation (slerp) implementation adapted from Assimp.
+  Also from Assimp:
+    "
+    Implementation adopted from the gmtl project. 
+    All others I found on the net fail in some cases.
+    "
+  */
+  /* calculate cosine theta */
+  double cosom = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.s * q2.s;
+  /* reverse all signs (if necessary) */
+  Quat end = q2;
+  if (cosom < 0.0) {
+    cosom = -cosom;
+    end.x = -end.x;
+    end.y = -end.y;
+    end.z = -end.z;
+    end.s = -end.s;
+  }
+  /* calculate coefficients */
+  double sclp, sclq;
+  if ((1.0 - cosom) > 0.0001) {
+    /* Standard case (slerp) */
+    double omega, sinom;
+    omega = acos(cosom); /* extract theta from dot product's cos theta */
+    sinom = sin(omega);
+    sclp = sin((1.0 - t) * omega) / sinom;
+    sclq = sin(t * omega) / sinom;
+  }
+  else {
+    /* Very close, do linear interp (because it's faster and much more robust, 
+    if q1 and q2 are very close, acos will return NaN sometimes.) */
+    sclp = 1.0 - t;
+    sclq = t;
+  }
+  Quat q;
+  q.x = sclp * q1.x + sclq * end.x;
+  q.y = sclp * q1.y + sclq * end.y;
+  q.z = sclp * q1.z + sclq * end.z;
+  q.s = sclp * q1.s + sclq * end.s;
   return q;
 }
 inline Mat3x3

@@ -45,8 +45,8 @@ void Pipeline::draw(
   vertex_post_processing(indices);
 
   /* Step 3: Rasterization & fragment processing */
-  //fragment_processing(uniforms);
-  fragment_processing_MT(uniforms, ppl.num_threads);
+  fragment_processing(uniforms);
+  //fragment_processing_MT(uniforms, ppl.num_threads);
 }
 
 void
@@ -109,6 +109,7 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
     const Vec4 p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
     double area = edge(p0, p1, p2);
     if (isnan(area) || isinf(area)) continue; /* Ignore invalid triangles. */
+    if (area < 0.0 && ppl.backface_culling) continue; /* Backface culling. */
     /** @note: p0, p1, p2 are actually gl_FragCoord. **/
     /* Step 3.3: Rasterization. */
     Vec4 rect = get_minimum_rect(p0, p1, p2);
@@ -506,7 +507,8 @@ void
 ModelPass::run(Pipeline& ppl) {
 	if (model == NULL) return;
 
-	ppl.set_shaders(model_VS, model_FS);
+  //ppl.set_shaders(model_VS, model_FS);
+  ppl.set_shaders(VS_default, FS_default);
 	ppl.set_render_targets(this->color_texture, this->depth_texture);
 	ppl.clear_render_targets(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
 
@@ -517,7 +519,7 @@ ModelPass::run(Pipeline& ppl) {
 	/* Rendering all the mesh parts in model */
 	const std::vector<Mesh>& mesh_data = model->get_mesh_data();
 	const std::vector<Material>& materials = model->get_materials();
-		
+	
 	this->model->update_skeletal_animation(this->anim_name, this->time, uniforms);
 
 	for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {

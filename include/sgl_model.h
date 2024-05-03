@@ -174,7 +174,8 @@ private:
   const aiScene* _scene;
 
   void _register_vertex_weight(Vertex& v, uint32_t bone_index, double weight);
-
+  Bone* _find_bone_by_name(const std::string& bone_name);
+  Animation* _find_bone_animation_by_name(Bone& bone, const std::string & anim_name);
   void _update_mesh_skeletal_animation_from_node(
 		const aiNode* node,             /* current node being traversed */
 		const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
@@ -183,9 +184,9 @@ private:
 		double time,                    /* elapsed time since the start of the animation (sec.) */
     Uniforms& uniforms              /* uniform variables that will be written to */
 	);
-
-  Bone* _find_bone_by_name(const std::string& name);
-  Animation* _find_bone_animation_by_name(Bone& bone, const std::string & name);
+  Mat4x4 _interpolate_skeletal_animation(
+    const Animation& anim, double tick
+  );
 
 };
 
