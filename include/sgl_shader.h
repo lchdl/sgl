@@ -13,9 +13,7 @@ const int MAX_BONES_INFLUENCE_PER_VERTEX = 4;
 /* A mesh model can only have less than 128 bones. */
 const int MAX_BONES_PER_MESH = 128;
 
-class Vertex {
- public:
-  /* static geometry */
+struct Vertex {
   Vec3 p; /* vertex position (in model local space) */
   Vec3 n; /* vertex normal (in model local space)*/
   Vec2 t; /* vertex texture coordinate */
@@ -83,9 +81,7 @@ class Vertex_gl {
   }
 };
 
-class Fragment_gl {
-  /* data structure used by fragment shaders */
- public:
+struct Fragment_gl {
   /* fs_in */
   Vec4 gl_FragCoord;
   Vec3 wp;
@@ -93,10 +89,9 @@ class Fragment_gl {
   Vec2 t;
 };
 
-class Uniforms {
-  /* Uniform variables that are used by both vertex and fragment shaders. */
- public:
-  /* transforming vertex from local model space to world space. */
+/* Uniform variables that are used by both vertex and fragment shaders. */
+struct Uniforms {
+	/* transforming vertex from local model space to world space. */
   Mat4x4 model;
   /* transforming vertex from world space to local view space. */
   Mat4x4 view;
@@ -106,6 +101,7 @@ class Uniforms {
   const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
   /* final bone transformations */
   Mat4x4 bone_matrices[MAX_BONES_PER_MESH];
+
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

@@ -315,9 +315,10 @@ Model::_update_mesh_skeletal_animation_from_node(
   if (item != mesh.bone_name_to_id.end()) {
     uint32_t bone_index = item->second;
     const Bone& bone = mesh.bones[bone_index];
-    //uniforms.bone_matrices[bone_index] = mul(this->global_inverse_transform,
-    //  mul(accumulated_transform, bone.offset_matrix));
-    uniforms.bone_matrices[bone_index] = mul(accumulated_transform, bone.offset_matrix);
+		Mat4x4 a = mul(this->global_inverse_transform, mul(accumulated_transform, bone.offset_matrix));
+		//Mat4x4 b = mul(accumulated_transform, bone.offset_matrix);
+		uniforms.bone_matrices[bone_index] = a;
+    //uniforms.bone_matrices[bone_index] = b;
   }
 
   for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
@@ -409,9 +410,6 @@ _key_frame_interpolation(
   Quat q1 = key_frames[left].value;
   Quat q2 = key_frames[right].value;
   Quat q = slerp(q1, q2, weight);
-  if (isnan(q.s)) {
-    debugbreak();
-  }
   return normalize(q);
 }
 
@@ -497,7 +495,7 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
   const Mat4x4 &projection = uniforms.projection;
   Mat4x4 transform = mul(projection, mul(view, model));
 
-  if (vertex_in.bone_IDs.i[0] < 0) {
+  if (1/*vertex_in.bone_IDs.i[0] < 0*/) {
     /* vertex does not belong to any bone */
     Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
     vertex_out.gl_Position = gl_Position;

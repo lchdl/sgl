@@ -19,6 +19,7 @@ std::vector<Vertex> vertices;
 std::vector<int32_t> indices;
 
 Texture colortex, depthtex;
+Texture image;
 
 Mat4x4 
 compute_projection_matrix(double w, double h, double near, double far, double field_of_view) {
@@ -53,14 +54,16 @@ init_render_pass() {
     0, 0, 0, 1
   );
   Mat4x4 projection = compute_projection_matrix(w, h, 0.1, 100, degrees_to_radians(45));
+	image = sgl::load_texture("textures/checker_1024.png");
   uniforms.model = model;
   uniforms.view = view;
   uniforms.projection = projection;
+	uniforms.in_textures[0] = &image;
   pipeline.set_render_targets(&colortex, &depthtex);
   pipeline.clear_render_targets(&colortex, &depthtex, Vec4(0.5, 0.5, 0.5, 1.0));
   pipeline.set_shaders(VS_default, FS_default);
-  pipeline.set_num_threads(1);
-  pipeline.enable_backface_culling(0);
+  //pipeline.set_num_threads(4);
+  pipeline.disable_backface_culling();
   
   double V[] = {
     // positions          // texture coords
