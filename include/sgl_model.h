@@ -50,18 +50,23 @@ struct Mesh {
   /* A mesh is a unique part of a model that has only 
    * one material. A mesh can contain multiple meshes. */
   /* vertex buffer, used in rasterization */
-  std::vector<Vertex> vertices; 
+  std::string name; /* name of the mesh */
+  std::vector<Vertex> vertices;
   /* index buffer, used in rasterization */
   std::vector<int32_t> indices;
   /* material id */
   uint32_t mat_id; 
   /* all the bones in this mesh */
   std::vector<Bone> bones;
-  /* mapping bone name to its id. */
+  /* 
+  mapping bone name to its id, 
+  use this->bones[id] to get the actual bone.
+  */
   std::map<std::string, uint32_t> bone_name_to_id; 
 };
 struct Material {
   /* each mesh part will only uses one material. */
+  std::string diffuse_texture_file;
   Texture diffuse_texture;
 };
 
@@ -73,31 +78,21 @@ class Model {
 public:
   /* initialize mesh object from external/internal file formats. */
   bool load(const std::string& file);
-	/* print mesh format for debugging */
+	/* dump mesh information for debugging */
 	void dump();
   /* unload mesh and return allocated resources to OS. */
   void unload();
-  /* Set mesh transformation */
-  void set_transform(const Mat4x4& transform) {
-    this->model_transform = transform;
-  }
-  /* get loaded mesh data */
-  const std::vector<Mesh>& get_mesh_data() const {
-    return this->meshes;
-  }
-  /* get model materials */
-  const std::vector<Material>& get_materials() const {
-    return this->materials;
-  }
-  /* get model transform, will be applied before any other transforms. */
-  const Mat4x4 get_transform() const {
-    return this->model_transform;
-  }
+  /* Set model global transformation matrix */
+  void set_model_transform(const Mat4x4& transform) { this->model_transform = transform; }
+  /* getters */
+  const std::vector<Mesh>& get_mesh_data() const { return this->meshes; }
+  const std::vector<Material>& get_materials() const { return this->materials; }
+  const Mat4x4 get_model_transform() const { return this->model_transform; }
 
   /**
-	update_bone_matrices_for_mesh():
-	Calculate bone final transformations and update the result to 
-	uniform variables.
+	update_skeletal_animation():
+	* Calculate bone final transformations and update the result to 
+	  uniform variables.
 
 	              * THE PRINCIPLE BEHIND BONE ANIMATION *              
 	-------------------------------------------------------------------
@@ -153,6 +148,7 @@ public:
   /* ctor & dtor that we don't even care about much. */
   Model();
   ~Model(); /* currently i don't want to declare it as "virtual". */
+
 protected:
   std::vector<Mesh> meshes;
   std::vector<Material> materials;
@@ -167,6 +163,8 @@ protected:
   Mat4x4 global_inverse_transform;
 	/* animation name to animation id mapping */
 	std::map<std::string, uint32_t> anim_name_to_id;
+  /* node name to mesh id */
+  std::map<std::string, uint32_t> node_name_to_mesh_id;
 
 private:
   /* Assimp model importer.
@@ -175,6 +173,7 @@ private:
   ::Assimp::Importer* _importer;
   const aiScene* _scene;
 
+  /* animation related utility functions */
   void _register_vertex_weight(Vertex& v, uint32_t bone_index, double weight);
   Bone* _find_bone_by_name(const std::string& bone_name);
   Animation* _find_bone_animation_by_name(Bone& bone, const std::string & anim_name);
@@ -190,7 +189,10 @@ private:
     const Animation& anim, double tick
   );
 
+  /* utility functions for mesh debugging */
 	void _dump_mesh(const Mesh& mesh);
+  void _dump_material(const Material& material);
+  void _dump_node(const aiNode* node, const uint32_t indent);
 };
 
 inline Mat4x4 

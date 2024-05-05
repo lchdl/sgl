@@ -521,7 +521,7 @@ ModelPass::run(Pipeline& ppl) {
   else {
     /* orthographic view not implemented. */
   }
-	uniforms.model = this->model->get_transform();
+	uniforms.model = this->model->get_model_transform();
 	uniforms.view = this->get_view_matrix();
 	uniforms.projection = this->get_projection_matrix();
 

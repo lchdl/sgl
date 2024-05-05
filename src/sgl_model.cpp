@@ -93,7 +93,8 @@ Model::load(const std::string& file) {
   const aiVector3D zvec = aiVector3D(0.0, 0.0, 0.0);
   for(uint32_t i_mesh = 0; i_mesh < n_meshes; i_mesh++) {
     const aiMesh* mesh = _scene->mMeshes[i_mesh];
-    const uint32_t n_vert = mesh->mNumVertices;  
+    const uint32_t n_vert = mesh->mNumVertices;
+    this->meshes[i_mesh].name = mesh->mName.data;
     /* load vertex (positions, normals, and texture coordinates) */
     for (uint32_t i_vert = 0; i_vert < n_vert; i_vert++) {
       const aiVector3D* position = &mesh->mVertices[i_vert];
@@ -128,8 +129,17 @@ Model::load(const std::string& file) {
     for (uint32_t i_bone = 0; i_bone < mesh->mNumBones; i_bone++) {
       Bone bone;
       bone.name = mesh->mBones[i_bone]->mName.data;
-      bone.offset_matrix = convert_assimp_mat4x4(
-				mesh->mBones[i_bone]->mOffsetMatrix);
+      bone.offset_matrix = convert_assimp_mat4x4(mesh->mBones[i_bone]->mOffsetMatrix);
+      /* register bone info, let model know this bone belongs to current mesh */
+      std::map<std::string, uint32_t>::const_iterator item = node_name_to_mesh_id.find(bone.name);
+      if (item != node_name_to_mesh_id.end()) {
+        printf("[*] Warning: bone \"%s\" belongs to more than one mesh "
+          "(prev: [%u], cur: [%u]). This may cause incorrect skeletal "
+          "animation.\n", bone.name.c_str(), item->second, i_mesh);
+      }
+      else {
+        this->node_name_to_mesh_id.insert_or_assign(bone.name, i_mesh);
+      }
       /* number of affected vertices by this bone */
       uint32_t n_bone_verts = mesh->mBones[i_bone]->mNumWeights;
       for (uint32_t i_vert = 0; i_vert < n_bone_verts; i_vert++) {
@@ -167,7 +177,7 @@ Model::load(const std::string& file) {
 			printf("Found duplicated animation \"%s\".\n", anim_name.c_str());
 		}
 		anim_name_to_id.insert_or_assign(anim_name, (uint32_t)anim_name_to_id.size());
-    /* loop for each bone this animation controls */
+    /* loop for each bone this animation controls, fill in bone->animations */
     for (uint32_t i_channel = 0; i_channel < n_ctrl_bones; i_channel++) {
       const aiNodeAnim* bone_anim = anim->mChannels[i_channel];
       std::string bone_name = bone_anim->mNodeName.data;
@@ -183,21 +193,19 @@ Model::load(const std::string& file) {
           bone->animations.push_back(new_anim);
           dst_anim = &(bone->animations[bone->animations.size() - 1]);
         }
-        /* read scaling key frames */
+        /* read key frames */
         for (uint32_t i_key = 0; i_key < bone_anim->mNumScalingKeys; i_key++) {
           KeyFrame<Vec3> key_frame;
           key_frame.tick = bone_anim->mScalingKeys[i_key].mTime;
           key_frame.value = convert_assimp_vec3(bone_anim->mScalingKeys[i_key].mValue);
           dst_anim->scaling_key_frames.push_back(key_frame);
         }
-        /* read position key frames */
         for (uint32_t i_key = 0; i_key < bone_anim->mNumPositionKeys; i_key++) {
           KeyFrame<Vec3> key_frame;
           key_frame.tick = bone_anim->mPositionKeys[i_key].mTime;
           key_frame.value = convert_assimp_vec3(bone_anim->mPositionKeys[i_key].mValue);
           dst_anim->position_key_frames.push_back(key_frame);
         }
-        /* read rotation key frames */
         for (uint32_t i_key = 0; i_key < bone_anim->mNumRotationKeys; i_key++) {
           KeyFrame<Quat> key_frame;
           key_frame.tick = bone_anim->mRotationKeys[i_key].mTime;
@@ -229,6 +237,7 @@ Model::load(const std::string& file) {
         std::string tex_full_path = join(gd(model_file), tp);
         /* create texture object and append to mesh texture library */
         this->materials[i_mat].diffuse_texture = load_texture(tex_full_path);
+        this->materials[i_mat].diffuse_texture_file = tex_full_path;
         if (this->materials[i_mat].diffuse_texture.pixels == NULL) {
           printf("Texture loading error: cannot load texture \"%s\". "
               "File not exist or have no access.\n", tex_full_path.c_str());
@@ -248,11 +257,13 @@ Model::load(const std::string& file) {
 void Model::dump()
 {
 	printf("Model dump:\n");
-	printf("Total number of mesh(es): %zd\n", this->meshes.size());
+	printf("  Total number of mesh(es): %zd\n", this->meshes.size());
 	for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
-		printf("Mesh [%d]:\n", i_mesh);
+		printf("  Mesh [%d]: \"%s\"\n", i_mesh, this->meshes[i_mesh].name.c_str());
 		this->_dump_mesh(this->meshes[i_mesh]);
 	}
+  printf("  Nodes:\n");
+  this->_dump_node(_scene->mRootNode, 2);
 }
 
 void 
@@ -328,6 +339,7 @@ Model::_update_mesh_skeletal_animation_from_node(
 		Mat4x4 b = mul(accumulated_transform, bone.offset_matrix);
 		//uniforms.bone_matrices[bone_index] = a;
     uniforms.bone_matrices[bone_index] = b;
+    printf(" %d", bone_index);
   }
 
   for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
@@ -454,11 +466,38 @@ Model::_interpolate_skeletal_animation(
 
 void Model::_dump_mesh(const Mesh & mesh)
 {
-	printf("  Total number of vertices: %zu\n", mesh.vertices.size());
-	printf("  Total number of indices/tri_faces: %zu/%zu\n", mesh.indices.size(), mesh.indices.size() / 3);
-	printf("  Material ID: %u\n", mesh.mat_id);
-	printf("  Number of bones: %zu\n", mesh.bones.size());
+	printf("    Total number of vertices: %zu\n", mesh.vertices.size());
+	printf("    Total number of indices/tri_faces: %zu/%zu\n", mesh.indices.size(), mesh.indices.size() / 3);
+	printf("    Material ID: %u\n", mesh.mat_id);
+  this->_dump_material(this->materials[mesh.mat_id]);
+	printf("    Number of bones: %zu\n", mesh.bones.size());
+}
 
+void Model::_dump_material(const Material & material)
+{
+  /* diffuse texture */
+  printf("      Diffuse: \"%s\" (%s)\n", 
+    material.diffuse_texture_file.c_str(),
+    (material.diffuse_texture.pixels != NULL) ? "OK" : "NOT FOUND");
+  printf("               size=%dx%d\n", 
+    material.diffuse_texture.w, 
+    material.diffuse_texture.h);
+}
+
+void Model::_dump_node(const aiNode* node, const uint32_t indent)
+{
+  std::string node_name = node->mName.data;
+  std::string node_status = "";
+  std::string pad = "";
+  for (uint32_t i = 0; i < indent; i++) pad += " ";
+  std::map<std::string, uint32_t>::const_iterator iter = node_name_to_mesh_id.find(node_name);
+  if (iter != node_name_to_mesh_id.end()) {
+    node_status += std::string("[bone,mesh_id=") + std::to_string(iter->second) + std::string("]");
+  }
+  printf("%s%s %s\n", pad.c_str(), node->mName.data, node_status.c_str());
+  for (uint32_t i = 0; i < node->mNumChildren; i++) {
+    this->_dump_node(node->mChildren[i], indent + 2);
+  }
 }
 
 Bone*
@@ -491,9 +530,10 @@ void
 Model::update_skeletal_animation(
 	const std::string& anim_name, double time, Uniforms& uniforms)
 {
+  printf("UPDATE: ");
 	std::map<std::string, uint32_t>::const_iterator item = anim_name_to_id.find(anim_name);
 	if (item == anim_name_to_id.end()) {
-		printf("Warning: could not find the required animation \"%s\" for model.\n", anim_name.c_str());
+		printf("[*] Warning: could not find the required animation \"%s\" for model.\n", anim_name.c_str());
 		return;
 	}
 	uint32_t anim_id = item->second;
@@ -503,6 +543,7 @@ Model::update_skeletal_animation(
 			_scene->mRootNode, Mat4x4::identity(), mesh, 
 			anim_id, time, uniforms);
 	}
+  printf("\n");
 }
 
 void
