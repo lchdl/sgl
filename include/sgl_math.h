@@ -1,14 +1,12 @@
 #pragma once
 #include <math.h>
 
-#include <stdio.h>
-
 namespace sgl {
-
 /* Simple math operations should be inlined as much as possible. */
 
 static const double PI = 3.141592653589793238462643383279502884197;
-static const double PI_INV = 1.0 / 3.141592653589793238462643383279502884197;
+static const double PI_INV = 0.318309886183790671537767526745028724069; /* 1/pi */
+static const double PI_SQUARE = 9.869604401089358618834490999876151135313; /* pi^2 */
 
 template <typename T>
 T
@@ -33,11 +31,11 @@ lerp(T1 _a, T1 _b, T2 _w) {
 
 inline double
 radians_to_degrees(double radians) {
-  return radians * 57.29577951308232;
+  return radians * 57.295779513082320876798154814105170332409;
 }
 inline double
 degrees_to_radians(double degrees) {
-  return degrees * 0.017453292519943295;
+  return degrees * 0.017453292519943295769236907684886127134;
 }
 
 struct Vec2 {
@@ -369,6 +367,20 @@ struct Quat {
   static Quat rot_x(double angle) { return Quat(cos(angle / 2.0), sin(angle / 2.0), 0.0, 0.0); }
   static Quat rot_y(double angle) { return Quat(cos(angle / 2.0), 0.0, sin(angle / 2.0), 0.0); }
   static Quat rot_z(double angle) { return Quat(cos(angle / 2.0), 0.0, 0.0, sin(angle / 2.0)); }
+	static Quat from_euler(double yaw, double pitch, double roll) {
+		/* https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles */
+		double cy = cos(yaw * 0.5);
+		double sy = sin(yaw * 0.5);
+		double cp = cos(pitch * 0.5);
+		double sp = sin(pitch * 0.5);
+		double cr = cos(roll * 0.5);
+		double sr = sin(roll * 0.5);
+		return Quat(
+			cr * cp * cy + sr * sp * sy,
+			sr * cp * cy - cr * sp * sy,
+			cr * sp * cy + sr * cp * sy,
+			cr * cp * sy - sr * sp * cy);
+	}
 
 };
 
@@ -697,10 +709,8 @@ slerp(Quat q1, Quat q2, double t) {
   /*
   Quaternion spherical interpolation (slerp) implementation adapted from Assimp.
   Also from Assimp:
-    "
-    Implementation adopted from the gmtl project. 
-    All others I found on the net fail in some cases.
-    "
+    "Implementation adopted from the gmtl project. 
+		All others I found on the net fail in some cases."
   */
   /* calculate cosine theta */
   double cosom = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.s * q2.s;
@@ -821,20 +831,7 @@ mul(Vec3 v, Quat q)
 inline Quat
 euler_to_quat(double yaw, double pitch, double roll)
 {
-  /* https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles */
-
-  double cy = cos(yaw * 0.5);
-  double sy = sin(yaw * 0.5);
-  double cp = cos(pitch * 0.5);
-  double sp = sin(pitch * 0.5);
-  double cr = cos(roll * 0.5);
-  double sr = sin(roll * 0.5);
-
-  return Quat(
-    cr * cp * cy + sr * sp * sy,
-    sr * cp * cy - cr * sp * sy,
-    cr * sp * cy + sr * cp * sy,
-    cr * cp * sy - sr * sp * cy);
+	return Quat::from_euler(yaw, pitch, roll);
 }
 
 };   // namespace sgl

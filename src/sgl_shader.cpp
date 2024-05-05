@@ -3,7 +3,7 @@
 namespace sgl {
 
 void
-VS_default(const Vertex &vertex_in, const Uniforms &uniforms,
+default_VS(const Vertex &vertex_in, const Uniforms &uniforms,
               Vertex_gl &vertex_out) {
   /* Implement default vertex shader. */
   const Mat4x4 &model = uniforms.model;
@@ -24,20 +24,8 @@ assemble_fragment(const Vertex_gl &vertex_in, Fragment_gl &fragment_out) {
   fragment_out.t = vertex_in.t;
 }
 void
-FS_default(const Fragment_gl &fragment_in, const Uniforms &uniforms,
+default_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                 Vec4 &fragment_out, bool& discard) {
-	// int ix = fragment_in.gl_FragCoord.x;
-	// int iy = fragment_in.gl_FragCoord.y;
-	// if ((ix + iy) % 2 == 0) {
-	// 	discard=true;
-	// 	return;
-	// }
-
-  //Vec3 wp = fragment_in.wp;
-  //Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
-  //Vec3 color = (wp + 2.0) / 3.0;
-  //fragment_out = Vec4(color * textured, 1.0);
-
 	Vec2 uv = fragment_in.t;
 	Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
   fragment_out = Vec4(textured, 1.0);

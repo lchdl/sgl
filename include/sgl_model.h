@@ -32,25 +32,20 @@ struct Animation {
   double ticks_per_second; /* default = 25 */
 };
 struct Bone {
-  struct VertexCtrl {
-    uint32_t index; /* vertex index */
-    double  weight; /* vertex weight */
-  };
   /* bone name */
   std::string name; 
-  /* vertices controlled by this bone */
-  std::vector<VertexCtrl> vertices;
   /* transform vertex from local model space to bone space
      when the model is in bind pose (default T-pose). */
   Mat4x4 offset_matrix;
-  /* skeletal animations */
-  std::vector<Animation> animations;
 };
 struct Node {
   std::string name;
   std::vector<Node*> childs;
-  uint32_t unique_id;
-  Node* parent;
+	Node* parent;
+	uint32_t unique_id;
+  Mat4x4 transformation_matrix;
+  /* skeletal animations */
+  std::vector<Animation> animations;
 };
 struct Mesh {
   /* A mesh is a unique part of a model that has only 
@@ -64,8 +59,8 @@ struct Mesh {
   uint32_t mat_id; 
   /* all the bones in this mesh */
   std::vector<Bone> bones;
-  /* mapping bone name to its pointer */
-  std::map<std::string, Bone*> bone_name_to_ptr; 
+  /* mapping bone name to its index */
+  std::map<std::string, uint32_t> bone_name_to_local_id; 
 };
 struct Material {
   /* each mesh part will only uses one material. */
@@ -145,8 +140,15 @@ public:
 	NOTE: If the model is in bind pose (default T-pose), then we will
 	      have: T0*T1*T2 = Q^-1, which means S is the identity matrix.
 	**/
-  void update_skeletal_animation(
-		const std::string& anim_name, double time, Uniforms& uniforms);
+  void update_skeletal_animation_for_mesh(
+		const Mesh& mesh,             /* the mesh being drawn */
+    const std::string& anim_name, /* name of the animation being played */
+		double time,                  /* animation timeline (in sec.) */
+		Uniforms& uniforms            /* where results will be saved */
+		/* NOTE: a single draw call only renders a single mesh onto screen,
+		so if a model contains N meshes, it will need N draw calls to fully
+		render the whole model, with i-th draw call renders the i-th mesh. */
+	);
 
   /* ctor & dtor that we don't even care about much. */
   Model();
@@ -159,34 +161,24 @@ protected:
    * applied before any other transformation during
    * rendering. */
   Mat4x4 model_transform;
-  /* the model is not guaranteed to be placed at the world's origin,
-   * we need to place the model to the origin by multiplying the
-   * global inverse transform matrix that is calculated when loading
-   * the model data. */
-  Mat4x4 global_inverse_transform;
 	/* animation name to animation id mapping */
 	std::map<std::string, uint32_t> anim_name_to_unique_id;
   /* map a node name to a unique node id */
   std::map<std::string, uint32_t> node_name_to_unique_id;
+  std::map<std::string, Node*> node_name_to_ptr;
   Node* root_node;
 
 private:
-  /* Assimp model importer.
-   * Note: if the importer is destoryed, the resources 
-   * it holds will also be destroyed. */
-  ::Assimp::Importer* _importer;
-  const aiScene* _scene;
-
   /* IO utility functions */
   void _parse_node_hierarchy(Node* node, aiNode* ai_node);
   void _delete_node(Node* node);
 
   /* animation related utility functions */
   void _register_vertex_weight(Vertex& v, uint32_t bone_ID, double weight);
-  Bone* _find_bone_by_name(const std::string& bone_name);
-  Animation* _find_bone_animation_by_name(Bone& bone, const std::string & anim_name);
+  Node* _find_node_by_name(const std::string& node_name);
+  Animation* _find_node_animation_by_name(Node& node, const std::string & anim_name);
   void _update_mesh_skeletal_animation_from_node(
-		const aiNode* node,             /* current node being traversed */
+		const Node* node,               /* current node being traversed */
 		const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
 		const Mesh& mesh,               /* mesh that contains all the bones */
 		const uint32_t& anim_id,        /* id of the animation currently being played */
@@ -200,7 +192,7 @@ private:
   /* utility functions for mesh debugging */
 	void _dump_mesh(const Mesh& mesh);
   void _dump_material(const Material& material);
-  void _dump_node(const aiNode* node, const uint32_t indent);
+  void _dump_node(const Node* node, const uint32_t indent);
 };
 
 inline Mat4x4 

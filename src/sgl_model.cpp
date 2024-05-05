@@ -7,10 +7,8 @@
 namespace sgl {
 
 Model::Model() {
-  _importer = NULL;
   root_node = NULL;
   model_transform = Mat4x4::identity();
-  global_inverse_transform = Mat4x4::identity();
 }
 Model::~Model() {
   this->unload();
@@ -18,11 +16,6 @@ Model::~Model() {
 
 void
 Model::unload() {
-  if (this->_importer != NULL) {
-    delete this->_importer;
-    this->_importer = NULL;
-  }
-  this->_scene = NULL;
   this->meshes.clear();
   this->materials.clear();
   this->_delete_node(root_node);
@@ -34,9 +27,12 @@ Model::load(const std::string& file) {
   
   /* clear trash data from previous load */
   this->unload(); 
-  
-  /* import model file using Assimp */
-  this->_importer = new ::Assimp::Importer();
+	
+	/* Assimp model importer.
+	 * Note: if the importer is destoryed, the resources
+   * it holds will also be destroyed. */
+	::Assimp::Importer* _importer = new ::Assimp::Importer();
+	const aiScene* _scene;
  	
   /* if the model is packed as a *.zip file, unpack it first */
   std::string temp_folder = "";
@@ -75,10 +71,10 @@ Model::load(const std::string& file) {
 	
   /* then import the file using assimp */
 	uint32_t load_flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices;
-  this->_scene = this->_importer->ReadFile(model_file.c_str(), load_flags);
+  _scene = _importer->ReadFile(model_file.c_str(), load_flags);
 	if (!_scene || !_scene->mRootNode || _scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
 		printf("Assimp importer.ReadFile() error when loading file \"%s\": \"%s\".\n",
-			file.c_str(), this->_importer->GetErrorString());
+			file.c_str(), _importer->GetErrorString());
 		if (temp_folder != "")
       rm(temp_folder);
     return false;
@@ -130,10 +126,6 @@ Model::load(const std::string& file) {
      * transformation from local model space directly to bone space 
      * in bind pose (default T-pose). */
 
-    /* read and calculate global inverse transformation matrix */
-    this->global_inverse_transform = convert_assimp_mat4x4(
-      this->_scene->mRootNode->mTransformation).inverse();
-
     /* load all the bones */
     for (uint32_t i_bone = 0; i_bone < mesh->mNumBones; i_bone++) {
       Bone bone;
@@ -144,20 +136,16 @@ Model::load(const std::string& file) {
       for (uint32_t i_vert = 0; i_vert < n_bone_verts; i_vert++) {
         /* read and save all info about the affected vertices by this bone */
         aiVertexWeight vw = mesh->mBones[i_bone]->mWeights[i_vert];
-        Bone::VertexCtrl vc;
-        vc.index = vw.mVertexId;
-        vc.weight = vw.mWeight;
-        bone.vertices.push_back(vc);
         /* write bone info into affected vertex (let the vertex know
          * there is a bone that influences itself). */
-        Vertex& affected_vert = this->meshes[i_mesh].vertices[vc.index];
-        _register_vertex_weight(affected_vert, i_bone, vc.weight);
+        Vertex& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
+        uint32_t node_unique_id = this->node_name_to_unique_id[bone.name];
+        _register_vertex_weight(affected_vert, node_unique_id, vw.mWeight);
       }
       /* register bone */
       std::vector<Bone>& bones_list = this->meshes[i_mesh].bones;
       bones_list.push_back(bone);
-      Bone* bone_ptr = &bones_list[bones_list.size() - 1];
-      this->meshes[i_mesh].bone_name_to_ptr.insert_or_assign(bone.name, bone_ptr);
+      this->meshes[i_mesh].bone_name_to_local_id.insert_or_assign(bone.name, (uint32_t)bones_list.size() - 1);
     }
   }
 
@@ -167,7 +155,7 @@ Model::load(const std::string& file) {
     const aiAnimation* anim = _scene->mAnimations[i_anim];
     double ticks_per_second = anim->mTicksPerSecond;
     if (ticks_per_second < 1.0) ticks_per_second = 25.0;
-    uint32_t n_ctrl_bones = anim->mNumChannels; /* number of bones this animation controls */
+    uint32_t n_ctrl_nodes = anim->mNumChannels; /* number of bones this animation controls */
     std::string anim_name = anim->mName.data;
 		/* register this animation */
 		std::map<std::string, uint32_t>::const_iterator item = anim_name_to_unique_id.find(anim_name);
@@ -175,41 +163,39 @@ Model::load(const std::string& file) {
 			printf("Found duplicated animation \"%s\".\n", anim_name.c_str());
 		}
 		anim_name_to_unique_id.insert_or_assign(anim_name, (uint32_t)anim_name_to_unique_id.size());
-    /* loop for each bone this animation controls, fill in bone->animations */
-    for (uint32_t i_channel = 0; i_channel < n_ctrl_bones; i_channel++) {
-      const aiNodeAnim* bone_anim = anim->mChannels[i_channel];
-      std::string bone_name = bone_anim->mNodeName.data;
-      Bone* bone = _find_bone_by_name(bone_name);
-      if (bone != NULL) {
-        /* read bone animation key frames */
-        Animation* dst_anim = _find_bone_animation_by_name(*bone, anim_name);
-        if (dst_anim == NULL) {
-          /* create new animation if not exist */
-          Animation new_anim;
-          new_anim.name = anim_name;
-          new_anim.ticks_per_second = ticks_per_second;
-          bone->animations.push_back(new_anim);
-          dst_anim = &(bone->animations[bone->animations.size() - 1]);
-        }
-        /* read key frames */
-        for (uint32_t i_key = 0; i_key < bone_anim->mNumScalingKeys; i_key++) {
-          KeyFrame<Vec3> key_frame;
-          key_frame.tick = bone_anim->mScalingKeys[i_key].mTime;
-          key_frame.value = convert_assimp_vec3(bone_anim->mScalingKeys[i_key].mValue);
-          dst_anim->scaling_key_frames.push_back(key_frame);
-        }
-        for (uint32_t i_key = 0; i_key < bone_anim->mNumPositionKeys; i_key++) {
-          KeyFrame<Vec3> key_frame;
-          key_frame.tick = bone_anim->mPositionKeys[i_key].mTime;
-          key_frame.value = convert_assimp_vec3(bone_anim->mPositionKeys[i_key].mValue);
-          dst_anim->position_key_frames.push_back(key_frame);
-        }
-        for (uint32_t i_key = 0; i_key < bone_anim->mNumRotationKeys; i_key++) {
-          KeyFrame<Quat> key_frame;
-          key_frame.tick = bone_anim->mRotationKeys[i_key].mTime;
-          key_frame.value = convert_assimp_quat(bone_anim->mRotationKeys[i_key].mValue);
-          dst_anim->rotation_key_frames.push_back(key_frame);
-        }
+    /* loop for each bone this animation controls, fill in node->animations */
+    for (uint32_t i_channel = 0; i_channel < n_ctrl_nodes; i_channel++) {
+      const aiNodeAnim* node_anim = anim->mChannels[i_channel];
+      std::string node_name = node_anim->mNodeName.data;
+      Node* node = _find_node_by_name(node_name);
+      /* read bone animation key frames */
+      Animation* dst_anim = _find_node_animation_by_name(*node, anim_name);
+      if (dst_anim == NULL) {
+        /* create new animation if not exist */
+        Animation new_anim;
+        new_anim.name = anim_name;
+        new_anim.ticks_per_second = ticks_per_second;
+        node->animations.push_back(new_anim);
+        dst_anim = &(node->animations[node->animations.size() - 1]);
+      }
+      /* read key frames */
+      for (uint32_t i_key = 0; i_key < node_anim->mNumScalingKeys; i_key++) {
+        KeyFrame<Vec3> key_frame;
+        key_frame.tick = node_anim->mScalingKeys[i_key].mTime;
+        key_frame.value = convert_assimp_vec3(node_anim->mScalingKeys[i_key].mValue);
+        dst_anim->scaling_key_frames.push_back(key_frame);
+      }
+      for (uint32_t i_key = 0; i_key < node_anim->mNumPositionKeys; i_key++) {
+        KeyFrame<Vec3> key_frame;
+        key_frame.tick = node_anim->mPositionKeys[i_key].mTime;
+        key_frame.value = convert_assimp_vec3(node_anim->mPositionKeys[i_key].mValue);
+        dst_anim->position_key_frames.push_back(key_frame);
+      }
+      for (uint32_t i_key = 0; i_key < node_anim->mNumRotationKeys; i_key++) {
+        KeyFrame<Quat> key_frame;
+        key_frame.tick = node_anim->mRotationKeys[i_key].mTime;
+        key_frame.value = convert_assimp_quat(node_anim->mRotationKeys[i_key].mValue);
+        dst_anim->rotation_key_frames.push_back(key_frame);
       }
     }
   }
@@ -249,10 +235,13 @@ Model::load(const std::string& file) {
   /* if model is loaded from an unpacked zip file, remove the temporary dir. */
   if (temp_folder != "")
     rm(temp_folder);
-  return true;
+	delete _importer;
+  
+	return true;
 }
 
-void Model::dump()
+void 
+Model::dump()
 {
 	printf("Model dump:\n");
 	printf("  Total number of mesh(es): %zd\n", this->meshes.size());
@@ -261,15 +250,23 @@ void Model::dump()
 		this->_dump_mesh(this->meshes[i_mesh]);
 	}
   printf("  Nodes:\n");
-  this->_dump_node(_scene->mRootNode, 2);
+  this->_dump_node(root_node, 2);
 }
 
-void Model::_parse_node_hierarchy(Node* node, aiNode* ai_node)
+void 
+Model::_parse_node_hierarchy(Node* node, aiNode* ai_node)
 {
   std::string node_name = ai_node->mName.data;
   node->name = node_name;
   node->unique_id = (uint32_t)node_name_to_unique_id.size();
+  if (node->unique_id >= MAX_NODES_PER_MODEL) {
+    printf("[*] Warning: maximum number of nodes per mesh (%d) "
+      "exceeded when registering node \"%s\".", 
+      MAX_NODES_PER_MODEL, node->name.c_str());
+  }
+  node->transformation_matrix = convert_assimp_mat4x4(ai_node->mTransformation);
   node_name_to_unique_id.insert_or_assign(node_name, (uint32_t)node_name_to_unique_id.size());
+  node_name_to_ptr.insert_or_assign(node_name, node);
   for (uint32_t i_node = 0; i_node < ai_node->mNumChildren; i_node++) {
     Node* child_node = new Node();
     child_node->parent = node;
@@ -278,7 +275,8 @@ void Model::_parse_node_hierarchy(Node* node, aiNode* ai_node)
   }
 }
 
-void Model::_delete_node(Node * node)
+void 
+Model::_delete_node(Node * node)
 {
   if (node == NULL) return;
   for (uint32_t i = 0; i < node->childs.size(); i++)
@@ -321,31 +319,26 @@ Model::_register_vertex_weight(
 }
 void
 Model::_update_mesh_skeletal_animation_from_node(
-  const aiNode* node, const Mat4x4& parent_transform, const Mesh& mesh,
+  const Node* node, const Mat4x4& parent_transform, const Mesh& mesh,
   const uint32_t& anim_id, double time, Uniforms& uniforms)
 {
-  std::string node_name = node->mName.data;
+  /* retrieve some info about this node */
+  std::string node_name = node->name;
+  std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_local_id.find(node_name);
+  /* NOTE: in Assimp, if a node is actually a bone, then the node name will be set to be the same as the bone name. */
+	bool is_bone = (item != mesh.bone_name_to_local_id.end()); /* this node is a bone in current mesh */
+  const Bone* bone = (is_bone ? &(mesh.bones[item->second]) : NULL); /* the pointer that points to the bone */
+  bool has_anim = (node->animations.size() > 0); /* this node contains animation(s) */
 
-  /* Compute node transform. If the node belongs to a bone and it contains
-  animation key frame(s), then compute the node transform matrix based on
-  key frame interpolation. If the bone does not have animation, simply use
-  its default transformation matrix. NOTE: in Assimp, if a node is actually
-  a bone, then the node name will be set to be the same as the bone name. */
-  Mat4x4 node_transform = convert_assimp_mat4x4(node->mTransformation);
-  std::map<std::string, Bone*>::const_iterator item = mesh.bone_name_to_ptr.find(node_name);
-
-  if (item != mesh.bone_name_to_ptr.end()) { 
-    /* this node belongs to a bone in current mesh. */
-    const Bone* bone = item->second;
-    if (bone->animations.size() > 0) {
-      /* this bone have one or more animation key frames. */
-      const Animation& anim = bone->animations[anim_id];
-      double anim_tick = time * anim.ticks_per_second;
-      /* compute local translation, rotation and scaling
-      by interpolating animation key frames, then overwrite
-      node transform matrix. */
-      node_transform = _interpolate_skeletal_animation(anim, anim_tick);
-    }
+  /* Compute node transform. */
+  Mat4x4 node_transform;
+  if (has_anim) {
+    const Animation& anim = node->animations[anim_id];
+    double anim_tick = time * anim.ticks_per_second;
+    node_transform = _interpolate_skeletal_animation(anim, anim_tick);
+  }
+  else {
+    node_transform = node->transformation_matrix;
   }
 
   /* Compute accumulated node transform for recursion */
@@ -353,19 +346,26 @@ Model::_update_mesh_skeletal_animation_from_node(
 
   /* Compute bone final tranformation matrix and save to uniform variable */
   uint32_t node_unique_id = node_name_to_unique_id[node_name];
-  if (item != mesh.bone_name_to_ptr.end()) {
-    uint32_t bone_index = item->second;
-    const Bone& bone = mesh.bones[bone_index];
-		Mat4x4 a = mul(this->global_inverse_transform, mul(accumulated_transform, bone.offset_matrix));
-		Mat4x4 b = mul(accumulated_transform, bone.offset_matrix);
-		//uniforms.bone_matrices[bone_index] = a;
-    uniforms.bone_matrices[bone_index] = b;
-    printf(" %d", bone_index);
+  Mat4x4 uniform_matrix;
+  if (is_bone) {
+		/* in some tutorials, a global inverse transform is applied to the end
+		of the transformation chain, but here I ignore it as apply an additional
+		transformation seems to mess up the model location. */
+    uniform_matrix = mul(accumulated_transform, bone->offset_matrix); 
   }
+  else {
+    /* This node is not a bone and no vertices should linked to this node.
+    For debugging purposes we set it to zero matrix, so if something wrong 
+    happens (such as a vertex is linked to a non-bone node) then we will 
+		know. */
+    uniform_matrix = Mat4x4();
+  }
+  uniforms.bone_matrices[node_unique_id] = uniform_matrix;
 
-  for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
+  /* continue to child nodes */
+  for (uint32_t i_node = 0; i_node < node->childs.size(); i_node++) {
     _update_mesh_skeletal_animation_from_node(
-      node->mChildren[i_node], accumulated_transform, mesh,
+      node->childs[i_node], accumulated_transform, mesh,
       anim_id, time, uniforms);
   }
 }
@@ -485,7 +485,8 @@ Model::_interpolate_skeletal_animation(
   return mul(position_transform, mul(rotation_transform, scaling_transform));
 }
 
-void Model::_dump_mesh(const Mesh & mesh)
+void 
+Model::_dump_mesh(const Mesh & mesh)
 {
 	printf("    Total number of vertices: %zu\n", mesh.vertices.size());
 	printf("    Total number of indices/tri_faces: %zu/%zu\n", mesh.indices.size(), mesh.indices.size() / 3);
@@ -494,7 +495,8 @@ void Model::_dump_mesh(const Mesh & mesh)
 	printf("    Number of bones: %zu\n", mesh.bones.size());
 }
 
-void Model::_dump_material(const Material & material)
+void 
+Model::_dump_material(const Material & material)
 {
   /* diffuse texture */
   printf("      Diffuse: \"%s\" (%s)\n", 
@@ -505,66 +507,54 @@ void Model::_dump_material(const Material & material)
     material.diffuse_texture.h);
 }
 
-void Model::_dump_node(const aiNode* node, const uint32_t indent)
+void 
+Model::_dump_node(const Node* node, const uint32_t indent)
 {
-  std::string node_name = node->mName.data;
-  std::string node_status = "";
+  std::string node_name = node->name;
   std::string pad = "";
   for (uint32_t i = 0; i < indent; i++) pad += " ";
-  std::map<std::string, uint32_t>::const_iterator iter = node_name_to_mesh_id.find(node_name);
-  if (iter != node_name_to_mesh_id.end()) {
-    node_status += std::string("[bone,mesh_id=") + std::to_string(iter->second) + std::string("]");
-  }
-  printf("%s%s %s\n", pad.c_str(), node->mName.data, node_status.c_str());
-  for (uint32_t i = 0; i < node->mNumChildren; i++) {
-    this->_dump_node(node->mChildren[i], indent + 2);
+  printf("%s%s [node_id=%u]\n", pad.c_str(), node_name.c_str(), node_name_to_unique_id[node_name]);
+  for (uint32_t i = 0; i < node->childs.size(); i++) {
+    this->_dump_node(node->childs[i], indent + 2);
   }
 }
 
-Bone*
-Model::_find_bone_by_name(const std::string & bone_name)
+Node*
+Model::_find_node_by_name(const std::string & node_name)
 {
-  for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
-    Mesh& mesh = this->meshes[i_mesh];
-    std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_ptr.find(bone_name);
-    if (item != mesh.bone_name_to_ptr.end()) {
-      uint32_t bone_index = item->second;
-      return &(mesh.bones[bone_index]);
-    }
-  }
-  return NULL;
+  std::map<std::string, Node*>::const_iterator item = node_name_to_ptr.find(node_name);
+  if (item != node_name_to_ptr.end())
+    return item->second;
+  else
+    return NULL;
 }
 
 Animation* 
-Model::_find_bone_animation_by_name(Bone& bone, const std::string & anim_name)
+Model::_find_node_animation_by_name(Node& node, const std::string & anim_name)
 {
-  for (uint32_t i_anim = 0; i_anim < bone.animations.size(); i_anim++) {
-    std::string anim_name = bone.animations[i_anim].name;
+  for (uint32_t i_anim = 0; i_anim < node.animations.size(); i_anim++) {
+    std::string anim_name = node.animations[i_anim].name;
     if (anim_name == anim_name) {
-      return &(bone.animations[i_anim]);
+      return &(node.animations[i_anim]);
     }
   }
   return NULL;
 }
 
 void 
-Model::update_skeletal_animation(
+Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
 	const std::string& anim_name, double time, Uniforms& uniforms)
 {
-  printf("UPDATE: ");
 	std::map<std::string, uint32_t>::const_iterator item = anim_name_to_unique_id.find(anim_name);
 	if (item == anim_name_to_unique_id.end()) {
-		printf("[*] Warning: could not find the required animation \"%s\" for model.\n", anim_name.c_str());
+		printf("[*] Warning: could not find the required "
+      "animation \"%s\" for model.\n", anim_name.c_str());
 		return;
 	}
 	uint32_t anim_id = item->second;
-	for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
-		Mesh& mesh = this->meshes[i_mesh];
-		this->_update_mesh_skeletal_animation_from_node(
-			_scene->mRootNode, Mat4x4::identity(), mesh, 
-			anim_id, time, uniforms);
-	}
-  printf("\n");
+  this->_update_mesh_skeletal_animation_from_node(
+    root_node, Mat4x4::identity(), mesh, 
+    anim_id, time, uniforms);
 }
 
 void

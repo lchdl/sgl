@@ -10,14 +10,14 @@ const int MAX_TEXTURES_PER_SHADING_UNIT = 8;
 /* A vertex can only be affected by no more than 4 bones.
  * NOTE: this value cannot be changed. */
 const int MAX_BONES_INFLUENCE_PER_VERTEX = 4; 
-/* A mesh model can only have less than 128 bones. */
-const int MAX_BONES_PER_MESH = 128;
+/* A mesh model can only have less than 128 nodes. */
+const int MAX_NODES_PER_MODEL = 128;
 
 struct Vertex {
   Vec3 p; /* vertex position (in model local space) */
   Vec3 n; /* vertex normal (in model local space)*/
   Vec2 t; /* vertex texture coordinate */
-  /* bones & animations */
+  /* skeletal animations */
   IVec4 bone_IDs; /* bones up to 4 */
   Vec4  bone_weights;
 };
@@ -102,7 +102,7 @@ struct Uniforms {
   /* texture objects */
   const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
   /* final bone transformations */
-  Mat4x4 bone_matrices[MAX_BONES_PER_MESH];
+  Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
 
 };
 
@@ -126,7 +126,7 @@ model local space to homogeneous clip space.
   @param vertex_out: The output vertex.
   @note: `gl_Position` of the @param vertex_out must be properly set.
 **/
-void VS_default(const Vertex &vertex_in, const Uniforms &uniforms,
+void default_VS(const Vertex &vertex_in, const Uniforms &uniforms,
                    Vertex_gl &vertex_out);
 /**
 Assemble fragment from interpolated vertex. The assembled fragment will be sent
@@ -146,7 +146,7 @@ Defines default fragment shader (FS), shades each fragment into color output.
   @param color_out: The calculated output color (in normalized range [0, 1]).
 	@param discard: Whether this pixel is discarded or not.
 **/
-void FS_default(const Fragment_gl &fragment_in, const Uniforms &uniforms,
+void default_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                      Vec4 &color_out, bool& discard);
 
 };   // namespace sgl

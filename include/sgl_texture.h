@@ -76,34 +76,4 @@ Texture load_texture(const std::string &file);
 **/
 Vec4 texture(const Texture *texobj, const Vec2 &uv);
 
-class TextureLibrary {
- public:
-  /**
-  Load texture from disk and return texture handle.
-  @param file: Image file path.
-  @returns: The resource handle of loaded texture.
-  **/
-  int load_texture(const std::string &file);
-  /**
-  Get texture resource using texture handle.
-  **/
-  Texture *get_texture(int texture_handle);
-  /**
-  Create an empty texture.
-  @returns: The resource handle of created texture.
-  **/
-  int create_texture(int w, int h, TextureFormat texture_format,
-                     TextureSampling texture_sampling);
-  /**
-  Remove an existing texture.
-  **/
-  void remove_texture(int texture_handle);
-
- protected:
-  int find_unused_handle();
-
- protected:
-  std::map<int, Texture> texture_library;
-};
-
 };   // namespace sgl
