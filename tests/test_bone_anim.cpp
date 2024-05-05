@@ -32,7 +32,7 @@ init_render_pass() {
                   TextureSampling::texture_sampling_point);
 
   /* Step 2: Setup render config. */
-	render_pass.eye.position = Vec3(100, 100, 100);
+	render_pass.eye.position = Vec3(10, 10, 10);
   render_pass.eye.look_at = Vec3(0, 0, 0);
   render_pass.eye.up_dir = Vec3(0, 1, 0);
   render_pass.eye.perspective.enabled = true;
@@ -41,17 +41,16 @@ init_render_pass() {
   render_pass.eye.perspective.field_of_view = PI / 3.0;
   render_pass.color_texture = &colortex;
   render_pass.depth_texture = &depthtex;
-  render_pass.FS = model_FS;
   render_pass.VS = model_VS;
+  render_pass.FS = model_FS;
 
   /* Step 3: Initialize model. */ 
-	model.load("models/boblampclean.zip");
-	//model.load("models/test_plane.zip");
+  //model.load("models/bob.zip");
+  model.load("models/boblamp.zip");
+	model.dump();
   render_pass.model = &model;
-	pipeline.enable_backface_culling();
 
-	pipeline.set_num_threads(1);
-	//pipeline.disable_backface_culling();
+	//pipeline.set_num_threads(1);
 
 }
 
@@ -114,21 +113,17 @@ main(int argc, char* argv[]) {
     T += timer.tick();
     
     /* render the whole frame */
-		render_pass.eye.position = Vec3(100*sin(T), 100, 100 * cos(T));
-    render_pass.time = fmod(T, 5.0);
+    render_pass.time = fmod(T, 6.0);
     render_pass.anim_name = "";
     render_pass.run(pipeline);
     
     double frame_time = frame_timer.tick();
 		total_frame_time += frame_time;
-    sgl::SDL2::sgl_texture_to_SDL_surface(
-        render_pass.color_texture, pWindowSurface);
+    sgl::SDL2::sgl_texture_to_SDL_surface(render_pass.color_texture, pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
 		sprintf(buf, "%.2lfms, T=%.2lfs", total_frame_time / frameid * 1000.0, T);
-    std::string title = std::string("SGL | ") + buf +
-                        " | FPS=" + std::to_string(int(1.0 / frame_time));
+    std::string title = std::string("SGL | ") + buf + " | FPS=" + std::to_string(int(1.0 / frame_time));
     SDL_SetWindowTitle(pWindow, title.c_str());
-
   }
 
   return 0;

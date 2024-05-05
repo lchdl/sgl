@@ -91,6 +91,8 @@ struct Fragment_gl {
 
 /* Uniform variables that are used by both vertex and fragment shaders. */
 struct Uniforms {
+  /* internal variables */
+  Vec3 gl_DepthRange; /* (x=near, y=far, z=diff=far-near) */
 	/* transforming vertex from local model space to world space. */
   Mat4x4 model;
   /* transforming vertex from world space to local view space. */

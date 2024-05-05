@@ -70,9 +70,8 @@ Model::load(const std::string& file) {
   }
 	
   /* then import the file using assimp */
-  this->_scene = this->_importer->ReadFile(model_file.c_str(),
-		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs |
-		aiProcess_JoinIdenticalVertices);
+	uint32_t load_flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices;
+  this->_scene = this->_importer->ReadFile(model_file.c_str(), load_flags);
 	if (!_scene || !_scene->mRootNode || _scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
 		printf("Assimp importer.ReadFile() error when loading file \"%s\": \"%s\".\n",
 			file.c_str(), this->_importer->GetErrorString());
@@ -87,7 +86,7 @@ Model::load(const std::string& file) {
    * that each sub-mesh only uses one material. Here we load all 
    * sub-meshes in a scene, and each sub-mesh in Assimp will be 
    * considered as a `mesh part` in here. */
-  
+
   /* parse meshes */
   uint32_t n_meshes = _scene->mNumMeshes;
   this->meshes.resize(n_meshes);
@@ -246,6 +245,16 @@ Model::load(const std::string& file) {
   return true;
 }
 
+void Model::dump()
+{
+	printf("Model dump:\n");
+	printf("Total number of mesh(es): %zd\n", this->meshes.size());
+	for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
+		printf("Mesh [%d]:\n", i_mesh);
+		this->_dump_mesh(this->meshes[i_mesh]);
+	}
+}
+
 void 
 Model::_register_vertex_weight(
     Vertex& v, 
@@ -294,19 +303,19 @@ Model::_update_mesh_skeletal_animation_from_node(
   Mat4x4 node_transform = convert_assimp_mat4x4(node->mTransformation);
   std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
 
-  //if (item != mesh.bone_name_to_id.end()) { /* this node belongs to a bone. */
-  //  uint32_t bone_index = item->second;
-  //  const Bone& bone = mesh.bones[bone_index];
-  //  if (bone.animations.size() > 0) {
-  //    /* this bone have one or more animation key frames. */
-  //    const Animation& anim = bone.animations[anim_id];
-  //    double anim_tick = time * anim.ticks_per_second;
-  //    /* compute local translation, rotation and scaling
-  //    by interpolating animation key frames, then overwrite
-  //    node transform matrix. */
-  //    node_transform = _interpolate_skeletal_animation(anim, anim_tick);
-  //  }
-  //}
+  if (item != mesh.bone_name_to_id.end()) { /* this node belongs to a bone. */
+    uint32_t bone_index = item->second;
+    const Bone& bone = mesh.bones[bone_index];
+    if (bone.animations.size() > 0) {
+      /* this bone have one or more animation key frames. */
+      const Animation& anim = bone.animations[anim_id];
+      double anim_tick = time * anim.ticks_per_second;
+      /* compute local translation, rotation and scaling
+      by interpolating animation key frames, then overwrite
+      node transform matrix. */
+      node_transform = _interpolate_skeletal_animation(anim, anim_tick);
+    }
+  }
 
   /* Compute accumulated node transform for recursion */
   Mat4x4 accumulated_transform = mul(parent_transform, node_transform);
@@ -316,9 +325,9 @@ Model::_update_mesh_skeletal_animation_from_node(
     uint32_t bone_index = item->second;
     const Bone& bone = mesh.bones[bone_index];
 		Mat4x4 a = mul(this->global_inverse_transform, mul(accumulated_transform, bone.offset_matrix));
-		//Mat4x4 b = mul(accumulated_transform, bone.offset_matrix);
-		uniforms.bone_matrices[bone_index] = a;
-    //uniforms.bone_matrices[bone_index] = b;
+		Mat4x4 b = mul(accumulated_transform, bone.offset_matrix);
+		//uniforms.bone_matrices[bone_index] = a;
+    uniforms.bone_matrices[bone_index] = b;
   }
 
   for (uint32_t i_node = 0; i_node < node->mNumChildren; i_node++) {
@@ -330,7 +339,7 @@ Model::_update_mesh_skeletal_animation_from_node(
 
 template<typename T>
 inline T 
-_key_frame_interpolation(
+_interpolate_key_frames(
   const std::vector<KeyFrame<T>>& key_frames, 
   double tick) 
 {
@@ -372,7 +381,7 @@ _key_frame_interpolation(
 
 template<>
 inline Quat 
-_key_frame_interpolation(
+_interpolate_key_frames(
   const std::vector<KeyFrame<Quat>>& key_frames,
   double tick)
 {
@@ -417,10 +426,13 @@ Mat4x4
 Model::_interpolate_skeletal_animation(
   const Animation& anim, double tick)
 {
-  /* interpolate position, scaling, and rotation (key frames are sorted) */
-  Vec3 position = _key_frame_interpolation<Vec3>(anim.position_key_frames, tick);
-  Vec3 scaling = _key_frame_interpolation<Vec3>(anim.scaling_key_frames, tick);
-  Quat rotation = _key_frame_interpolation<Quat>(anim.rotation_key_frames, tick);
+  /*
+  Interpolate position, scaling, and rotation.
+  NOTE: key frames are sorted by default.
+  */
+  Vec3 position = _interpolate_key_frames<Vec3>(anim.position_key_frames, tick);
+  Vec3 scaling = _interpolate_key_frames<Vec3>(anim.scaling_key_frames, tick);
+  Quat rotation = _interpolate_key_frames<Quat>(anim.rotation_key_frames, tick);
 
   /* build matrices and combine them */
   Mat4x4 position_transform(
@@ -438,6 +450,15 @@ Model::_interpolate_skeletal_animation(
   Mat4x4 rotation_transform(quat_to_mat3x3(rotation));
 
   return mul(position_transform, mul(rotation_transform, scaling_transform));
+}
+
+void Model::_dump_mesh(const Mesh & mesh)
+{
+	printf("  Total number of vertices: %zu\n", mesh.vertices.size());
+	printf("  Total number of indices/tri_faces: %zu/%zu\n", mesh.indices.size(), mesh.indices.size() / 3);
+	printf("  Material ID: %u\n", mesh.mat_id);
+	printf("  Number of bones: %zu\n", mesh.bones.size());
+
 }
 
 Bone*
@@ -472,7 +493,7 @@ Model::update_skeletal_animation(
 {
 	std::map<std::string, uint32_t>::const_iterator item = anim_name_to_id.find(anim_name);
 	if (item == anim_name_to_id.end()) {
-		printf("Cannot find animation \"%s\".\n", anim_name.c_str());
+		printf("Warning: could not find the required animation \"%s\" for model.\n", anim_name.c_str());
 		return;
 	}
 	uint32_t anim_id = item->second;
@@ -495,7 +516,7 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
   const Mat4x4 &projection = uniforms.projection;
   Mat4x4 transform = mul(projection, mul(view, model));
 
-  if (1/*vertex_in.bone_IDs.i[0] < 0*/) {
+  if (vertex_in.bone_IDs.i[0] < 0) {
     /* vertex does not belong to any bone */
     Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
     vertex_out.gl_Position = gl_Position;
@@ -539,7 +560,7 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
 void 
 model_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
                      Vec4 &color_out, bool& discard) {
-  Vec2 uv = Vec2(fragment_in.t.x, 1.0 - fragment_in.t.y);
+  Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);
   Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
   color_out = Vec4(textured, 1.0);
 }

@@ -1,20 +1,17 @@
-/*
-  SGL - Software Graphics Library
-                                                by lchdl Feb-2024
-                  * "I enjoy implementing simple math intuitions 
-                     behind complex (or seemingly complex) things 
-                     using code."
-  A complete software implementation of OpenGL graphic pipeline.
-  This implementation also covers every details you need to know
-  about writing a software rasterizer from scratch. The whole
-  pipeline supports OpenMP accelerating, you can dynamically
-  adjust the number of CPU cores used for rendering.
+/**
+             ** SGL - Software Graphics Library **             
+---------------------------------------------------------------
+                                By lchdl (chenghao1652@126.com) 
+                           Project started from Feb-2024 to now
+ -> "I enjoy implementing simple math intuitions behind complex 
+     (or seemingly complex) things using code."
+A complete software implementation of OpenGL graphic pipeline.
+This implementation also covers every details you need to know
+about writing a software rasterizer from scratch. The whole
+pipeline also supports OpenMP accelerating, you can dynamically
+adjust the number of CPU cores used for rendering.
 
-  - TODO:
-    1) replaceable vertex and fragment shaders support.
-    2) replaceable vertex definition.
-    3) animation support (working).
-*/
+**/
 #pragma once
 #include <stdint.h>
 
@@ -262,23 +259,37 @@ class Pipeline {
 	~Pipeline();
 };
 
-/* `pass` is an object that describes a complete render operation 
- * and stores all the resources used during rendering. All `pass` 
- * objects & instances should inherit from `Pass` class. */
+/**
+
+A `pass` is an object that describes a complete render operation 
+and stores all the resources used during rendering. All `pass` 
+objects & instances should inherit from `Pass` base class. All 
+child classes that inherit from class `Pass` must implement their 
+own version of "virtual void run(Pipeline& ppl)" function, as 
+this function describes a complete process of drawing something 
+onto screen.
+
+* The reason I introduce the concept of `pass` is that drawing an 
+object onto the screen correctly requires a lot of preparation 
+work beforehand, including but not limited to shader initialization, 
+buffer preparation, uniform variable assignment, etc. To be honest, 
+many things can go wrong here if not enough attention is paid, and 
+usually, a blank screen will be shown if there is any bug in your 
+code, which is not very informative for graphical debugging and can 
+lower your efficiency. So, wrapping the above process into a `pass`
+can standardize the whole process for us, which will be much more 
+convenient when drawing something complex onto the screen.
+
+**/
 struct Pass {
-  /* `Pass` class does not do anything and it does not render
-   * anything to the screen, but it defines all the necessary
-   * things that all the passes need, and all passes should 
-   * inherit from this class. */
-  
   /* output texture buffers (write only) */
   Texture* color_texture;
   Texture* depth_texture;
-
-  /* VS & FS */
+  /* uniform variables */
+  Uniforms uniforms; 
+  /* vertex & fragment shaders */
   VS_func_t VS;
   FS_func_t FS;
-
   /* camera/eye settings */
   struct {
     Vec3 position; /* eye position */
@@ -293,27 +304,23 @@ struct Pass {
       double width, height, depth;
     } orthographic;
   } eye;
-
  public:
   /* utility functions */
   Mat4x4 get_view_matrix() const;
   Mat4x4 get_projection_matrix() const;
-
   /* run the whole pass (rendering) */
   virtual void run(Pipeline& ppl) = 0;
-
   /* default ctor & dtor */
   Pass();
 	virtual ~Pass() {}
  };
 
 struct ModelPass : public Pass {
-protected:
-  Uniforms uniforms; /* uniform variables */
 public:
   Model* model; /* a pointer to model object that is being drawn */
 	std::string anim_name; /* name of the current animation being played */
   double time; /* time value for controlling the skeletal animation (sec.) */
+
 public:
   virtual void run(Pipeline& ppl);
 

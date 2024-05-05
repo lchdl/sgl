@@ -211,8 +211,7 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
 			v2 *= iz.i[2];
       Vec4 p;
       int y_base = num_threads * int(int(rect.i[1]) / num_threads);
-      for (p.y = double(y_base) + 0.5 + double(thread_id); p.y < rect.i[3];
-           p.y += double(num_threads)) {
+      for (p.y = double(y_base) + 0.5 + double(thread_id); p.y < rect.i[3]; p.y += double(num_threads)) {
         for (p.x = floor(rect.i[0]) + 0.5; p.x < rect.i[2]; p.x += 1.0) {
 					/**
 					@note: here the winding order is important,
@@ -375,7 +374,10 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
     }
     /**
     Then, clip segments p0-p1 and p0-p2.
-		-------------------------------------
+
+                ** How to perform clipping in homogeneous space **             
+    ----------------------------------------------------------------------------
+    
     Assume we have two vertices A(A_x, A_y, A_z, A_w) and B(B_x, B_y, B_z, B_w), 
 		segment A-B will be clipped by a plane, assume the intersection is C, such 
 		that C = (1-t)A + tB, where 0 < t < 1.
@@ -391,7 +393,8 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
                        t = (A_z-A_w) / ((A_z-A_w)-(B_z-B_w)).
     Clipping with other axes is also the same. Just replace A_z to A_x or A_y 
 		and B_z to B_x or B_y.
-    @NOTE: The scalar t can also be used to interpolate all the associated
+    
+    NOTE: The scalar t can also be used to interpolate all the associated
     vertex attributes for C. The linear interpolation is perfectly sufficient
     even in perspective distorted cases, because we are before the perspective
     divide here, were the whole perspective transformation is perfectly affine
@@ -477,7 +480,7 @@ Pass::get_projection_matrix() const {
 		return projection_matrix;
 	}
 	else {
-		/* not implemented now */
+		/* orthographic not implemented now */
 		return projection_matrix;
 	}
 }
@@ -486,34 +489,39 @@ Pass::Pass()
 {
 	color_texture = NULL;
 	depth_texture = NULL;
-
+  VS = NULL;
+  FS = NULL;
 	eye.look_at = Vec3(0, 0, 0);
 	eye.position = Vec3(10, 10, 10);
 	eye.up_dir = Vec3(0, 1, 0);
-
 	eye.perspective.enabled = true;
 	eye.perspective.near = 0.1;
 	eye.perspective.far = 100.0;
 	eye.perspective.field_of_view = PI / 4.0;
-
 	eye.orthographic.enabled = false;
 	eye.orthographic.width = 256.0;
 	eye.orthographic.height = 256.0;
 	eye.orthographic.depth = 256.0;
-
-	VS = NULL;
-	FS = NULL;
 }
 
 void
 ModelPass::run(Pipeline& ppl) {
-	if (model == NULL) return;
+	if (this->model == NULL) return;
 
-	ppl.set_shaders(model_VS, model_FS);
+	ppl.set_shaders(this->VS, this->FS);
 	ppl.set_render_targets(this->color_texture, this->depth_texture);
 	ppl.clear_render_targets(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
 
-	uniforms.model = model->get_transform();
+  /* setup internal variables (gl_*) */
+  if (this->eye.perspective.enabled) {
+    uniforms.gl_DepthRange.x = this->eye.perspective.near;
+    uniforms.gl_DepthRange.y = this->eye.perspective.far;
+    uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
+  }
+  else {
+    /* orthographic view not implemented. */
+  }
+	uniforms.model = this->model->get_transform();
 	uniforms.view = this->get_view_matrix();
 	uniforms.projection = this->get_projection_matrix();
 

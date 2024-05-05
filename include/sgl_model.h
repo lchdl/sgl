@@ -73,6 +73,8 @@ class Model {
 public:
   /* initialize mesh object from external/internal file formats. */
   bool load(const std::string& file);
+	/* print mesh format for debugging */
+	void dump();
   /* unload mesh and return allocated resources to OS. */
   void unload();
   /* Set mesh transformation */
@@ -188,6 +190,7 @@ private:
     const Animation& anim, double tick
   );
 
+	void _dump_mesh(const Mesh& mesh);
 };
 
 inline Mat4x4 

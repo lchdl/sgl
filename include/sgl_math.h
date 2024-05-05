@@ -65,7 +65,9 @@ struct Vec3 {
   };
   Vec3() { x = y = z = 0.0; }
   Vec3(double _x, double _y, double _z) { x = _x, y = _y, z = _z; }
-  void operator*=(double _b) { x *= _b, y *= _b, z *= _b; }
+	void operator+=(Vec3 v) { x += v.x, y += v.y, z += v.z; }
+	void operator-=(Vec3 v) { x -= v.x, y -= v.y, z -= v.z; }
+	void operator*=(double _b) { x *= _b, y *= _b, z *= _b; }
   void operator/=(double _b) {
     double inv_b = 1.0 / _b;
     x *= inv_b, y *= inv_b, z *= inv_b;
