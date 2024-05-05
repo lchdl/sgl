@@ -8,7 +8,9 @@ namespace sgl {
 
 Model::Model() {
   _importer = NULL;
+  root_node = NULL;
   model_transform = Mat4x4::identity();
+  global_inverse_transform = Mat4x4::identity();
 }
 Model::~Model() {
   this->unload();
@@ -23,6 +25,8 @@ Model::unload() {
   this->_scene = NULL;
   this->meshes.clear();
   this->materials.clear();
+  this->_delete_node(root_node);
+  this->root_node = NULL;
 }
 
 bool 
@@ -87,6 +91,11 @@ Model::load(const std::string& file) {
    * sub-meshes in a scene, and each sub-mesh in Assimp will be 
    * considered as a `mesh part` in here. */
 
+  /* parse node hierarchy */
+  root_node = new Node();
+  root_node->parent = NULL;
+  _parse_node_hierarchy(root_node, _scene->mRootNode);
+
   /* parse meshes */
   uint32_t n_meshes = _scene->mNumMeshes;
   this->meshes.resize(n_meshes);
@@ -130,16 +139,6 @@ Model::load(const std::string& file) {
       Bone bone;
       bone.name = mesh->mBones[i_bone]->mName.data;
       bone.offset_matrix = convert_assimp_mat4x4(mesh->mBones[i_bone]->mOffsetMatrix);
-      /* register bone info, let model know this bone belongs to current mesh */
-      std::map<std::string, uint32_t>::const_iterator item = node_name_to_mesh_id.find(bone.name);
-      if (item != node_name_to_mesh_id.end()) {
-        printf("[*] Warning: bone \"%s\" belongs to more than one mesh "
-          "(prev: [%u], cur: [%u]). This may cause incorrect skeletal "
-          "animation.\n", bone.name.c_str(), item->second, i_mesh);
-      }
-      else {
-        this->node_name_to_mesh_id.insert_or_assign(bone.name, i_mesh);
-      }
       /* number of affected vertices by this bone */
       uint32_t n_bone_verts = mesh->mBones[i_bone]->mNumWeights;
       for (uint32_t i_vert = 0; i_vert < n_bone_verts; i_vert++) {
@@ -154,12 +153,11 @@ Model::load(const std::string& file) {
         Vertex& affected_vert = this->meshes[i_mesh].vertices[vc.index];
         _register_vertex_weight(affected_vert, i_bone, vc.weight);
       }
-      this->meshes[i_mesh].bone_name_to_id.insert(
-        std::pair<std::string, uint32_t>(
-          bone.name, uint32_t(this->meshes[i_mesh].bones.size())
-        )
-      );
-      this->meshes[i_mesh].bones.push_back(bone);
+      /* register bone */
+      std::vector<Bone>& bones_list = this->meshes[i_mesh].bones;
+      bones_list.push_back(bone);
+      Bone* bone_ptr = &bones_list[bones_list.size() - 1];
+      this->meshes[i_mesh].bone_name_to_ptr.insert_or_assign(bone.name, bone_ptr);
     }
   }
 
@@ -172,11 +170,11 @@ Model::load(const std::string& file) {
     uint32_t n_ctrl_bones = anim->mNumChannels; /* number of bones this animation controls */
     std::string anim_name = anim->mName.data;
 		/* register this animation */
-		std::map<std::string, uint32_t>::const_iterator item = anim_name_to_id.find(anim_name);
-		if (item != anim_name_to_id.end()) {
+		std::map<std::string, uint32_t>::const_iterator item = anim_name_to_unique_id.find(anim_name);
+		if (item != anim_name_to_unique_id.end()) {
 			printf("Found duplicated animation \"%s\".\n", anim_name.c_str());
 		}
-		anim_name_to_id.insert_or_assign(anim_name, (uint32_t)anim_name_to_id.size());
+		anim_name_to_unique_id.insert_or_assign(anim_name, (uint32_t)anim_name_to_unique_id.size());
     /* loop for each bone this animation controls, fill in bone->animations */
     for (uint32_t i_channel = 0; i_channel < n_ctrl_bones; i_channel++) {
       const aiNodeAnim* bone_anim = anim->mChannels[i_channel];
@@ -266,10 +264,32 @@ void Model::dump()
   this->_dump_node(_scene->mRootNode, 2);
 }
 
-void 
+void Model::_parse_node_hierarchy(Node* node, aiNode* ai_node)
+{
+  std::string node_name = ai_node->mName.data;
+  node->name = node_name;
+  node->unique_id = (uint32_t)node_name_to_unique_id.size();
+  node_name_to_unique_id.insert_or_assign(node_name, (uint32_t)node_name_to_unique_id.size());
+  for (uint32_t i_node = 0; i_node < ai_node->mNumChildren; i_node++) {
+    Node* child_node = new Node();
+    child_node->parent = node;
+    node->childs.push_back(child_node);
+    _parse_node_hierarchy(child_node, ai_node->mChildren[i_node]);
+  }
+}
+
+void Model::_delete_node(Node * node)
+{
+  if (node == NULL) return;
+  for (uint32_t i = 0; i < node->childs.size(); i++)
+    this->_delete_node(node->childs[i]);
+  delete node;
+}
+
+void
 Model::_register_vertex_weight(
     Vertex& v, 
-    uint32_t bone_index, 
+    uint32_t bone_ID, 
     double weight) 
 {
   /* insert & sort vertex weights in descent order,
@@ -287,16 +307,16 @@ Model::_register_vertex_weight(
       }
       /* insert */
       v.bone_weights[i] = weight;
-      v.bone_IDs[i] = bone_index;
+      v.bone_IDs[i] = bone_ID;
       break;
     }
   }
   if (registered == false) {
     /* All 4 slots have been occupied, we print a warning to let user
      * know and then continue. */
-    printf("[*] Warning: Cannot register vertex weight (bone_index=%d, "
+    printf("[*] Warning: Cannot register vertex weight (bone_ID=%d, "
            "weight=%.4lf), all 4 slots have been occupied. Ignored.\n", 
-           bone_index, weight);
+           bone_ID, weight);
   }
 }
 void
@@ -312,14 +332,14 @@ Model::_update_mesh_skeletal_animation_from_node(
   its default transformation matrix. NOTE: in Assimp, if a node is actually
   a bone, then the node name will be set to be the same as the bone name. */
   Mat4x4 node_transform = convert_assimp_mat4x4(node->mTransformation);
-  std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(node_name);
+  std::map<std::string, Bone*>::const_iterator item = mesh.bone_name_to_ptr.find(node_name);
 
-  if (item != mesh.bone_name_to_id.end()) { /* this node belongs to a bone. */
-    uint32_t bone_index = item->second;
-    const Bone& bone = mesh.bones[bone_index];
-    if (bone.animations.size() > 0) {
+  if (item != mesh.bone_name_to_ptr.end()) { 
+    /* this node belongs to a bone in current mesh. */
+    const Bone* bone = item->second;
+    if (bone->animations.size() > 0) {
       /* this bone have one or more animation key frames. */
-      const Animation& anim = bone.animations[anim_id];
+      const Animation& anim = bone->animations[anim_id];
       double anim_tick = time * anim.ticks_per_second;
       /* compute local translation, rotation and scaling
       by interpolating animation key frames, then overwrite
@@ -332,7 +352,8 @@ Model::_update_mesh_skeletal_animation_from_node(
   Mat4x4 accumulated_transform = mul(parent_transform, node_transform);
 
   /* Compute bone final tranformation matrix and save to uniform variable */
-  if (item != mesh.bone_name_to_id.end()) {
+  uint32_t node_unique_id = node_name_to_unique_id[node_name];
+  if (item != mesh.bone_name_to_ptr.end()) {
     uint32_t bone_index = item->second;
     const Bone& bone = mesh.bones[bone_index];
 		Mat4x4 a = mul(this->global_inverse_transform, mul(accumulated_transform, bone.offset_matrix));
@@ -505,8 +526,8 @@ Model::_find_bone_by_name(const std::string & bone_name)
 {
   for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
     Mesh& mesh = this->meshes[i_mesh];
-    std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_id.find(bone_name);
-    if (item != mesh.bone_name_to_id.end()) {
+    std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_ptr.find(bone_name);
+    if (item != mesh.bone_name_to_ptr.end()) {
       uint32_t bone_index = item->second;
       return &(mesh.bones[bone_index]);
     }
@@ -531,8 +552,8 @@ Model::update_skeletal_animation(
 	const std::string& anim_name, double time, Uniforms& uniforms)
 {
   printf("UPDATE: ");
-	std::map<std::string, uint32_t>::const_iterator item = anim_name_to_id.find(anim_name);
-	if (item == anim_name_to_id.end()) {
+	std::map<std::string, uint32_t>::const_iterator item = anim_name_to_unique_id.find(anim_name);
+	if (item == anim_name_to_unique_id.end()) {
 		printf("[*] Warning: could not find the required animation \"%s\" for model.\n", anim_name.c_str());
 		return;
 	}

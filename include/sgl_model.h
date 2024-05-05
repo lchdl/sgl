@@ -46,6 +46,12 @@ struct Bone {
   /* skeletal animations */
   std::vector<Animation> animations;
 };
+struct Node {
+  std::string name;
+  std::vector<Node*> childs;
+  uint32_t unique_id;
+  Node* parent;
+};
 struct Mesh {
   /* A mesh is a unique part of a model that has only 
    * one material. A mesh can contain multiple meshes. */
@@ -58,11 +64,8 @@ struct Mesh {
   uint32_t mat_id; 
   /* all the bones in this mesh */
   std::vector<Bone> bones;
-  /* 
-  mapping bone name to its id, 
-  use this->bones[id] to get the actual bone.
-  */
-  std::map<std::string, uint32_t> bone_name_to_id; 
+  /* mapping bone name to its pointer */
+  std::map<std::string, Bone*> bone_name_to_ptr; 
 };
 struct Material {
   /* each mesh part will only uses one material. */
@@ -147,7 +150,7 @@ public:
 
   /* ctor & dtor that we don't even care about much. */
   Model();
-  ~Model(); /* currently i don't want to declare it as "virtual". */
+  virtual ~Model();
 
 protected:
   std::vector<Mesh> meshes;
@@ -162,9 +165,10 @@ protected:
    * the model data. */
   Mat4x4 global_inverse_transform;
 	/* animation name to animation id mapping */
-	std::map<std::string, uint32_t> anim_name_to_id;
-  /* node name to mesh id */
-  std::map<std::string, uint32_t> node_name_to_mesh_id;
+	std::map<std::string, uint32_t> anim_name_to_unique_id;
+  /* map a node name to a unique node id */
+  std::map<std::string, uint32_t> node_name_to_unique_id;
+  Node* root_node;
 
 private:
   /* Assimp model importer.
@@ -173,8 +177,12 @@ private:
   ::Assimp::Importer* _importer;
   const aiScene* _scene;
 
+  /* IO utility functions */
+  void _parse_node_hierarchy(Node* node, aiNode* ai_node);
+  void _delete_node(Node* node);
+
   /* animation related utility functions */
-  void _register_vertex_weight(Vertex& v, uint32_t bone_index, double weight);
+  void _register_vertex_weight(Vertex& v, uint32_t bone_ID, double weight);
   Bone* _find_bone_by_name(const std::string& bone_name);
   Animation* _find_bone_animation_by_name(Bone& bone, const std::string & anim_name);
   void _update_mesh_skeletal_animation_from_node(
