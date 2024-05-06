@@ -39,13 +39,14 @@ void Pipeline::draw(
   ppl.Triangles.clear();
 
   /* Stage I: Vertex processing. */
+  /* convert vertex from world space to clip space */
   vertex_processing(vertices, uniforms);
 
   /* Stage II: Vertex post-processing. */
+  /* primitive assembly & face clipping */
   vertex_post_processing(indices);
 
-  /* Step 3: Rasterization & fragment processing */
-  //fragment_processing(uniforms);
+  /* Step III: Rasterization & fragment processing */
   fragment_processing_MT(uniforms, ppl.num_threads);
 }
 
@@ -394,11 +395,12 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
     Clipping with other axes is also the same. Just replace A_z to A_x or A_y 
 		and B_z to B_x or B_y.
     
-    NOTE: The scalar t can also be used to interpolate all the associated
-    vertex attributes for C. The linear interpolation is perfectly sufficient
-    even in perspective distorted cases, because we are before the perspective
-    divide here, were the whole perspective transformation is perfectly affine
-    w.r.t. the 4D space we work in.
+    From: https://stackoverflow.com/questions/60910464/at-what-stage-is-clipping-performed-in-the-graphics-pipeline
+    => The scalar t can also be used to interpolate all the associated vertex 
+    attributes for C. The linear interpolation is perfectly sufficient even in 
+    perspective distorted cases, because we are before the perspective divide 
+    here, were the whole perspective transformation is perfectly affine w.r.t. 
+    the 4D space we work in.
     **/
     double t[2];
     clip_segment(*v[0], *v[1], clip_axis, clip_sign, t[0]);

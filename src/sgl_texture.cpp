@@ -37,8 +37,13 @@ Texture::create(int32_t w, int32_t h, TextureFormat texture_format,
   this->bypp = 0; /* set a default value here */
   if (texture_format == TextureFormat::texture_format_RGBA8) {
     this->bypp = 4;
-  } else if (texture_format == TextureFormat::texture_format_float64) {
+  }
+  else if (texture_format == TextureFormat::texture_format_float64) {
     this->bypp = 8;
+  }
+  else {
+    printf("Texture create failed: unsupported / "
+      "unimplemented texture format.\n");
   }
   this->pixels = malloc(w * h * bypp);
 }
@@ -69,18 +74,15 @@ Texture::operator=(const Texture &texture) {
 Vec4
 Texture::texture_RGBA8_point(const Vec2 &p) const {
   /* point (nearest) sampling */
-
   Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
 
   p0.x = max(min(p0.x, 1.0), 0.0);
   p0.y = max(min(p0.y, 1.0), 0.0);
-
   int x = min(int(p0.x * w), w - 1);
   int y = min(int(p0.y * h), h - 1);
 
   int pixel_id = y * w + x;
   uint8_t *data = (uint8_t *) pixels;
-
   uint8_t R = data[pixel_id * 4 + 0];
   uint8_t G = data[pixel_id * 4 + 1];
   uint8_t B = data[pixel_id * 4 + 2];

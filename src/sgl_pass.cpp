@@ -9,9 +9,15 @@ Pass::get_view_matrix() const {
 	Vec3 up = normalize(cross(front, left));
 	Vec3 &F = front, &L = left, &U = up;
 	const double &ex = eye.position.x, &ey = eye.position.y, &ez = eye.position.z;
-	Mat4x4 rotation(L.x, L.y, L.z, 0.0, U.x, U.y, U.z, 0.0, F.x, F.y, F.z, 0.0,
+	Mat4x4 rotation(
+    L.x, L.y, L.z, 0.0, 
+    U.x, U.y, U.z, 0.0, 
+    F.x, F.y, F.z, 0.0,
 		0.0, 0.0, 0.0, 1.0);
-	Mat4x4 translation(1.0, 0.0, 0.0, -ex, 0.0, 1.0, 0.0, -ey, 0.0, 0.0, 1.0, -ez,
+	Mat4x4 translation(
+    1.0, 0.0, 0.0, -ex, 
+    0.0, 1.0, 0.0, -ey, 
+    0.0, 0.0, 1.0, -ez,
 		0.0, 0.0, 0.0, 1.0);
 	Mat4x4 view_matrix = mul(rotation, translation);
 	return view_matrix;
@@ -23,18 +29,18 @@ Pass::get_projection_matrix() const {
 	if (eye.perspective.enabled) {
 		double aspect_ratio = double(color_texture->w) / double(color_texture->h);
 		double inv_aspect = double(1.0) / aspect_ratio;
-		double near = eye.perspective.near;
-		double far = eye.perspective.far;
-		double field_of_view = eye.perspective.field_of_view;
-		double left = -tan(field_of_view / double(2.0)) * near;
-		double right = -left;
-		double top = inv_aspect * right;
-		double bottom = -top;
-		projection_matrix =
-			Mat4x4(2 * near / (right - left), 0, (right + left) / (right - left), 0,
-				0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0,
-				0, 0, -(far + near) / (far - near),
-				-2 * far * near / (far - near), 0, 0, -1.0, 0);
+		double n = eye.perspective.near; /* near */
+		double f = eye.perspective.far; /* far */
+		double fov = eye.perspective.field_of_view;
+		double l = -tan(fov / double(2.0)) * n; /* left */
+		double r = -l; /* right */
+		double t = inv_aspect * r; /* top */
+		double b = -t; /* bottom */
+    projection_matrix = Mat4x4(
+      2 * n / (r - l), 0.0, (r + l) / (r - l), 0.0,
+      0.0, 2 * n / (t - b), (t + b) / (t - b), 0.0,
+      0.0, 0.0, -(f + n) / (f - n), -2 * f * n / (f - n),
+      0.0, 0.0, -1.0, 0.0);
 		return projection_matrix;
 	}
 	else {

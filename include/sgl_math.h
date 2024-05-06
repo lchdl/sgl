@@ -4,9 +4,13 @@
 namespace sgl {
 /* Simple math operations should be inlined as much as possible. */
 
-static const double PI = 3.141592653589793238462643383279502884197;
-static const double PI_INV = 0.318309886183790671537767526745028724069; /* 1/pi */
-static const double PI_SQUARE = 9.869604401089358618834490999876151135313; /* pi^2 */
+/* mathematical constants */
+static const double          PI = 3.141592653589793238462643383279502884197;
+static const double      PI_INV = 0.318309886183790671537767526745028724069; /* pi^-1 */
+static const double PI_INV_SQRT = 0.564189583547756286948079451560772585844; /* pi^-0.5 */
+static const double     PI_SQRT = 1.772453850905516027298167483341145182797; /* pi^0.5 */
+static const double   PI_SQUARE = 9.869604401089358618834490999876151135313; /* pi^2 */
+static const double           E = 2.718281828459045235360287471352662497757;
 
 template <typename T>
 T
@@ -834,4 +838,4 @@ euler_to_quat(double yaw, double pitch, double roll)
 	return Quat::from_euler(yaw, pitch, roll);
 }
 
-};   // namespace sgl
+}; /* namespace sgl */
