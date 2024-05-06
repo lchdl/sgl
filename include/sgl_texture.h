@@ -76,4 +76,4 @@ Texture load_texture(const std::string &file);
 **/
 Vec4 texture(const Texture *texobj, const Vec2 &uv);
 
-};   // namespace sgl
+}; /* namespace sgl */

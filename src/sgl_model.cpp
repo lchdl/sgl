@@ -178,7 +178,7 @@ Model::load(const std::string& file) {
         node->animations.push_back(new_anim);
         dst_anim = &(node->animations[node->animations.size() - 1]);
       }
-      /* read key frames */
+      /* read key frames and store to current animation */
       for (uint32_t i_key = 0; i_key < node_anim->mNumScalingKeys; i_key++) {
         KeyFrame<Vec3> key_frame;
         key_frame.tick = node_anim->mScalingKeys[i_key].mTime;
@@ -298,6 +298,10 @@ Model::_register_vertex_weight(
     if (weight > v.bone_weights[i]) {
       /* insert bone to this slot */
       registered = true;
+      if (v.bone_IDs[MAX_BONES_INFLUENCE_PER_VERTEX - 1] >= 0) {
+        printf("[*] Warning: A weight will be ignored because there are "
+          "more than 4 bones affecting this vertex.\n");
+      }
       /* shift right */
       for (uint32_t j=MAX_BONES_INFLUENCE_PER_VERTEX-1; j>i; j--) {
         v.bone_weights[j] = v.bone_weights[j-1];
@@ -322,12 +326,14 @@ Model::_update_mesh_skeletal_animation_from_node(
   const Node* node, const Mat4x4& parent_transform, const Mesh& mesh,
   const uint32_t& anim_id, double time, Uniforms& uniforms)
 {
-  /* retrieve some info about this node */
+  /* retrieve some info about this node. 
+  NOTE: in Assimp, if a node is actually a bone, then the node name will be 
+  set to be the same as the bone name. */
   std::string node_name = node->name;
-  std::map<std::string, uint32_t>::const_iterator item = mesh.bone_name_to_local_id.find(node_name);
-  /* NOTE: in Assimp, if a node is actually a bone, then the node name will be set to be the same as the bone name. */
-	bool is_bone = (item != mesh.bone_name_to_local_id.end()); /* this node is a bone in current mesh */
-  const Bone* bone = (is_bone ? &(mesh.bones[item->second]) : NULL); /* the pointer that points to the bone */
+  std::map<std::string, uint32_t>::const_iterator 
+    item = mesh.bone_name_to_local_id.find(node_name);
+  bool is_bone = (item != mesh.bone_name_to_local_id.end()); /* this node is a bone */
+  const Bone* bone = (is_bone ? &(mesh.bones[item->second]) : NULL); /* the pointer to the bone */
   bool has_anim = (node->animations.size() > 0); /* this node contains animation(s) */
 
   /* Compute node transform. */
@@ -545,7 +551,10 @@ void
 Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
 	const std::string& anim_name, double time, Uniforms& uniforms)
 {
-	std::map<std::string, uint32_t>::const_iterator item = anim_name_to_unique_id.find(anim_name);
+  /* traverse from root node to calculate all the bone transformations
+  for a single mesh and save the calculated results into bone_matrices */
+	std::map<std::string, uint32_t>::const_iterator 
+    item = anim_name_to_unique_id.find(anim_name);
 	if (item == anim_name_to_unique_id.end()) {
 		printf("[*] Warning: could not find the required "
       "animation \"%s\" for model.\n", anim_name.c_str());
@@ -558,8 +567,11 @@ Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
 }
 
 void
-model_VS(const Vertex &vertex_in, const Uniforms &uniforms, 
-    Vertex_gl& vertex_out) { 
+model_VS(
+  const Uniforms& uniforms,
+  const Vertex& vertex_in,
+  Vertex_gl& vertex_out
+) {
   /* uniforms:
    * in_textures[0]: diffuse texture.
    * */
@@ -606,12 +618,16 @@ model_VS(const Vertex &vertex_in, const Uniforms &uniforms,
     vertex_out.wn = mul(model, n_rig).xyz();
     vertex_out.wp = mul(model, p_rig).xyz();
   }
-
 }
 
 void 
-model_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
-                     Vec4 &color_out, bool& discard) {
+model_FS(
+  const Uniforms& uniforms,
+  const Fragment_gl& fragment_in,
+  Vec4& color_out,
+  bool& is_discarded,
+  double& gl_FragDepth
+) {
   Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);
   Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
   color_out = Vec4(textured, 1.0);

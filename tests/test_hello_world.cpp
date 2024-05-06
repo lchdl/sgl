@@ -1,7 +1,6 @@
 #include <stdio.h>
 
-#include "sgl_SDL2.h"
-#include "sgl_pipeline.h"
+#include "sgl.h"
 
 using namespace sgl;
 
@@ -48,8 +47,8 @@ destroy_env() {
 }
 
 void
-record_key(SDL_KeyboardEvent *key) {
-	bool is_press = (key->type == SDL_KEYUP);
+process_key(SDL_KeyboardEvent *key) {
+	bool is_press = (key->type == SDL_KEYDOWN);
 	/* scancode is based on QWERTY layout,
 	 * while keycode generated from the same key position
 	 * can be different from different keyboard layouts. */
@@ -160,7 +159,7 @@ main(int argc, char* argv[]) {
 		if (e.type == SDL_QUIT || keystate[SDL_SCANCODE_ESCAPE])
 			break;
 		else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
-			record_key(&e.key);
+			process_key(&e.key);
 
 		/* timing */
 		frameid++;

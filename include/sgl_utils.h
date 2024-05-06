@@ -262,4 +262,4 @@ replace_all(std::string& str,
   }
 }
 
-};   // namespace sgl
+}; /* namespace sgl */

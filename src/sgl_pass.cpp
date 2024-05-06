@@ -44,7 +44,18 @@ Pass::get_projection_matrix() const {
 		return projection_matrix;
 	}
 	else {
-		/* orthographic not implemented now */
+		double n = eye.orthographic.near;
+		double f = eye.orthographic.far;
+		double r = eye.orthographic.width / 2.0;
+		double l = -r;
+		double t = eye.orthographic.height / 2.0;
+		double b = -t;
+		projection_matrix = Mat4x4(
+			2.0 / (r - l), 0.0, 0.0, -(r + l) / (r - l),
+			0.0, 2.0 / (t - b), 0.0, -(t + b) / (t - b),
+			0.0, 0.0, -2.0 / (f - n), -(f + n) / (f - n),
+			0.0, 0.0, 0.0, 1.0
+		);
 		return projection_matrix;
 	}
 }
@@ -65,7 +76,8 @@ Pass::Pass()
 	eye.orthographic.enabled = false;
 	eye.orthographic.width = 256.0;
 	eye.orthographic.height = 256.0;
-	eye.orthographic.depth = 256.0;
+	eye.orthographic.near = 0.1;
+	eye.orthographic.far = 100.0;
 }
 
 void
@@ -83,7 +95,9 @@ ModelPass::run(Pipeline& ppl) {
 		uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
 	}
 	else {
-		/* orthographic view not implemented. */
+		uniforms.gl_DepthRange.x = this->eye.orthographic.near;
+		uniforms.gl_DepthRange.y = this->eye.orthographic.far;
+		uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
 	}
 	uniforms.model = this->model->get_model_transform();
 	uniforms.view = this->get_view_matrix();
@@ -99,11 +113,11 @@ ModelPass::run(Pipeline& ppl) {
 		const int32_t mat_id = mesh_data[i_mesh].mat_id;
 		const Mesh& mesh = mesh_data[i_mesh];
 
-		/* calculate bone tranformation matrices and update to uniforms */
+		/* calculate bone tranformation matrices and update uniform variables */
 		this->model->update_skeletal_animation_for_mesh(mesh, this->anim_name, this->time, uniforms);
 		/* Setting up mesh materials. */
 		uniforms.in_textures[0] = &materials[mat_id].diffuse_texture; /* diffuse texture */
-		/* Launch the pipeline to render the triangles */
+		/* Launch the pipeline to render all the triangles in this mesh */
 		ppl.draw(vertices, indices, uniforms);
 	}
 }

@@ -122,7 +122,7 @@ public:
 	which can be calculated from: Q*v.
 	Then we can transform from B2's local space back to model space by
 	calculating:
-	                       v' = (T0*T1*T2*Q)*v = S*v,              (1)
+	                    v' = (T0*T1*T2*Q)*v = S*v,                 (1)
 	where `S` is the collapsed transformation matrix. We call it `bone
 	matrix` here to be convenient.
 	
@@ -131,7 +131,7 @@ public:
 	quickly gain access to `S` when rendering. If a vertex is controlled
 	by multiple bones B_i with weights w_i, then we need to do a simple
 	linear interpolation for each bone, which means to calculate:
-	                        v' = sum(S_i*v) for i,                 (2)
+	                    v' = sum(S_i*v) for each i,                (2)
 	where S_i = w_i*S.
 
 	During an animation sequence, we update each T_i in eq. (1) and 
@@ -216,12 +216,16 @@ convert_assimp_quat(const aiQuaternion& q) {
 
 /* specialized VS and FS for mesh rendering. */
 void model_VS(
-  const Vertex &vertex_in, 
-  const Uniforms &uniforms, 
-  Vertex_gl& vertex_out);
+  const Uniforms& uniforms,
+  const Vertex& vertex_in,
+  Vertex_gl& vertex_out
+);
 void model_FS(
-  const Fragment_gl &fragment_in, 
-  const Uniforms &uniforms,
-  Vec4 &color_out, bool& discard);
+  const Uniforms& uniforms,
+  const Fragment_gl& fragment_in,
+  Vec4& color_out,
+  bool& is_discarded,
+  double& gl_FragDepth
+);
 
-};
+}; /* namespace sgl */

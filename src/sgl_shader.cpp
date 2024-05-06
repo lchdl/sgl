@@ -3,8 +3,11 @@
 namespace sgl {
 
 void
-default_VS(const Vertex &vertex_in, const Uniforms &uniforms,
-              Vertex_gl &vertex_out) {
+default_VS(
+  const Uniforms &uniforms,
+  const Vertex &vertex_in,
+  Vertex_gl &vertex_out
+) {
   /* Implement default vertex shader. */
   const Mat4x4 &model = uniforms.model;
   const Mat4x4 &view = uniforms.view;
@@ -24,11 +27,16 @@ assemble_fragment(const Vertex_gl &vertex_in, Fragment_gl &fragment_out) {
   fragment_out.t = vertex_in.t;
 }
 void
-default_FS(const Fragment_gl &fragment_in, const Uniforms &uniforms,
-                Vec4 &fragment_out, bool& discard) {
+default_FS(
+  const Uniforms &uniforms,
+  const Fragment_gl &fragment_in,
+  Vec4 &color_out,
+  bool& is_discarded,
+  double& gl_FragDepth
+) {
 	Vec2 uv = fragment_in.t;
 	Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
-  fragment_out = Vec4(textured, 1.0);
+  color_out = Vec4(textured, 1.0);
 }
 
-}; // namespace sgl
+}; /* namespace sgl */

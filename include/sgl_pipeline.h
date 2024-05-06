@@ -1,17 +1,3 @@
-/**
-             ** SGL - Software Graphics Library **             
----------------------------------------------------------------
-                                By lchdl (chenghao1652@126.com) 
-                           Project started from Feb-2024 to now
- -> "I enjoy implementing simple math intuitions behind complex 
-     (or seemingly complex) things using code."
-A complete software implementation of OpenGL graphic pipeline.
-This implementation also covers every details you need to know
-about writing a software rasterizer from scratch. The whole
-pipeline also supports OpenMP accelerating, you can dynamically
-adjust the number of CPU cores used for rendering.
-
-**/
 #pragma once
 #include <stdint.h>
 
@@ -67,6 +53,15 @@ class Pipeline {
 	}
 	void disable_backface_culling() {
 		ppl.backface_culling = false;
+	}
+	/**
+	Enable/disable depth test.
+	**/
+	void enable_depth_test(bool state = true) {
+		ppl.do_depth_test = state;
+	}
+	void disable_depth_test() {
+		ppl.do_depth_test = false;
 	}
   /** 
   Render triangles onto target textures.
@@ -130,7 +125,7 @@ class Pipeline {
   @param uniforms: The uniform variables given to the pipeline.
   @param num_threads: The number of concurrent threads used for rasterization.
   @note: "MT" stands for "multi-threaded" version. 
-          If running in MT, OpenMP must be enabled.
+         * If running in MT mode, OpenMP must be enabled.
   **/
   void fragment_processing(const Uniforms &uniforms);
   void fragment_processing_MT(const Uniforms &uniforms, const int &num_threads);
@@ -153,14 +148,16 @@ class Pipeline {
   see: "How to clip in homogeneous space?" in "doc/graphics_pipeline.md".
   @param v1, v2, v3: Input triangle vertices in homogeneous space.
   @param clip_axis: Clip axis (0=x, 1=y, 2=z).
-  @param clip_sign: Clip sign (+1 or -1). +1 means clip outside +w, -1 means
-  clip outside -w.
+  @param clip_sign: Clip sign (+1 or -1). +1 means clipping using +w, -1 means
+  clipping using -w.
   @param q1, q2, q3, q4: Output triangle vertices.
     - If one triangle is produced, then (`q1`-`q2`-`q3`) represents the new
   triangle.
     - If two triangles are produced, then (`q1`-`q2`-`q3`) represents the first
   triangle, (`q1`-`q3`-`q4`) represents the second triangle.
-  @param n_tri: Number of triangle(s) produced after clipping.
+  @param n_tri: Number of triangle(s) produced after clipping. Can be 0, 1, or 
+  2 depending on different cases. If 0 is returned, then triangle is completely
+  discarded.
   **/
   void clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
                      const Vertex_gl &v3, const int clip_axis,
@@ -245,6 +242,7 @@ class Pipeline {
     std::vector<Triangle_gl> Triangles; /* geometry generated after vertex post-processing */
 		int num_threads; /* number of cpu cores used when running the pipeline */
 		bool backface_culling; /* enable/disable backface culling when rendering */
+		bool do_depth_test; /* enable/disable depth test when rendering */
 	} ppl; /* pipeline internal states */
 	struct {
 		VS_func_t VS;

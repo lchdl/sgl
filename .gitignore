@@ -2,6 +2,7 @@
 ext/
 build/
 build_deps/
+devlog/
 bin/
 lib/
 .cache/

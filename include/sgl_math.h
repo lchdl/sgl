@@ -291,7 +291,6 @@ struct Mat4x4 {
     i41 = 0.0, i42 = 0.0, i43 = 0.0, i44 = 1.0;
   }
 
-
   Mat4x4(double* _data) {
     for (int t = 0; t < 16; t++) 
       this->i[t] = _data[t];
@@ -608,7 +607,8 @@ mul(Mat4x4 _a, Mat4x4 _b) {
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
       double sum = 0.0;
-      for (int k = 0; k < 4; k++) sum += _a.i[i * 4 + k] * _b.i[k * 4 + j];
+      for (int k = 0; k < 4; k++) 
+        sum += _a.i[i * 4 + k] * _b.i[k * 4 + j];
       c.i[i * 4 + j] = sum;
     }
   }
@@ -738,8 +738,9 @@ slerp(Quat q1, Quat q2, double t) {
     sclq = sin(t * omega) / sinom;
   }
   else {
-    /* Very close, do linear interp (because it's faster and much more robust, 
-    if q1 and q2 are very close, acos will return NaN sometimes.) */
+    /* Very close, do linear interpolation instead (because it's faster 
+    and much more robust, if q1 and q2 are very close, acos will return 
+    NaN sometimes, causing numerical instability). */
     sclp = 1.0 - t;
     sclq = t;
   }

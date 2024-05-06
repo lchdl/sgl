@@ -1,7 +1,6 @@
 #include <stdio.h>
 
-#include "sgl_pass.h"
-#include "sgl_SDL2.h"
+#include "sgl.h"
 
 using namespace sgl;
 
@@ -45,8 +44,8 @@ destroy_env() {
 }
 
 void
-record_key(SDL_KeyboardEvent *key) {
-	bool is_press = (key->type == SDL_KEYUP);
+process_key(SDL_KeyboardEvent *key) {
+	bool is_press = (key->type == SDL_KEYDOWN);
 	/* scancode is based on QWERTY layout,
 	 * while keycode generated from the same key position
 	 * can be different from different keyboard layouts. */
@@ -55,6 +54,20 @@ record_key(SDL_KeyboardEvent *key) {
 	std::string keyname = SDL_GetKeyName(keycode);
 	/* record key state */
 	keystate[scancode] = is_press ? true : false;
+
+	/* custom key handling */
+	if (keycode == SDLK_SPACE && is_press) {
+		if (render_pass.eye.perspective.enabled) {
+			render_pass.eye.perspective.enabled = false;
+			render_pass.eye.orthographic.enabled = true;
+			printf("Now enables orthographic projection.\n");
+		}
+		else {
+			render_pass.eye.perspective.enabled = true;
+			render_pass.eye.orthographic.enabled = false;
+			printf("Now enables perspective projection.\n");
+		}
+	}
 }
 
 void
@@ -68,17 +81,24 @@ init_render() {
 		TextureSampling::texture_sampling_point);
 
 	/* Step 2: Setup render config. */
+	render_pass.VS = model_VS;
+	render_pass.FS = model_FS;
+	render_pass.color_texture = &color_texture;
+	render_pass.depth_texture = &depth_texture;
 	render_pass.eye.position = Vec3(0, 6, 10);
 	render_pass.eye.look_at = Vec3(0, 3.5, 0);
 	render_pass.eye.up_dir = Vec3(0, 1, 0);
+	/* perspective */
 	render_pass.eye.perspective.enabled = true;
 	render_pass.eye.perspective.near = 1.0;
 	render_pass.eye.perspective.far = 50.0;
 	render_pass.eye.perspective.field_of_view = degrees_to_radians(60.0);
-	render_pass.color_texture = &color_texture;
-	render_pass.depth_texture = &depth_texture;
-	render_pass.VS = model_VS;
-	render_pass.FS = model_FS;
+	/* orthographic */
+	render_pass.eye.orthographic.enabled = false;
+	render_pass.eye.orthographic.near = 1.0;
+	render_pass.eye.orthographic.far = 50.0;
+	render_pass.eye.orthographic.width = 12.0;
+	render_pass.eye.orthographic.height = 9.0;
 
 	/* Step 3: Initialize model. */
 	boblamp_model.load("models/boblamp.zip");
@@ -86,13 +106,14 @@ init_render() {
 	render_pass.model = &boblamp_model;
 
 	pipeline.set_num_threads(4);
+	printf("Press space bar to switch between perspective/orthographic mode.\n");
 }
 
 void 
-render_frame(double T_global) {
-	render_pass.time = fmod(T_global, 6.0);
-	render_pass.anim_name = "";
-	render_pass.eye.position = Vec3(10 * sin(T_global / 3), 6, 10 * cos(T_global / 3));
+render_frame(double T) {
+	render_pass.time = fmod(T, 6.0); /* 6 seconds per loop */
+	render_pass.anim_name = ""; /* play the animation "" */
+	render_pass.eye.position = Vec3(10 * sin(T / 3), 6, 10 * cos(T / 3));
 	render_pass.eye.look_at = Vec3(0, 3.5, 0);
 	render_pass.run(pipeline);
 }
@@ -116,7 +137,7 @@ main(int argc, char* argv[]) {
     if (e.type == SDL_QUIT || keystate[SDL_SCANCODE_ESCAPE])
       break;
     else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
-      record_key(&e.key);
+      process_key(&e.key);
 
 		/* timing */
     frameid++;

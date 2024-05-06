@@ -120,4 +120,4 @@ texture(const Texture *texobj, const Vec2 &uv) {
   return Vec4(0, 0, 0, 0);
 }
 
-};   // namespace sgl
+}; /* namespace sgl */

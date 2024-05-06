@@ -47,7 +47,7 @@ struct Pass {
 		} perspective;
 		struct {
 			bool enabled;
-			double width, height, depth;
+			double near, far, width, height;
 		} orthographic;
 	} eye;
 public:
@@ -61,6 +61,12 @@ public:
 	virtual ~Pass() {}
 };
 
+/**
+Simply draw a model (probably with animation) onto screen.
+* Note that a model can consists of multiple meshes, so this class also 
+  wraps up multiple draw calls to fully render a model, each draw call
+  only renders a single mesh.
+**/
 struct ModelPass : public Pass {
 public:
 	Model* model; /* a pointer to model object that is being drawn */

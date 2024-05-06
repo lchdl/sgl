@@ -1,6 +1,5 @@
 #include "sgl_pipeline.h"
 
-#include <malloc.h>
 #include <omp.h>
 
 namespace sgl {
@@ -13,6 +12,7 @@ void Pipeline::_zero_init()
 	shaders.FS = NULL;
 	ppl.num_threads = max(get_cpu_cores(), 1);
 	ppl.backface_culling = true;
+	ppl.do_depth_test = true;
 }
 
 Pipeline::Pipeline() {
@@ -57,7 +57,7 @@ Pipeline::vertex_processing(const std::vector<Vertex> &vertex_buffer,
     Vertex_gl vertex_out;
     /* Map vertex from model local space to homogeneous clip space and stores to
     "gl_Position". */
-    shaders.VS(vertex_buffer[i_vert], uniforms, vertex_out);
+    shaders.VS(uniforms, vertex_buffer[i_vert], vertex_out);
     ppl.Vertices.push_back(vertex_out);
   }
 }
@@ -147,12 +147,12 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
 				double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
         fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
         Vec4 color_out;
-        bool discard = false;
-        shaders.FS(fragment, uniforms, color_out, discard);
+        bool is_discarded = false;
+        shaders.FS(uniforms, fragment, color_out, is_discarded, gl_FragDepth);
         /* Step 3.5: Fragment processing */
-        if (!discard) {
+        if (!is_discarded) {
           write_render_targets(fragment.gl_FragCoord.xy(), color_out,
-            fragment.gl_FragCoord.z);
+            gl_FragDepth);
         }
       }
     }
@@ -241,12 +241,12 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
 					double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
 					fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
 					Vec4 color_out;
-					bool discard = false;
-					shaders.FS(fragment, uniforms, color_out, discard);
+					bool is_discarded = false;
+					shaders.FS(uniforms, fragment, color_out, is_discarded, gl_FragDepth);
 					/* Step 3.5: Fragment processing */
-					if (!discard) {
+					if (!is_discarded) {
 						write_render_targets(fragment.gl_FragCoord.xy(), color_out,
-							fragment.gl_FragCoord.z);
+              gl_FragDepth);
 					}
         }
       }
@@ -269,9 +269,10 @@ Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z
   double *depths = (double *) this->targets.depth->pixels;
   double z_new = min(max(z, 0.0), 1.0);
   double z_orig = depths[pixel_id];
-  if (z_orig < z_new)
+  if (z_new > z_orig && ppl.do_depth_test)
     return;
-  depths[pixel_id] = z_new;
+	if (ppl.do_depth_test)
+	  depths[pixel_id] = z_new;
   uint8_t R, G, B, A;
 	uint32_t RGBA;
   convert_Vec4_to_RGBA8(color, R, G, B, A);
@@ -287,15 +288,15 @@ Pipeline::clip_triangle(const Triangle_gl &triangle_in,
   std::vector<Triangle_gl> *Qcur = &Q0, *Qnext = &Q1, *Qtemp = NULL;
   Qcur->push_back(triangle_in);
   Vertex_gl q[4];
-  int clip_signs[2] = {+1, -1};
+  const int clip_signs[2] = {+1, -1};
   for (uint32_t clip_axis = 0; clip_axis < 3; clip_axis++) {
     for (uint32_t i_clip = 0; i_clip < 2; i_clip++) {
-      int clip_sign = clip_signs[i_clip];
+      const int clip_sign = clip_signs[i_clip];
       for (uint32_t i_tri = 0; i_tri < Qcur->size(); i_tri++) {
         Triangle_gl &tri = (*Qcur)[i_tri];
         int n_tri;
-        clip_triangle(tri.v[0], tri.v[1], tri.v[2], clip_axis, clip_sign, q[0],
-                      q[1], q[2], q[3], n_tri);
+        clip_triangle(tri.v[0], tri.v[1], tri.v[2], 
+					clip_axis, clip_sign, q[0], q[1], q[2], q[3], n_tri);
         if (n_tri == 1) {
           Qnext->push_back(Triangle_gl(q[0], q[1], q[2]));
         } else if (n_tri == 2) {
@@ -390,7 +391,7 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
                      -(1-t)*A_w - t*B_w = (1-t)*A_z + t*B_z.
     We can solve for scalar t:
                        t = (A_z+A_w) / ((A_z+A_w)-(B_z+B_w)).
-    Similarily, we can solve scalar t for far plane clipping:
+    Similarly, we can solve scalar t for far plane clipping:
                        t = (A_z-A_w) / ((A_z-A_w)-(B_z-B_w)).
     Clipping with other axes is also the same. Just replace A_z to A_x or A_y 
 		and B_z to B_x or B_y.
@@ -415,6 +416,7 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
       q3 = Vertex_gl::lerp(*v[0], *v[2], t[1]);
       q4 = Vertex_gl::lerp(*v[0], *v[1], t[0]);
     }
+		/* for the case when n_tri==0, the triangle is automatically discarded. */
   }
 }
 void
@@ -423,10 +425,6 @@ Pipeline::clear_render_targets(
   Texture* depth,
   const Vec4 &clear_color)
 { 
-	/**
-	clear_render_targets() will cache cleared frame buffer from
-	previous run to save time.
-	**/
 	uint8_t R, G, B, A;
 	uint32_t RGBA;
   convert_Vec4_to_RGBA8(clear_color, R, G, B, A);
@@ -446,4 +444,4 @@ Pipeline::clear_render_targets(
   }
 }
 
-}; // namespace sgl
+}; /* namespace sgl */
