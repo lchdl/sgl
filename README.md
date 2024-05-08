@@ -14,8 +14,8 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 * Currently used as my own retro-style game engine.
 
 # Demos and tests
-| Demo name | Demo | Description |
-|:----------|:----:|:------------|
+| Demo or test name | Demo | Description |
+|:------------------|:----:|:------------|
 | test_hello_world.cpp | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. |
 | test_bone_anim.cpp | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Render time: <b>~1 ms</b> per frame in 320x240 resolution, <b>~3 ms</b> per frame in 800x600 resolution. |
 
