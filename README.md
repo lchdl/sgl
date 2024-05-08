@@ -42,8 +42,8 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 
 * <b>sgl</b> relies on these external libraries:
 
-| Library name |  Link  | Description |
-|:------------:|:-------|:------------|
+| Library |  Link  | Description |
+|:-------:|:-------|:------------|
 | SDL2 | https://github.com/libsdl-org/SDL | Frame buffer visualization & window message loop handling. |
 | Assimp | https://github.com/assimp/assimp | Model assets import. |
 
