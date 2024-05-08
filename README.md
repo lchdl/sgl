@@ -1,3 +1,44 @@
+# Table of contents
+
+- [About SGL](#about-sgl-software-graphics-library)
+- [Demos](#demos)
+- [Features and TODOs](#features-and-todos)
+- [How to compile (CMake)](#how-to-compile-cmake)
+- [For developers](#for-developers)
+
+# About SGL (software graphics library)
+
+SGL is a tiny cross-platform (Windows & Linux-based systems) <i><b>software rasterizer written in C++</i></b> by strictly following the classic GPU rasterization pipeline specifications with <i><b>skeletal animation support</i></b>.
+Users can program their own <i><b>vertex and fragment shaders</i></b> and attach them to the pipeline to achieve custom effects.
+
+* Currently used as my own retro-style game engine.
+
+# Demos
+| Demo name | Demo | Description |
+|-----------|------|-------------|
+| Hello World | 
+
+# Features and TODOs
+## Features
+* Flexible vertex format
+* Vertex & fragment shader support
+* *.md5 mesh import
+* Skeletal animation support
+## TODOs
+* Reflection effect
+  - Stencil buffer
+  - Alpha blending
+* Text rendering
+* Phong shading
+* Texture baking
+  - Ray tracing
+
+# How to compile (CMake)
+## For Windows
+
+## For Linux-based systems
+
+# For developers
 ## Project structure
 * CMakeLists.txt
   - For CMAKE.
