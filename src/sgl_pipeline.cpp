@@ -39,11 +39,9 @@ void Pipeline::draw(
   ppl.Triangles.clear();
 
   /* Stage I: Vertex processing. */
-  /* convert vertex from world space to clip space */
   vertex_processing(vertices, uniforms);
 
   /* Stage II: Vertex post-processing. */
-  /* primitive assembly & face clipping */
   vertex_post_processing(indices);
 
   /* Step III: Rasterization & fragment processing */
@@ -126,19 +124,14 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
         **/
         Vec3 w = Vec3(edge(p1, p2, p), edge(p2, p0, p), edge(p0, p1, p));
         /* discard pixel if it is outside the triangle area */
-				bool allp = (w.i[0] >= 0.0 && w.i[1] >= 0.0 && w.i[2] >= 0.0);
-				bool alln = (w.i[0] <= 0.0 && w.i[1] <= 0.0 && w.i[2] <= 0.0);
-				if (!allp && !alln) continue;
+        bool all_pos = (w.i[0] >= 0.0 && w.i[1] >= 0.0 && w.i[2] >= 0.0);
+        bool all_neg = (w.i[0] <= 0.0 && w.i[1] <= 0.0 && w.i[2] <= 0.0);
+				if (!all_pos && !all_neg) continue;
 				/* interpolate vertex */
 				w /= area;
         Vertex_gl v_lerp = v0 * w.i[0] + v1 * w.i[1] + v2 * w.i[2];
         double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
         v_lerp *= z_real;
-        /**
-        @note: v_lerp is the interpolated vertex in homogeneous clip space
-        in order to assemble the correct gl_FragCoord, we need to manually
-        convert it into NDC space again.
-        **/
         /* Step 3.4: Assemble fragment and render pixel. */
         Fragment_gl fragment;
         assemble_fragment(v_lerp, fragment);
@@ -220,19 +213,14 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
 					**/
 					Vec3 w = Vec3(edge(p1, p2, p), edge(p2, p0, p), edge(p0, p1, p));
 					/* discard pixel if it is outside the triangle area */
-					bool allp = (w.i[0] >= 0.0 && w.i[1] >= 0.0 && w.i[2] >= 0.0);
-					bool alln = (w.i[0] <= 0.0 && w.i[1] <= 0.0 && w.i[2] <= 0.0);
-					if (!allp && !alln) continue;
+					bool all_pos = (w.i[0] >= 0.0 && w.i[1] >= 0.0 && w.i[2] >= 0.0);
+					bool all_neg = (w.i[0] <= 0.0 && w.i[1] <= 0.0 && w.i[2] <= 0.0);
+					if (!all_pos && !all_neg) continue;
 					/* interpolate vertex */
 					w /= area;
 					Vertex_gl v_lerp = v0 * w.i[0] + v1 * w.i[1] + v2 * w.i[2];
 					double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
 					v_lerp *= z_real;
-					/**
-					@note: v_lerp is the interpolated vertex in homogeneous clip space
-					in order to assemble the correct gl_FragCoord, we need to manually
-					convert it into NDC space again.
-					**/
 					/* Step 3.4: Assemble fragment and render pixel. */
 					Fragment_gl fragment;
 					assemble_fragment(v_lerp, fragment);
