@@ -30,6 +30,7 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 * md5 (*.md5mesh, *.md5anim) format import & parsing
 * <b>Skeletal animation</b> support
 ## TODOs
+* Wireframe rendering
 * Reflection effect
   - Stencil buffer
   - Alpha blending
