@@ -1,7 +1,7 @@
 # Table of contents
 
 - [About SGL](#about-sgl-software-graphics-library)
-- [Demos](#demos)
+- [Demos and tests](#demos-and-tests)
 - [Features and TODOs](#features-and-todos)
 - [How to compile (CMake)](#how-to-compile-cmake)
 - [For developers](#for-developers)
@@ -13,10 +13,11 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 
 * Currently used as my own retro-style game engine.
 
-# Demos
+# Demos and tests
 | Demo name | Demo | Description |
-|-----------|------|-------------|
-| Hello World | 
+|:----------|:----:|:------------|
+| test_hello_world.cpp | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. |
+| test_bone_anim.cpp | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (boblamp). |
 
 # Features and TODOs
 ## Features
