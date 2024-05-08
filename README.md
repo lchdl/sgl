@@ -12,7 +12,7 @@
 Users can program their own <i><b>vertex and fragment shaders</i></b> and attach them to the pipeline to achieve custom effects.
 
 <p align="center">
-  <img width="750" src="https://github.com/lchdl/sgl/blob/develop/demos/pipeline.png">
+  <img width="700" src="https://github.com/lchdl/sgl/blob/develop/demos/pipeline.png">
 </p>
 
 * Currently used as my own retro-style game engine.
