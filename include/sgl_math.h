@@ -67,16 +67,16 @@ struct Vec3 {
   };
   Vec3() { x = y = z = 0.0; }
   Vec3(double _x, double _y, double _z) { x = _x, y = _y, z = _z; }
-	void operator+=(Vec3 v) { x += v.x, y += v.y, z += v.z; }
-	void operator-=(Vec3 v) { x -= v.x, y -= v.y, z -= v.z; }
-	void operator*=(double _b) { x *= _b, y *= _b, z *= _b; }
+  void operator+=(Vec3 v) { x += v.x, y += v.y, z += v.z; }
+  void operator-=(Vec3 v) { x -= v.x, y -= v.y, z -= v.z; }
+  void operator*=(double _b) { x *= _b, y *= _b, z *= _b; }
   void operator/=(double _b) {
     double inv_b = 1.0 / _b;
     x *= inv_b, y *= inv_b, z *= inv_b;
   }
   Vec2 xy() const { return Vec2(x, y); }
   Vec2 yz() const { return Vec2(y, z); }
-	Vec2 xz() const { return Vec2(x, z); }
+  Vec2 xz() const { return Vec2(x, z); }
   double& operator[](const int& _idx) { return this->i[_idx]; }
 };
 struct Vec4 {
@@ -140,7 +140,7 @@ struct IVec3 {
   void operator*=(int _b) { x *= _b, y *= _b, z *= _b; }
   IVec2 xy() const { return IVec2(x, y); }
   IVec2 yz() const { return IVec2(y, z); }
-	IVec2 xz() const { return IVec2(x, z); }
+  IVec2 xz() const { return IVec2(x, z); }
   int& operator[](const int& _idx) { return this->i[_idx]; }
 };
 struct IVec4 {
@@ -244,14 +244,14 @@ struct Mat3x3 {
     i31 -= a.i31; i32 -= a.i32; i33 -= a.i33;
     return (*this);
   }
-	/* check if all elements in the matrix are close to zero */
-	inline bool is_zero(const double eps = 1e-6) const {
-		for (int t = 0; t < 9; t++) {
-			if (i[t] < -fabs(eps) || i[t] > +fabs(eps))
-				return false;
-		}
-		return true;
-	}
+  /* check if all elements in the matrix are close to zero */
+  inline bool is_zero(const double eps = 1e-6) const {
+    for (int t = 0; t < 9; t++) {
+      if (i[t] < -fabs(eps) || i[t] > +fabs(eps))
+        return false;
+    }
+    return true;
+  }
 };
 struct Mat4x4 {
   union {
@@ -342,14 +342,14 @@ struct Mat4x4 {
     i41 -= a.i41; i42 -= a.i42; i43 -= a.i43; i44 -= a.i44;
     return (*this);
   }
-	/* check if all elements in the matrix are close to zero */
-	inline bool is_zero(const double eps = 1e-6) const {
-		for (int t = 0; t < 16; t++) {
-			if (i[t] < -fabs(eps) || i[t] > +fabs(eps))
-				return false;
-		}
-		return true;
-	}
+  /* check if all elements in the matrix are close to zero */
+  inline bool is_zero(const double eps = 1e-6) const {
+    for (int t = 0; t < 16; t++) {
+      if (i[t] < -fabs(eps) || i[t] > +fabs(eps))
+        return false;
+    }
+    return true;
+  }
 
 };
 
@@ -370,20 +370,20 @@ struct Quat {
   static Quat rot_x(double angle) { return Quat(cos(angle / 2.0), sin(angle / 2.0), 0.0, 0.0); }
   static Quat rot_y(double angle) { return Quat(cos(angle / 2.0), 0.0, sin(angle / 2.0), 0.0); }
   static Quat rot_z(double angle) { return Quat(cos(angle / 2.0), 0.0, 0.0, sin(angle / 2.0)); }
-	static Quat from_euler(double yaw, double pitch, double roll) {
-		/* https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles */
-		double cy = cos(yaw * 0.5);
-		double sy = sin(yaw * 0.5);
-		double cp = cos(pitch * 0.5);
-		double sp = sin(pitch * 0.5);
-		double cr = cos(roll * 0.5);
-		double sr = sin(roll * 0.5);
-		return Quat(
-			cr * cp * cy + sr * sp * sy,
-			sr * cp * cy - cr * sp * sy,
-			cr * sp * cy + sr * cp * sy,
-			cr * cp * sy - sr * sp * cy);
-	}
+  static Quat from_euler(double yaw, double pitch, double roll) {
+    /* https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles */
+    double cy = cos(yaw * 0.5);
+    double sy = sin(yaw * 0.5);
+    double cp = cos(pitch * 0.5);
+    double sp = sin(pitch * 0.5);
+    double cr = cos(roll * 0.5);
+    double sr = sin(roll * 0.5);
+    return Quat(
+      cr * cp * cy + sr * sp * sy,
+      sr * cp * cy - cr * sp * sy,
+      cr * sp * cy + sr * cp * sy,
+      cr * cp * sy - sr * sp * cy);
+  }
 
 };
 
@@ -714,7 +714,7 @@ slerp(Quat q1, Quat q2, double t) {
   Quaternion spherical interpolation (slerp) implementation adapted from Assimp.
   Also from Assimp:
     "Implementation adopted from the gmtl project. 
-		All others I found on the net fail in some cases."
+    All others I found on the net fail in some cases."
   */
   /* calculate cosine theta */
   double cosom = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.s * q2.s;
@@ -836,7 +836,7 @@ mul(Vec3 v, Quat q)
 inline Quat
 euler_to_quat(double yaw, double pitch, double roll)
 {
-	return Quat::from_euler(yaw, pitch, roll);
+  return Quat::from_euler(yaw, pitch, roll);
 }
 
 }; /* namespace sgl */

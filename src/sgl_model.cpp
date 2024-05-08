@@ -27,58 +27,58 @@ Model::load(const std::string& file) {
   
   /* clear trash data from previous load */
   this->unload(); 
-	
-	/* Assimp model importer.
-	 * Note: if the importer is destoryed, the resources
+  
+  /* Assimp model importer.
+   * Note: if the importer is destoryed, the resources
    * it holds will also be destroyed. */
-	::Assimp::Importer* _importer = new ::Assimp::Importer();
-	const aiScene* _scene;
- 	
+  ::Assimp::Importer* _importer = new ::Assimp::Importer();
+  const aiScene* _scene;
+  
   /* if the model is packed as a *.zip file, unpack it first */
   std::string temp_folder = "";
   std::string model_file = "";
 
   if (endswith(file, ".zip")) {
     temp_folder = mktdir(gd(file));
-		int zipret = zip_extract(file.c_str(), temp_folder.c_str(), NULL, NULL);
-		if (zipret < 0) {
-			printf("Assimp import error: cannot unzip file \"%s\".", file.c_str());
-			rm(temp_folder);
+    int zipret = zip_extract(file.c_str(), temp_folder.c_str(), NULL, NULL);
+    if (zipret < 0) {
+      printf("Assimp import error: cannot unzip file \"%s\".", file.c_str());
+      rm(temp_folder);
       return false;
-		}
-		std::vector<std::string> files = ls(temp_folder);
-		for (auto& file : files) {
-			size_t dpos = file.find_last_of(".");
-			std::string file_no_ext = file.substr(0, dpos);
-			std::string file_ext = file.substr(dpos + 1);
-			if (endswith(file_no_ext, "model")) {
-				if (file_ext == "obj" || file_ext == "md5mesh") {
-					model_file = file;
-					break;
-				}
-			}
-		}
-		if (model_file == "") {
-			printf("Assimp import error: you need to provide a file "
+    }
+    std::vector<std::string> files = ls(temp_folder);
+    for (auto& file : files) {
+      size_t dpos = file.find_last_of(".");
+      std::string file_no_ext = file.substr(0, dpos);
+      std::string file_ext = file.substr(dpos + 1);
+      if (endswith(file_no_ext, "model")) {
+        if (file_ext == "obj" || file_ext == "md5mesh") {
+          model_file = file;
+          break;
+        }
+      }
+    }
+    if (model_file == "") {
+      printf("Assimp import error: you need to provide a file "
           "named \"model.*\" in zipped file \"%s\".", file.c_str());
-			rm(temp_folder);
+      rm(temp_folder);
       return false;
-		}
+    }
   }
   else {
     model_file = file;
   }
-	
+  
   /* then import the file using assimp */
-	uint32_t load_flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices;
+  uint32_t load_flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices;
   _scene = _importer->ReadFile(model_file.c_str(), load_flags);
-	if (!_scene || !_scene->mRootNode || _scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
-		printf("Assimp importer.ReadFile() error when loading file \"%s\": \"%s\".\n",
-			file.c_str(), _importer->GetErrorString());
-		if (temp_folder != "")
+  if (!_scene || !_scene->mRootNode || _scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
+    printf("Assimp importer.ReadFile() error when loading file \"%s\": \"%s\".\n",
+      file.c_str(), _importer->GetErrorString());
+    if (temp_folder != "")
       rm(temp_folder);
     return false;
-	}
+  }
 
   /* In Assimp, a scene consists of multiple meshes, each mesh can 
    * only have one material. If a mesh uses multiple materials for 
@@ -122,7 +122,7 @@ Model::load(const std::string& file) {
     this->meshes[i_mesh].mat_id = mesh->mMaterialIndex;
     
     /* bones and animation support:
-		 * For each bone (aiBone) object, "mOffsetMatrix" stores the
+     * For each bone (aiBone) object, "mOffsetMatrix" stores the
      * transformation from local model space directly to bone space 
      * in bind pose (default T-pose). */
 
@@ -157,12 +157,12 @@ Model::load(const std::string& file) {
     if (ticks_per_second < 1.0) ticks_per_second = 25.0;
     uint32_t n_ctrl_nodes = anim->mNumChannels; /* number of bones this animation controls */
     std::string anim_name = anim->mName.data;
-		/* register this animation */
-		std::map<std::string, uint32_t>::const_iterator item = anim_name_to_unique_id.find(anim_name);
-		if (item != anim_name_to_unique_id.end()) {
-			printf("Found duplicated animation \"%s\".\n", anim_name.c_str());
-		}
-		anim_name_to_unique_id.insert_or_assign(anim_name, (uint32_t)anim_name_to_unique_id.size());
+    /* register this animation */
+    std::map<std::string, uint32_t>::const_iterator item = anim_name_to_unique_id.find(anim_name);
+    if (item != anim_name_to_unique_id.end()) {
+      printf("Found duplicated animation \"%s\".\n", anim_name.c_str());
+    }
+    anim_name_to_unique_id.insert_or_assign(anim_name, (uint32_t)anim_name_to_unique_id.size());
     /* loop for each bone this animation controls, fill in node->animations */
     for (uint32_t i_channel = 0; i_channel < n_ctrl_nodes; i_channel++) {
       const aiNodeAnim* node_anim = anim->mChannels[i_channel];
@@ -235,20 +235,20 @@ Model::load(const std::string& file) {
   /* if model is loaded from an unpacked zip file, remove the temporary dir. */
   if (temp_folder != "")
     rm(temp_folder);
-	delete _importer;
+  delete _importer;
   
-	return true;
+  return true;
 }
 
 void 
 Model::dump()
 {
-	printf("Model dump:\n");
-	printf("  Total number of mesh(es): %zd\n", this->meshes.size());
-	for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
-		printf("  Mesh [%d]: \"%s\"\n", i_mesh, this->meshes[i_mesh].name.c_str());
-		this->_dump_mesh(this->meshes[i_mesh]);
-	}
+  printf("Model dump:\n");
+  printf("  Total number of mesh(es): %zd\n", this->meshes.size());
+  for (uint32_t i_mesh = 0; i_mesh < this->meshes.size(); i_mesh++) {
+    printf("  Mesh [%d]: \"%s\"\n", i_mesh, this->meshes[i_mesh].name.c_str());
+    this->_dump_mesh(this->meshes[i_mesh]);
+  }
   printf("  Nodes:\n");
   this->_dump_node(root_node, 2);
 }
@@ -354,16 +354,16 @@ Model::_update_mesh_skeletal_animation_from_node(
   uint32_t node_unique_id = node_name_to_unique_id[node_name];
   Mat4x4 uniform_matrix;
   if (is_bone) {
-		/* in some tutorials, a global inverse transform is applied to the end
-		of the transformation chain, but here I ignore it as apply an additional
-		transformation seems to mess up the model location. */
+    /* in some tutorials, a global inverse transform is applied to the end
+    of the transformation chain, but here I ignore it as apply an additional
+    transformation seems to mess up the model location. */
     uniform_matrix = mul(accumulated_transform, bone->offset_matrix); 
   }
   else {
     /* This node is not a bone and no vertices should linked to this node.
     For debugging purposes we set it to zero matrix, so if something wrong 
     happens (such as a vertex is linked to a non-bone node) then we will 
-		know. */
+    know. */
     uniform_matrix = Mat4x4();
   }
   uniforms.bone_matrices[node_unique_id] = uniform_matrix;
@@ -494,11 +494,11 @@ Model::_interpolate_skeletal_animation(
 void 
 Model::_dump_mesh(const Mesh & mesh)
 {
-	printf("    Total number of vertices: %zu\n", mesh.vertices.size());
-	printf("    Total number of indices/tri_faces: %zu/%zu\n", mesh.indices.size(), mesh.indices.size() / 3);
-	printf("    Material ID: %u\n", mesh.mat_id);
+  printf("    Total number of vertices: %zu\n", mesh.vertices.size());
+  printf("    Total number of indices/tri_faces: %zu/%zu\n", mesh.indices.size(), mesh.indices.size() / 3);
+  printf("    Material ID: %u\n", mesh.mat_id);
   this->_dump_material(this->materials[mesh.mat_id]);
-	printf("    Number of bones: %zu\n", mesh.bones.size());
+  printf("    Number of bones: %zu\n", mesh.bones.size());
 }
 
 void 
@@ -549,18 +549,18 @@ Model::_find_node_animation_by_name(Node& node, const std::string & anim_name)
 
 void 
 Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
-	const std::string& anim_name, double time, Uniforms& uniforms)
+  const std::string& anim_name, double time, Uniforms& uniforms)
 {
   /* traverse from root node to calculate all the bone transformations
   for a single mesh and save the calculated results into bone_matrices */
-	std::map<std::string, uint32_t>::const_iterator 
+  std::map<std::string, uint32_t>::const_iterator 
     item = anim_name_to_unique_id.find(anim_name);
-	if (item == anim_name_to_unique_id.end()) {
-		printf("[*] Warning: could not find the required "
+  if (item == anim_name_to_unique_id.end()) {
+    printf("[*] Warning: could not find the required "
       "animation \"%s\" for model.\n", anim_name.c_str());
-		return;
-	}
-	uint32_t anim_id = item->second;
+    return;
+  }
+  uint32_t anim_id = item->second;
   this->_update_mesh_skeletal_animation_from_node(
     root_node, Mat4x4::identity(), mesh, 
     anim_id, time, uniforms);
@@ -589,7 +589,7 @@ model_VS(
     vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
   }
   else {
-		/* vertex is controlled by at least one bone */
+    /* vertex is controlled by at least one bone */
     /* calculate:
      * p_final = sum( w[i]*m[i]*p, for i in [0,1,2,3] ), where
      * p is the vertex position in local model space (T-pose),

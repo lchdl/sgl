@@ -99,8 +99,8 @@ load_texture(const std::string &file) {
   if (data == NULL) {
     const char *failure = stbi_failure_reason();
     printf("Failed to load image \"%s\", %s.\n", file.c_str(), failure);
-		printf("* note: current working directory is: \"%s\".\n", get_cwd().c_str());
-		return texture;
+    printf("* note: current working directory is: \"%s\".\n", get_cwd().c_str());
+    return texture;
   }
   texture.create(x, y, TextureFormat::texture_format_RGBA8,
                  TextureSampling::texture_sampling_point);

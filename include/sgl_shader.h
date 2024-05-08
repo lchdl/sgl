@@ -33,56 +33,56 @@ processing stage.
 **/
 class Vertex_gl {
 public:
-	/* vs_out */
-	Vec4 gl_Position;
-	Vec3 wp; /* world position */
-	Vec3 wn; /* world normal */
-	Vec2 t;  /* texture coordinates */
+  /* vs_out */
+  Vec4 gl_Position;
+  Vec3 wp; /* world position */
+  Vec3 wn; /* world normal */
+  Vec2 t;  /* texture coordinates */
 
 public:
-	/**
-	Used in primitive clipping. Linear interpolate two vertices.
-	@note: `gl_Position` should be lerped but `gl_FragCoord` does not need to, it
-	will be automatically assembled in rasterization stage.
-	**/
-	static Vertex_gl lerp(const Vertex_gl &v0, const Vertex_gl &v1,
-		const double &w) {
-		return v0 * (1.0 - w) + v1 * w;
-	}
-	/**
-	In rasterization, vertex attributes need to be first divided by real depth
-	value, then interpolate by window space barycentric coordinates, finally
-	multiply real depth again, to obtain the interpolated perspective correct
-	attribute values. So we need to provide such operators.
-	@param v: Input vertex.
-	@returns: Returns operated value.
-	**/
-	Vertex_gl operator+(const Vertex_gl &v) const {
-		Vertex_gl v_out;
-		v_out.wp = wp + v.wp;
-		v_out.wn = wn + v.wn;
-		v_out.t = t + v.t;
-		v_out.wp = wp + v.wp;
-		v_out.gl_Position = gl_Position + v.gl_Position;
-		return v_out;
-	}
-	Vertex_gl operator*(const double &w) const {
-		Vertex_gl v_out;
-		v_out.wp = wp * w;
-		v_out.wn = wn * w;
-		v_out.t = t * w;
-		v_out.wp = wp * w;
-		v_out.gl_Position = gl_Position * w;
-		return v_out;
-	}
-	void operator*=(const double &w) {
-		wp *= w, wn *= w, t *= w, wp *= w;
-		gl_Position *= w;
-	}
-	void operator/=(const double &w) {
-		double t = 1.0 / w;
-		return this->operator*=(t);
-	}
+  /**
+  Used in primitive clipping. Linear interpolate two vertices.
+  @note: `gl_Position` should be lerped but `gl_FragCoord` does not need to, it
+  will be automatically assembled in rasterization stage.
+  **/
+  static Vertex_gl lerp(const Vertex_gl &v0, const Vertex_gl &v1,
+    const double &w) {
+    return v0 * (1.0 - w) + v1 * w;
+  }
+  /**
+  In rasterization, vertex attributes need to be first divided by real depth
+  value, then interpolate by window space barycentric coordinates, finally
+  multiply real depth again, to obtain the interpolated perspective correct
+  attribute values. So we need to provide such operators.
+  @param v: Input vertex.
+  @returns: Returns operated value.
+  **/
+  Vertex_gl operator+(const Vertex_gl &v) const {
+    Vertex_gl v_out;
+    v_out.wp = wp + v.wp;
+    v_out.wn = wn + v.wn;
+    v_out.t = t + v.t;
+    v_out.wp = wp + v.wp;
+    v_out.gl_Position = gl_Position + v.gl_Position;
+    return v_out;
+  }
+  Vertex_gl operator*(const double &w) const {
+    Vertex_gl v_out;
+    v_out.wp = wp * w;
+    v_out.wn = wn * w;
+    v_out.t = t * w;
+    v_out.wp = wp * w;
+    v_out.gl_Position = gl_Position * w;
+    return v_out;
+  }
+  void operator*=(const double &w) {
+    wp *= w, wn *= w, t *= w, wp *= w;
+    gl_Position *= w;
+  }
+  void operator/=(const double &w) {
+    double t = 1.0 / w;
+    return this->operator*=(t);
+  }
 };
 
 struct Fragment_gl {
@@ -97,7 +97,7 @@ struct Fragment_gl {
 struct Uniforms {
   /* internal variables */
   Vec3 gl_DepthRange; /* (x=near, y=far, z=diff=far-near) */
-	/* transforming vertex from local model space to world space. */
+  /* transforming vertex from local model space to world space. */
   Mat4x4 model;
   /* transforming vertex from world space to local view space. */
   Mat4x4 view;
@@ -148,7 +148,7 @@ This function can also be used as a template.
   @param fragment_in: The input fragment.
   @param uniforms: The input uniform variables.
   @param color_out: The calculated output color (in normalized range [0, 1]).
-	@param discard: Whether this pixel is discarded or not.
+  @param discard: Whether this pixel is discarded or not.
 **/
 void default_FS(const Uniforms &uniforms, const Fragment_gl &fragment_in, Vec4 &color_out,
   bool& is_discarded, double& gl_FragDepth);

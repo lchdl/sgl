@@ -6,21 +6,21 @@ namespace sgl {
 
 void Pipeline::_zero_init()
 {
-	targets.color = NULL;
-	targets.depth = NULL;
-	shaders.VS = NULL;
-	shaders.FS = NULL;
-	ppl.num_threads = max(get_cpu_cores(), 1);
-	ppl.backface_culling = true;
-	ppl.do_depth_test = true;
+  targets.color = NULL;
+  targets.depth = NULL;
+  shaders.VS = NULL;
+  shaders.FS = NULL;
+  ppl.num_threads = max(get_cpu_cores(), 1);
+  ppl.backface_culling = true;
+  ppl.do_depth_test = true;
 }
 
 Pipeline::Pipeline() {
-	_zero_init();
+  _zero_init();
 }
 Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
 {
-	_zero_init();
+  _zero_init();
   shaders.VS = VS;
   shaders.FS = FS;
 }
@@ -126,18 +126,18 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
         /* discard pixel if it is outside the triangle area */
         bool all_pos = (w.i[0] >= 0.0 && w.i[1] >= 0.0 && w.i[2] >= 0.0);
         bool all_neg = (w.i[0] <= 0.0 && w.i[1] <= 0.0 && w.i[2] <= 0.0);
-				if (!all_pos && !all_neg) continue;
-				/* interpolate vertex */
-				w /= area;
+        if (!all_pos && !all_neg) continue;
+        /* interpolate vertex */
+        w /= area;
         Vertex_gl v_lerp = v0 * w.i[0] + v1 * w.i[1] + v2 * w.i[2];
         double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
         v_lerp *= z_real;
         /* Step 3.4: Assemble fragment and render pixel. */
         Fragment_gl fragment;
         assemble_fragment(v_lerp, fragment);
-				/* v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC 
-				space, which is in range [-1, +1], then we need to map it to [0, +1]. */
-				double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
+        /* v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC 
+        space, which is in range [-1, +1], then we need to map it to [0, +1]. */
+        double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
         fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
         Vec4 color_out;
         bool is_discarded = false;
@@ -167,75 +167,75 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
     This is a way to achieve decent workload balance among workers.
     **/
     for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
-			/* Step 3.1: Convert clip space to NDC space (perspective divide) */
-			Triangle_gl tri_gl = ppl.Triangles[i_tri];
-			Vertex_gl &v0 = tri_gl.v[0];
-			Vertex_gl &v1 = tri_gl.v[1];
-			Vertex_gl &v2 = tri_gl.v[2];
-			const Vec3 iz = Vec3(1.0 / v0.gl_Position.w, 1.0 / v1.gl_Position.w, 1.0 / v2.gl_Position.w);
-			Vec3 p0_NDC = v0.gl_Position.xyz() * iz.i[0];
-			Vec3 p1_NDC = v1.gl_Position.xyz() * iz.i[1];
-			Vec3 p2_NDC = v2.gl_Position.xyz() * iz.i[2];
-			/* Step 3.2: Convert NDC space to window space */
-			/**
-			@note: In NDC space, x,y,z is between [-1, +1]
-			NDC space       window space
-			-----------------------------
-			x: [-1, +1]     x: [0, +w]
-			y: [-1, +1]     y: [0, +h]
-			z: [-1, +1]     z: [0, +1]
-			@note: The window space origin is at the lower-left corner of the screen,
-			with +x axis pointing to the right and +y axis pointing to the top.
-			**/
-			const double render_width = double(this->targets.color->w);
-			const double render_height = double(this->targets.color->h);
-			const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
-			const Vec4 p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
-			const Vec4 p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
-			const Vec4 p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
-			double area = edge(p0, p1, p2);
-			if (isnan(area) || isinf(area)) continue; /* Ignore invalid triangles. */
-			if (area < 0.0 && ppl.backface_culling) continue; /* Backface culling. */
-			/** @note: p0, p1, p2 are actually gl_FragCoord. **/
-			/* Step 3.3: Rasterization. */
-			Vec4 rect = get_minimum_rect(p0, p1, p2);
-			/* precomupte: divide by real z */
-			v0 *= iz.i[0];
-			v1 *= iz.i[1];
-			v2 *= iz.i[2];
+      /* Step 3.1: Convert clip space to NDC space (perspective divide) */
+      Triangle_gl tri_gl = ppl.Triangles[i_tri];
+      Vertex_gl &v0 = tri_gl.v[0];
+      Vertex_gl &v1 = tri_gl.v[1];
+      Vertex_gl &v2 = tri_gl.v[2];
+      const Vec3 iz = Vec3(1.0 / v0.gl_Position.w, 1.0 / v1.gl_Position.w, 1.0 / v2.gl_Position.w);
+      Vec3 p0_NDC = v0.gl_Position.xyz() * iz.i[0];
+      Vec3 p1_NDC = v1.gl_Position.xyz() * iz.i[1];
+      Vec3 p2_NDC = v2.gl_Position.xyz() * iz.i[2];
+      /* Step 3.2: Convert NDC space to window space */
+      /**
+      @note: In NDC space, x,y,z is between [-1, +1]
+      NDC space       window space
+      -----------------------------
+      x: [-1, +1]     x: [0, +w]
+      y: [-1, +1]     y: [0, +h]
+      z: [-1, +1]     z: [0, +1]
+      @note: The window space origin is at the lower-left corner of the screen,
+      with +x axis pointing to the right and +y axis pointing to the top.
+      **/
+      const double render_width = double(this->targets.color->w);
+      const double render_height = double(this->targets.color->h);
+      const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
+      const Vec4 p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
+      const Vec4 p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
+      const Vec4 p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
+      double area = edge(p0, p1, p2);
+      if (isnan(area) || isinf(area)) continue; /* Ignore invalid triangles. */
+      if (area < 0.0 && ppl.backface_culling) continue; /* Backface culling. */
+      /** @note: p0, p1, p2 are actually gl_FragCoord. **/
+      /* Step 3.3: Rasterization. */
+      Vec4 rect = get_minimum_rect(p0, p1, p2);
+      /* precomupte: divide by real z */
+      v0 *= iz.i[0];
+      v1 *= iz.i[1];
+      v2 *= iz.i[2];
       Vec4 p;
       int y_base = num_threads * int(int(rect.i[1]) / num_threads);
       for (p.y = double(y_base) + 0.5 + double(thread_id); p.y < rect.i[3]; p.y += double(num_threads)) {
         for (p.x = floor(rect.i[0]) + 0.5; p.x < rect.i[2]; p.x += 1.0) {
-					/**
-					@note: here the winding order is important,
-					and w_i are calculated in window space
-					**/
-					Vec3 w = Vec3(edge(p1, p2, p), edge(p2, p0, p), edge(p0, p1, p));
-					/* discard pixel if it is outside the triangle area */
-					bool all_pos = (w.i[0] >= 0.0 && w.i[1] >= 0.0 && w.i[2] >= 0.0);
-					bool all_neg = (w.i[0] <= 0.0 && w.i[1] <= 0.0 && w.i[2] <= 0.0);
-					if (!all_pos && !all_neg) continue;
-					/* interpolate vertex */
-					w /= area;
-					Vertex_gl v_lerp = v0 * w.i[0] + v1 * w.i[1] + v2 * w.i[2];
-					double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
-					v_lerp *= z_real;
-					/* Step 3.4: Assemble fragment and render pixel. */
-					Fragment_gl fragment;
-					assemble_fragment(v_lerp, fragment);
-					/* v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC
-					space, which is in range [-1, +1], then we need to map it to [0, +1]. */
-					double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
-					fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
-					Vec4 color_out;
-					bool is_discarded = false;
-					shaders.FS(uniforms, fragment, color_out, is_discarded, gl_FragDepth);
-					/* Step 3.5: Fragment processing */
-					if (!is_discarded) {
-						write_render_targets(fragment.gl_FragCoord.xy(), color_out,
+          /**
+          @note: here the winding order is important,
+          and w_i are calculated in window space
+          **/
+          Vec3 w = Vec3(edge(p1, p2, p), edge(p2, p0, p), edge(p0, p1, p));
+          /* discard pixel if it is outside the triangle area */
+          bool all_pos = (w.i[0] >= 0.0 && w.i[1] >= 0.0 && w.i[2] >= 0.0);
+          bool all_neg = (w.i[0] <= 0.0 && w.i[1] <= 0.0 && w.i[2] <= 0.0);
+          if (!all_pos && !all_neg) continue;
+          /* interpolate vertex */
+          w /= area;
+          Vertex_gl v_lerp = v0 * w.i[0] + v1 * w.i[1] + v2 * w.i[2];
+          double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
+          v_lerp *= z_real;
+          /* Step 3.4: Assemble fragment and render pixel. */
+          Fragment_gl fragment;
+          assemble_fragment(v_lerp, fragment);
+          /* v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC
+          space, which is in range [-1, +1], then we need to map it to [0, +1]. */
+          double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
+          fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
+          Vec4 color_out;
+          bool is_discarded = false;
+          shaders.FS(uniforms, fragment, color_out, is_discarded, gl_FragDepth);
+          /* Step 3.5: Fragment processing */
+          if (!is_discarded) {
+            write_render_targets(fragment.gl_FragCoord.xy(), color_out,
               gl_FragDepth);
-					}
+          }
         }
       }
     }
@@ -250,8 +250,8 @@ Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
-	/* here (ix,iy) is the final output pixel location in window space 
-	(origin is at the top-left corner of the screen). */
+  /* here (ix,iy) is the final output pixel location in window space 
+  (origin is at the top-left corner of the screen). */
   int pixel_id = iy * w + ix;
   /* depth test */
   double *depths = (double *) this->targets.depth->pixels;
@@ -259,12 +259,12 @@ Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z
   double z_orig = depths[pixel_id];
   if (z_new > z_orig && ppl.do_depth_test)
     return;
-	if (ppl.do_depth_test)
-	  depths[pixel_id] = z_new;
+  if (ppl.do_depth_test)
+    depths[pixel_id] = z_new;
   uint8_t R, G, B, A;
-	uint32_t RGBA;
+  uint32_t RGBA;
   convert_Vec4_to_RGBA8(color, R, G, B, A);
-	convert_RGBA8_to_uint32(R, G, B, A, RGBA);
+  convert_RGBA8_to_uint32(R, G, B, A, RGBA);
   uint32_t *pixels = (uint32_t *) this->targets.color->pixels;
   pixels[pixel_id] = RGBA;
 }
@@ -284,7 +284,7 @@ Pipeline::clip_triangle(const Triangle_gl &triangle_in,
         Triangle_gl &tri = (*Qcur)[i_tri];
         int n_tri;
         clip_triangle(tri.v[0], tri.v[1], tri.v[2], 
-					clip_axis, clip_sign, q[0], q[1], q[2], q[3], n_tri);
+          clip_axis, clip_sign, q[0], q[1], q[2], q[3], n_tri);
         if (n_tri == 1) {
           Qnext->push_back(Triangle_gl(q[0], q[1], q[2]));
         } else if (n_tri == 2) {
@@ -369,9 +369,9 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
     ----------------------------------------------------------------------------
     
     Assume we have two vertices A(A_x, A_y, A_z, A_w) and B(B_x, B_y, B_z, B_w), 
-		segment A-B will be clipped by a plane, assume the intersection is C, such 
-		that C = (1-t)A + tB, where 0 < t < 1.
-		Then we have:
+    segment A-B will be clipped by a plane, assume the intersection is C, such 
+    that C = (1-t)A + tB, where 0 < t < 1.
+    Then we have:
                               C_w = (1-t)*A_w + t*B_w.
     For the near plane (z-axis) clipping, we have:
                                      C_z = -C_w.
@@ -382,7 +382,7 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
     Similarly, we can solve scalar t for far plane clipping:
                        t = (A_z-A_w) / ((A_z-A_w)-(B_z-B_w)).
     Clipping with other axes is also the same. Just replace A_z to A_x or A_y 
-		and B_z to B_x or B_y.
+    and B_z to B_x or B_y.
     
     From: https://stackoverflow.com/questions/60910464/at-what-stage-is-clipping-performed-in-the-graphics-pipeline
     => The scalar t can also be used to interpolate all the associated vertex 
@@ -404,7 +404,7 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
       q3 = Vertex_gl::lerp(*v[0], *v[2], t[1]);
       q4 = Vertex_gl::lerp(*v[0], *v[1], t[0]);
     }
-		/* for the case when n_tri==0, the triangle is automatically discarded. */
+    /* for the case when n_tri==0, the triangle is automatically discarded. */
   }
 }
 void
@@ -413,16 +413,16 @@ Pipeline::clear_render_targets(
   Texture* depth,
   const Vec4 &clear_color)
 { 
-	uint8_t R, G, B, A;
-	uint32_t RGBA;
+  uint8_t R, G, B, A;
+  uint32_t RGBA;
   convert_Vec4_to_RGBA8(clear_color, R, G, B, A);
-	convert_RGBA8_to_uint32(R, G, B, A, RGBA);
+  convert_RGBA8_to_uint32(R, G, B, A, RGBA);
 
-	if (color != NULL) {
+  if (color != NULL) {
     int n_pixels = color->w * color->h;
     uint32_t *pixels = (uint32_t *) color->pixels;
     for (int i = 0; i < n_pixels; i++) 
-			pixels[i] = RGBA;
+      pixels[i] = RGBA;
   }
   if (depth != NULL) {
     int n_pixels = depth->w * depth->h;

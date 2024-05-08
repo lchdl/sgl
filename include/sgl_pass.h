@@ -28,37 +28,37 @@ convenient when drawing something complex onto the screen.
 **/
 
 struct Pass {
-	/* output texture buffers (write only) */
-	Texture* color_texture;
-	Texture* depth_texture;
-	/* uniform variables */
-	Uniforms uniforms;
-	/* vertex & fragment shaders */
-	VS_func_t VS;
-	FS_func_t FS;
-	/* camera/eye settings */
-	struct {
-		Vec3 position; /* eye position */
-		Vec3 look_at;  /* view target */
-		Vec3 up_dir;   /* up normal */
-		struct {
-			bool enabled;
-			double near, far, field_of_view;
-		} perspective;
-		struct {
-			bool enabled;
-			double near, far, width, height;
-		} orthographic;
-	} eye;
+  /* output texture buffers (write only) */
+  Texture* color_texture;
+  Texture* depth_texture;
+  /* uniform variables */
+  Uniforms uniforms;
+  /* vertex & fragment shaders */
+  VS_func_t VS;
+  FS_func_t FS;
+  /* camera/eye settings */
+  struct {
+    Vec3 position; /* eye position */
+    Vec3 look_at;  /* view target */
+    Vec3 up_dir;   /* up normal */
+    struct {
+      bool enabled;
+      double near, far, field_of_view;
+    } perspective;
+    struct {
+      bool enabled;
+      double near, far, width, height;
+    } orthographic;
+  } eye;
 public:
-	/* utility functions */
-	Mat4x4 get_view_matrix() const;
-	Mat4x4 get_projection_matrix() const;
-	/* run the whole pass (rendering) */
-	virtual void run(Pipeline& ppl) = 0;
-	/* default ctor & dtor */
-	Pass();
-	virtual ~Pass() {}
+  /* utility functions */
+  Mat4x4 get_view_matrix() const;
+  Mat4x4 get_projection_matrix() const;
+  /* run the whole pass (rendering) */
+  virtual void run(Pipeline& ppl) = 0;
+  /* default ctor & dtor */
+  Pass();
+  virtual ~Pass() {}
 };
 
 /**
@@ -69,15 +69,15 @@ Simply draw a model (probably with animation) onto screen.
 **/
 struct ModelPass : public Pass {
 public:
-	Model* model; /* a pointer to model object that is being drawn */
-	std::string anim_name; /* name of the current animation being played */
-	double time; /* time value for controlling the skeletal animation (in sec.) */
+  Model* model; /* a pointer to model object that is being drawn */
+  std::string anim_name; /* name of the current animation being played */
+  double time; /* time value for controlling the skeletal animation (in sec.) */
 
 public:
-	virtual void run(Pipeline& ppl);
+  virtual void run(Pipeline& ppl);
 
-	ModelPass() { model = NULL; time = 0.0; }
-	virtual ~ModelPass() {}
+  ModelPass() { model = NULL; time = 0.0; }
+  virtual ~ModelPass() {}
 };
 
 }; /* namespace sgl */

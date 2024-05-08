@@ -30,20 +30,20 @@ inline void debugbreak(){
 }
 #elif defined(WINDOWS) || defined(WIN32)
 inline void debugbreak(){
-	__debugbreak();
+  __debugbreak();
 }
 #endif
 
 namespace sgl {
 
 inline void print(const Vec2 &v) {
-	printf("(%.4f, %.4f)\n", v.x, v.y);
+  printf("(%.4f, %.4f)\n", v.x, v.y);
 };
 inline void print(const Vec3 &v) {
-	printf("(%.4f, %.4f, %.4f)\n", v.x, v.y, v.z);
+  printf("(%.4f, %.4f, %.4f)\n", v.x, v.y, v.z);
 };
 inline void print(const Vec4 &v) {
-	printf("(%.4f, %.4f, %.4f, %.4f)\n", v.x, v.y, v.z, v.w);
+  printf("(%.4f, %.4f, %.4f, %.4f)\n", v.x, v.y, v.z, v.w);
 };
 
 inline void print(const std::string &prefix, const Vec2 &v) {
@@ -57,60 +57,60 @@ inline void print(const std::string &prefix, const Vec4 &v) {
 };
 
 inline void print(const Mat3x3& m) {
-	printf("[ %.2lf %.2lf %.2lf\n", m.i11, m.i12, m.i13);
-	printf("  %.2lf %.2lf %.2lf\n", m.i21, m.i22, m.i23);
-	printf("  %.2lf %.2lf %.2lf ]\n", m.i31, m.i32, m.i33);
+  printf("[ %.2lf %.2lf %.2lf\n", m.i11, m.i12, m.i13);
+  printf("  %.2lf %.2lf %.2lf\n", m.i21, m.i22, m.i23);
+  printf("  %.2lf %.2lf %.2lf ]\n", m.i31, m.i32, m.i33);
 }
 inline void print(const Mat4x4& m) {
-	printf("[ %.2lf %.2lf %.2lf %.2lf\n", m.i11, m.i12, m.i13, m.i14);
-	printf("  %.2lf %.2lf %.2lf %.2lf\n", m.i21, m.i22, m.i23, m.i24);
-	printf("  %.2lf %.2lf %.2lf %.2lf\n", m.i31, m.i32, m.i33, m.i34);
-	printf("  %.2lf %.2lf %.2lf %.2lf ]\n", m.i41, m.i42, m.i43, m.i44);
+  printf("[ %.2lf %.2lf %.2lf %.2lf\n", m.i11, m.i12, m.i13, m.i14);
+  printf("  %.2lf %.2lf %.2lf %.2lf\n", m.i21, m.i22, m.i23, m.i24);
+  printf("  %.2lf %.2lf %.2lf %.2lf\n", m.i31, m.i32, m.i33, m.i34);
+  printf("  %.2lf %.2lf %.2lf %.2lf ]\n", m.i41, m.i42, m.i43, m.i44);
 }
 
 #if defined(WINDOWS) || defined(WIN32)
 class Timer {
 public:
-	double tick() {
-		QueryPerformanceCounter(&tnow);
-		double dt = double(tnow.QuadPart - tlast.QuadPart) / double(frequency.QuadPart);
-		tlast = tnow;
-		return dt;
-	}
-	double elapsed() {
-		QueryPerformanceCounter(&tnow);
-		double dt = double(tnow.QuadPart - tlast.QuadPart) / double(frequency.QuadPart);
-		return dt;
-	}
-	Timer() { 
-		QueryPerformanceFrequency(&frequency); 
-		tick(); 
-	}
+  double tick() {
+    QueryPerformanceCounter(&tnow);
+    double dt = double(tnow.QuadPart - tlast.QuadPart) / double(frequency.QuadPart);
+    tlast = tnow;
+    return dt;
+  }
+  double elapsed() {
+    QueryPerformanceCounter(&tnow);
+    double dt = double(tnow.QuadPart - tlast.QuadPart) / double(frequency.QuadPart);
+    return dt;
+  }
+  Timer() { 
+    QueryPerformanceFrequency(&frequency); 
+    tick(); 
+  }
 
 protected:
-	LARGE_INTEGER frequency;
-	LARGE_INTEGER tlast, tnow;
+  LARGE_INTEGER frequency;
+  LARGE_INTEGER tlast, tnow;
 };
 #elif defined (LINUX)
 class Timer {
 public:
-	double tick() {
-		gettimeofday(&tnow, NULL);
-		double dt = (tnow.tv_sec - tlast.tv_sec);
-		dt += (tnow.tv_usec - tlast.tv_usec) / 1000000.0; /* us to s */
-		tlast = tnow;
-		return dt;
-	}
-	double elapsed() {
-		gettimeofday(&tnow, NULL);
-		double dt = (tnow.tv_sec - tlast.tv_sec);
-		dt += (tnow.tv_usec - tlast.tv_usec) / 1000000.0; /* us to s */
-		return dt;
-	}
-	Timer() { tick(); }
+  double tick() {
+    gettimeofday(&tnow, NULL);
+    double dt = (tnow.tv_sec - tlast.tv_sec);
+    dt += (tnow.tv_usec - tlast.tv_usec) / 1000000.0; /* us to s */
+    tlast = tnow;
+    return dt;
+  }
+  double elapsed() {
+    gettimeofday(&tnow, NULL);
+    double dt = (tnow.tv_sec - tlast.tv_sec);
+    dt += (tnow.tv_usec - tlast.tv_usec) / 1000000.0; /* us to s */
+    return dt;
+  }
+  Timer() { tick(); }
 
 protected:
-	timeval tlast, tnow;
+  timeval tlast, tnow;
 };
 #endif
 
@@ -145,8 +145,8 @@ get_cpu_cores() {
 
 inline std::string
 get_cwd() {
-	std::filesystem::path pwd = std::filesystem::current_path();	
-	return pwd.generic_string();
+  std::filesystem::path pwd = std::filesystem::current_path();  
+  return pwd.generic_string();
 }
 
 inline void
@@ -156,23 +156,23 @@ set_cwd(const std::string& path) {
 
 inline bool 
 endswith(std::string const &str, 
-	std::string const &ending) {
-	if (str.length() >= ending.length()) {
-		return (0 == str.compare(str.length() - ending.length(), 
-			ending.length(), ending));
-	}
-	else 
-		return false;
+  std::string const &ending) {
+  if (str.length() >= ending.length()) {
+    return (0 == str.compare(str.length() - ending.length(), 
+      ending.length(), ending));
+  }
+  else 
+    return false;
 }
 
 inline bool 
 file_exists(const std::string& file) {
-	if (FILE *fobj = fopen(file.c_str(), "r")) {
-		fclose(fobj);
-		return true;
-	}
-	else
-		return false;
+  if (FILE *fobj = fopen(file.c_str(), "r")) {
+    fclose(fobj);
+    return true;
+  }
+  else
+    return false;
 }
 
 /**
@@ -180,12 +180,12 @@ List all files in a folder (no recursive).
 **/
 inline std::vector<std::string>
 ls(const std::string& folder) {
-	std::vector<std::string> files;
-	for (const auto& entry : std::filesystem::directory_iterator(folder)) {
-		std::string file = entry.path().string();
-		files.push_back(file);
-	}
-	return files;
+  std::vector<std::string> files;
+  for (const auto& entry : std::filesystem::directory_iterator(folder)) {
+    std::string file = entry.path().string();
+    files.push_back(file);
+  }
+  return files;
 }
 
 /**
@@ -193,7 +193,7 @@ Remove folder.
 **/
 inline void
 rm(const std::string& folder) {
-	std::filesystem::remove_all(folder);
+  std::filesystem::remove_all(folder);
 }
 
 /**
@@ -201,8 +201,8 @@ Join path, returns absolute path.
 **/
 inline std::string
 join(const std::string& path1, const std::string& path2) {
-	std::filesystem::path joined = std::filesystem::path(path1) / std::filesystem::path(path2);
-	return std::filesystem::absolute(joined).string();
+  std::filesystem::path joined = std::filesystem::path(path1) / std::filesystem::path(path2);
+  return std::filesystem::absolute(joined).string();
 }
 
 /**
@@ -210,9 +210,9 @@ Make a directory, returns absolute path.
 **/
 inline std::string
 mkdir(const std::string& folder) {
-	std::filesystem::create_directories(folder);
-	return std::filesystem::absolute(
-		std::filesystem::path(folder)).string();
+  std::filesystem::create_directories(folder);
+  return std::filesystem::absolute(
+    std::filesystem::path(folder)).string();
 }
 
 /**
@@ -220,19 +220,19 @@ Make a random folder in folder.
 **/
 inline std::string 
 mktdir(const std::string& folder) {
-	char dname[16];
-	memset(dname, 0, 16);
-	const char* choices =
-		"0123456789"
-		"abcdefghijklmnopqrstuvwxyz"
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-	const size_t clen = strlen(choices);
-	do {
-		for (int i=0; i < 8; i++) {
-			dname[i] = choices[rand() % clen];
-		}
-	} while (file_exists(join(folder, dname)));
-	return mkdir(join(folder, dname));
+  char dname[16];
+  memset(dname, 0, 16);
+  const char* choices =
+    "0123456789"
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const size_t clen = strlen(choices);
+  do {
+    for (int i=0; i < 8; i++) {
+      dname[i] = choices[rand() % clen];
+    }
+  } while (file_exists(join(folder, dname)));
+  return mkdir(join(folder, dname));
 }
 
 /**
@@ -240,8 +240,8 @@ Get file directory.
 **/
 inline std::string
 gd(const std::string& file) {
-	std::filesystem::path ppath = std::filesystem::path(file).parent_path();
-	return ppath.string();
+  std::filesystem::path ppath = std::filesystem::path(file).parent_path();
+  return ppath.string();
 }
 
 /**

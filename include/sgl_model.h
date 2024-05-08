@@ -41,8 +41,8 @@ struct Bone {
 struct Node {
   std::string name;
   std::vector<Node*> childs;
-	Node* parent;
-	uint32_t unique_id;
+  Node* parent;
+  uint32_t unique_id;
   Mat4x4 transformation_matrix;
   /* skeletal animations */
   std::vector<Animation> animations;
@@ -70,14 +70,14 @@ struct Material {
 
 class Model {
   /* The model represents a standalone object that 
-	 * can be rendered onto screen. A model can contain
-	 * one or multiple meshes. A single draw call only
-	 * renders a single mesh onto the frame buffer. */
+   * can be rendered onto screen. A model can contain
+   * one or multiple meshes. A single draw call only
+   * renders a single mesh onto the frame buffer. */
 public:
   /* initialize mesh object from external/internal file formats. */
   bool load(const std::string& file);
-	/* dump mesh information for debugging */
-	void dump();
+  /* dump mesh information for debugging */
+  void dump();
   /* unload mesh and return allocated resources to OS. */
   void unload();
   /* Set model global transformation matrix */
@@ -88,67 +88,67 @@ public:
   const Mat4x4 get_model_transform() const { return this->model_transform; }
 
   /**
-	update_skeletal_animation():
-	* Calculate bone final transformations and update the result to 
-	  uniform variables.
+  update_skeletal_animation():
+  * Calculate bone final transformations and update the result to 
+    uniform variables.
 
-	              * THE PRINCIPLE BEHIND BONE ANIMATION *              
-	-------------------------------------------------------------------
-	If a model has the following bone hierarchy (B0->B1->B2),
-	and a vertex `v` is affected by bone B2 (shown as follows):
-	
-	B0
-	+--B1
-		+--B2
-				+--v
-	
-	There are two kinds of matrices we need to know:
-	1. The bone's OFFSET MATRIX
-	2. The bone's TRANSFORMATION MATRIX
-	
-	The OFFSET MATRIX is used to transform a vertex from local model
-	space directly to bone's local space, while the TRANSFORMATION
-	MATRIX is used to transform a vertex from bone's local space to
-	parent bone's local space. Here we assume the TRANSFORMATION 
-	MATRIX for bone B0, B1, and B2 are T0, T1 and T2, respectively. 
-	B2's OFFSET MATRIX is Q.
-	Q represents the transformation from model space to B2's local space.
-	T2 represents the transformation from B2's local space to B1's local space, 
-	T1 represents the transformation from B1's local space to B0's local space.
-	T0 represents the transformation from B0's local space to model space.
+                * THE PRINCIPLE BEHIND BONE ANIMATION *              
+  -------------------------------------------------------------------
+  If a model has the following bone hierarchy (B0->B1->B2),
+  and a vertex `v` is affected by bone B2 (shown as follows):
+  
+  B0
+  +--B1
+    +--B2
+        +--v
+  
+  There are two kinds of matrices we need to know:
+  1. The bone's OFFSET MATRIX
+  2. The bone's TRANSFORMATION MATRIX
+  
+  The OFFSET MATRIX is used to transform a vertex from local model
+  space directly to bone's local space, while the TRANSFORMATION
+  MATRIX is used to transform a vertex from bone's local space to
+  parent bone's local space. Here we assume the TRANSFORMATION 
+  MATRIX for bone B0, B1, and B2 are T0, T1 and T2, respectively. 
+  B2's OFFSET MATRIX is Q.
+  Q represents the transformation from model space to B2's local space.
+  T2 represents the transformation from B2's local space to B1's local space, 
+  T1 represents the transformation from B1's local space to B0's local space.
+  T0 represents the transformation from B0's local space to model space.
 
-	To calculate the real position for vertex v, first we need
-	to transform vertex v from local model space to B2's local space,
-	which can be calculated from: Q*v.
-	Then we can transform from B2's local space back to model space by
-	calculating:
-	                    v' = (T0*T1*T2*Q)*v = S*v,                 (1)
-	where `S` is the collapsed transformation matrix. We call it `bone
-	matrix` here to be convenient.
-	
-	Function update_bone_matrices_for_mesh() is used to calculate `S`
-	for each bone, so that each vertex controlled by that bone can 
-	quickly gain access to `S` when rendering. If a vertex is controlled
-	by multiple bones B_i with weights w_i, then we need to do a simple
-	linear interpolation for each bone, which means to calculate:
-	                    v' = sum(S_i*v) for each i,                (2)
-	where S_i = w_i*S.
+  To calculate the real position for vertex v, first we need
+  to transform vertex v from local model space to B2's local space,
+  which can be calculated from: Q*v.
+  Then we can transform from B2's local space back to model space by
+  calculating:
+                      v' = (T0*T1*T2*Q)*v = S*v,                 (1)
+  where `S` is the collapsed transformation matrix. We call it `bone
+  matrix` here to be convenient.
+  
+  Function update_bone_matrices_for_mesh() is used to calculate `S`
+  for each bone, so that each vertex controlled by that bone can 
+  quickly gain access to `S` when rendering. If a vertex is controlled
+  by multiple bones B_i with weights w_i, then we need to do a simple
+  linear interpolation for each bone, which means to calculate:
+                      v' = sum(S_i*v) for each i,                (2)
+  where S_i = w_i*S.
 
-	During an animation sequence, we update each T_i in eq. (1) and 
-	update the final vertex v' by calculating eq. (2).
+  During an animation sequence, we update each T_i in eq. (1) and 
+  update the final vertex v' by calculating eq. (2).
 
-	NOTE: If the model is in bind pose (default T-pose), then we will
-	      have: T0*T1*T2 = Q^-1, which means S is the identity matrix.
-	**/
+  NOTE: If the model is in bind pose (default T-pose), then we will
+        have: T0*T1*T2 = Q^-1, which means S is the identity matrix.
+  **/
   void update_skeletal_animation_for_mesh(
-		const Mesh& mesh,             /* the mesh being drawn */
+    const Mesh& mesh,             /* the mesh being drawn */
     const std::string& anim_name, /* name of the animation being played */
-		double time,                  /* animation timeline (in sec.) */
-		Uniforms& uniforms            /* where results will be saved */
-		/* NOTE: a single draw call only renders a single mesh onto screen,
-		so if a model contains N meshes, it will need N draw calls to fully
-		render the whole model, with i-th draw call renders the i-th mesh. */
-	);
+    double time,                  /* animation timeline (in sec.) */
+    Uniforms& uniforms            /* where results will be saved */
+    /* NOTE: a single draw call only renders a single mesh onto screen,
+    so if a model contains N meshes, it will need N draw calls to fully
+    render the whole model, with i-th draw call renders the i-th mesh. */
+  );
 
   /* ctor & dtor that we don't even care about much. */
   Model();
@@ -161,8 +161,8 @@ protected:
    * applied before any other transformation during
    * rendering. */
   Mat4x4 model_transform;
-	/* animation name to animation id mapping */
-	std::map<std::string, uint32_t> anim_name_to_unique_id;
+  /* animation name to animation id mapping */
+  std::map<std::string, uint32_t> anim_name_to_unique_id;
   /* map a node name to a unique node id */
   std::map<std::string, uint32_t> node_name_to_unique_id;
   std::map<std::string, Node*> node_name_to_ptr;
@@ -178,19 +178,19 @@ private:
   Node* _find_node_by_name(const std::string& node_name);
   Animation* _find_node_animation_by_name(Node& node, const std::string & anim_name);
   void _update_mesh_skeletal_animation_from_node(
-		const Node* node,               /* current node being traversed */
-		const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
-		const Mesh& mesh,               /* mesh that contains all the bones */
-		const uint32_t& anim_id,        /* id of the animation currently being played */
-		double time,                    /* elapsed time since the start of the animation (sec.) */
+    const Node* node,               /* current node being traversed */
+    const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
+    const Mesh& mesh,               /* mesh that contains all the bones */
+    const uint32_t& anim_id,        /* id of the animation currently being played */
+    double time,                    /* elapsed time since the start of the animation (sec.) */
     Uniforms& uniforms              /* uniform variables that will be written to */
-	);
+  );
   Mat4x4 _interpolate_skeletal_animation(
     const Animation& anim, double tick
   );
 
   /* utility functions for mesh debugging */
-	void _dump_mesh(const Mesh& mesh);
+  void _dump_mesh(const Mesh& mesh);
   void _dump_material(const Material& material);
   void _dump_node(const Node* node, const uint32_t indent);
 };

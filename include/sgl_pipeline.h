@@ -45,24 +45,24 @@ class Pipeline {
     if (color!=NULL) targets.color=color;
     if (depth!=NULL) targets.depth=depth;
   }
-	/**
-	Enable/disable backface culling.
-	**/
-	void enable_backface_culling(bool state = true) {
-		ppl.backface_culling = state;
-	}
-	void disable_backface_culling() {
-		ppl.backface_culling = false;
-	}
-	/**
-	Enable/disable depth test.
-	**/
-	void enable_depth_test(bool state = true) {
-		ppl.do_depth_test = state;
-	}
-	void disable_depth_test() {
-		ppl.do_depth_test = false;
-	}
+  /**
+  Enable/disable backface culling.
+  **/
+  void enable_backface_culling(bool state = true) {
+    ppl.backface_culling = state;
+  }
+  void disable_backface_culling() {
+    ppl.backface_culling = false;
+  }
+  /**
+  Enable/disable depth test.
+  **/
+  void enable_depth_test(bool state = true) {
+    ppl.do_depth_test = state;
+  }
+  void disable_depth_test() {
+    ppl.do_depth_test = false;
+  }
   /** 
   Render triangles onto target textures.
   @param vertices: Vertex buffer object.
@@ -75,13 +75,13 @@ class Pipeline {
             const Uniforms& uniforms);
 
  public:
-	/**
-	Set number of threads for rasterization.
-	@param num_threads: Number of concurrent threads.
-	**/
-	void set_num_threads(const int& num_threads) {
-		ppl.num_threads = num_threads;
-	}
+  /**
+  Set number of threads for rasterization.
+  @param num_threads: Number of concurrent threads.
+  **/
+  void set_num_threads(const int& num_threads) {
+    ppl.num_threads = num_threads;
+  }
 
  protected:
   /**
@@ -219,10 +219,10 @@ class Pipeline {
     B = uint8_t(min(max(int(color.z * 255.0), 0), 255));
     A = uint8_t(min(max(int(color.w * 255.0), 0), 255));
   }
-	void convert_RGBA8_to_uint32(const uint8_t& R, const uint8_t& G,
-		const uint8_t& B, const uint8_t& A, uint32_t& RGBA) {
-		RGBA = ((A << 24) | (B << 16) | (G << 8) | R);
-	}
+  void convert_RGBA8_to_uint32(const uint8_t& R, const uint8_t& G,
+    const uint8_t& B, const uint8_t& A, uint32_t& RGBA) {
+    RGBA = ((A << 24) | (B << 16) | (G << 8) | R);
+  }
   /**
   Write final color data into targeted textures.
   @param p: Window coordinate (x, y), origin is at lower-left corner.
@@ -233,28 +233,28 @@ class Pipeline {
 
  protected:
 
-	struct {
+  struct {
     Texture *color; /* not owned */
     Texture *depth; /* not owned */
   } targets; /* render targets */
   struct {
     std::vector<Vertex_gl> Vertices; /* vertices after vertex processing */
     std::vector<Triangle_gl> Triangles; /* geometry generated after vertex post-processing */
-		int num_threads; /* number of cpu cores used when running the pipeline */
-		bool backface_culling; /* enable/disable backface culling when rendering */
-		bool do_depth_test; /* enable/disable depth test when rendering */
-	} ppl; /* pipeline internal states */
-	struct {
-		VS_func_t VS;
-		FS_func_t FS;
-	} shaders; /* shaders used by the pipeline */
+    int num_threads; /* number of cpu cores used when running the pipeline */
+    bool backface_culling; /* enable/disable backface culling when rendering */
+    bool do_depth_test; /* enable/disable depth test when rendering */
+  } ppl; /* pipeline internal states */
+  struct {
+    VS_func_t VS;
+    FS_func_t FS;
+  } shaders; /* shaders used by the pipeline */
 
-	void _zero_init();
+  void _zero_init();
 
  public:
   Pipeline();
-	Pipeline(VS_func_t VS, FS_func_t FS);
-	~Pipeline();
+  Pipeline(VS_func_t VS, FS_func_t FS);
+  ~Pipeline();
 };
 
 }; /* namespace sgl */
