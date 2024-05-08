@@ -17,7 +17,7 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 | Demo name | Demo | Description |
 |:----------|:----:|:------------|
 | test_hello_world.cpp | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. |
-| test_bone_anim.cpp | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (boblamp). Render time: <b>~1 ms</b> per frame in 320x240 resolution, <b>~3 ms</b> per frame in 800x600 resolution. |
+| test_bone_anim.cpp | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: boblamp, 1027 triangles). Render time: <b>~1 ms</b> per frame in 320x240 resolution, <b>~3 ms</b> per frame in 800x600 resolution. |
 
 # Features and TODOs
 ## Features
