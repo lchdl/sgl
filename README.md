@@ -1,4 +1,4 @@
-# Table of contents
+## Table of contents
 
 - [About SGL](#about-sgl-software-graphics-library)
 - [Demos and tests](#demos-and-tests)
@@ -6,7 +6,7 @@
 - [How to compile (CMake)](#how-to-compile-cmake)
 - [For developers](#for-developers)
 
-# About SGL (Software Graphics Library)
+## About SGL (Software Graphics Library)
 
 <b>SGL</b> is a tiny, light-weight cross-platform (for Windows & Linux-based systems) <i><b>software rasterizer written in C++</i></b> by strictly following the classic GPU rasterization pipeline specifications with <i><b>skeletal animation support</i></b>.
 Users can program their own <i><b>vertex and fragment shaders</i></b> and attach them to the pipeline to achieve custom effects.
@@ -17,19 +17,19 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 
 * Currently used as my own retro-style game engine.
 
-# Demos and tests
+## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
 |:------------------|:---------------:|:------------|
 | `test_hello_world.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.cpp`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
 | `test_bone_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Render time: <b>~1 ms</b> per frame in 320x240 resolution, <b>~3 ms</b> per frame in 800x600 resolution. |
 
-# Features and TODOs
-## Features
+## Features and TODOs
+### Features
 * Flexible vertex format
 * Vertex & fragment shader support
 * md5 (*.md5mesh, *.md5anim) format import & parsing
 * <b>Skeletal animation</b> support
-## TODOs
+### TODOs
 * Wireframe rendering
 * Reflection effect
   - Stencil buffer
@@ -39,7 +39,7 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 * Texture baking
   - Ray tracing
 
-# How to compile (CMake)
+## How to compile (CMake)
 
 * <b>sgl</b> relies on these external libraries:
 
@@ -48,14 +48,28 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 | SDL2 | https://github.com/libsdl-org/SDL | Frame buffer visualization & window message loop handling. |
 | Assimp | https://github.com/assimp/assimp | Model assets import. |
 
-* You need to manually compile these two libraries and link to <b>sgl</b>. 
+* Before `git clone` this repository, you need to <b>manually compile</b> all external libraries and remember the paths of all compiled libraries (\*.lib/\*.a/\*.so). 
 
-## For Windows (Visual Studio IDE)
-* If you are using <b>Visual Studio 2017</b>, things will become much more simpler, I have provided the precompiled libraries, include headers, and all external dependencies in here.
-## For Linux-based systems (gcc + make)
+### For Windows (Visual Studio IDE)
+1. If you are using <b>Visual Studio 2017</b>, things will become much more simpler, I have provided the precompiled libraries, include headers, and all external dependencies in [<b>here</b>](https://drive.google.com/file/d/11XBagdOkChDR2-2krSxKdTlhQcbmsMoI/view?usp=sharing) for download.
+   
+   > Otherwise you may need to compile all external libraries using other versions of Visual Studio.
 
-# For developers
-## Project structure
+2. Using CMake build system to generate Visual Studio solutions. Select "<b>x64</b>" platform. CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
+<p align="center">
+  <img src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_windows_compile.png">
+</p>
+   
+### For Linux-based systems (g++ & make)
+1. Manually compile all external libraries. I have provided the precompiled libraries in [<b>here</b>](https://drive.google.com/file/d/1hRSdiFgJHsPx1dYLDkSt6EPA2VP-0wnu/view?usp=sharing) for download.
+2. Make sure your g++ compiler supports <b>C++17</b> language standard. I recommend using <b>ccmake</b> to generate makefiles. Create a new empty directory and `cd` into it, then
+   
+   > **ccmake \<path_to_sgl_CMakeLists.txt\>**
+   
+   to initiate CMake build system and configure the project. ccmake will also prompt you to <b>input the path of those precompiled libraries and include headers</b>.
+
+## For developers
+### Project structure
 * CMakeLists.txt
   - For CMAKE.
 * `demos/`
