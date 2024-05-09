@@ -41,9 +41,12 @@ The overall design of the rasterization pipeline is shown below.
    > Otherwise you may need to compile all external libraries using other versions of Visual Studio.
 
 2. Using CMake build system to generate Visual Studio solutions. Select "<b>x64</b>" platform. CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
-<p align="center">
-  <img src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_windows_compile.png">
-</p>
+
+   <p align="center">
+     <img src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_windows_compile.png">
+   </p>
+
+   Then, press `Configure`, `Generate`, and `Open Project` to open Visual Studio. In Visual Studio, choose `Release` or `MinSizeRel` and compile SGL.
    
 ### For Linux-based systems (g++ & make)
 1. Manually compile all external libraries. I have provided the precompiled libraries in [<b>here</b>](https://drive.google.com/file/d/1Z_MBPST6IFheGnUseI-6bwaOUG4MM3s3/view?usp=sharing) for download.
