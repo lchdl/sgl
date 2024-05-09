@@ -243,7 +243,7 @@ class Pipeline {
     int num_threads; /* number of cpu cores used when running the pipeline */
     bool backface_culling; /* enable/disable backface culling when rendering */
     bool do_depth_test; /* enable/disable depth test when rendering */
-  } ppl; /* pipeline internal states */
+  } ppl; /* pipeline internal states and variables */
   struct {
     VS_func_t VS;
     FS_func_t FS;

@@ -4,7 +4,7 @@ namespace sgl {
 namespace SDL2 {
 
 void
-sgl_texture_to_SDL_surface(const Texture * texture, SDL_Surface * surface) {
+sgl_texture_to_SDL2_surface(const Texture * texture, SDL_Surface * surface) {
   if (texture->format == TextureFormat::texture_format_RGBA8) {
     uint8_t* src = (uint8_t*)texture->pixels;
     uint8_t* dst = (uint8_t*)surface->pixels;
@@ -20,7 +20,7 @@ sgl_texture_to_SDL_surface(const Texture * texture, SDL_Surface * surface) {
   }
   else {
     /* other types of texture formats are currently not supported */
-    printf("sgl_texture_to_SDL_surface(): "
+    printf("sgl_texture_to_SDL2_surface(): "
       "other types of texture formats are "
       "currently not supported.\n");
   }

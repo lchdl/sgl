@@ -428,7 +428,7 @@ Pipeline::clear_render_targets(
     int n_pixels = depth->w * depth->h;
     double *pixels = (double *) depth->pixels;
     for (int i = 0; i < n_pixels; i++)
-      pixels[i] = 100.0;
+      pixels[i] = 1.0;
   }
 }
 

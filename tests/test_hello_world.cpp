@@ -172,7 +172,7 @@ main(int argc, char* argv[]) {
     /* logging */
     double frame_time = frame_timer.tick();
     T_frame += frame_time;
-    sgl::SDL2::sgl_texture_to_SDL_surface(&color_texture, pWindowSurface);
+    sgl::SDL2::sgl_texture_to_SDL2_surface(&color_texture, pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
     char buf[64];
     sprintf(buf, "%.2lfms, T=%.2lfs", T_frame / frameid * 1000.0, T_global);

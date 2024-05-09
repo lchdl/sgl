@@ -17,7 +17,7 @@ Convert sgl texture object to SDL2 surface object.
   Only support RGBA8 format.
 **/
 void
-sgl_texture_to_SDL_surface(const Texture* texture, SDL_Surface* surface);
+sgl_texture_to_SDL2_surface(const Texture* texture, SDL_Surface* surface);
 
 };
 };
