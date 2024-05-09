@@ -18,7 +18,7 @@ endif()
 
 # OPTION: BUILD TYPE (for non-IDE environments only)
 if (COMPILER STREQUAL "MSVC")
-	# MSVC IDE will let users select the build mode (Debug/Release) when building
+  # MSVC IDE will let users select the build mode (Debug/Release) when building
 elseif (COMPILER STREQUAL "GCC")
   set(BUILD_TYPE "<Please select build type.>" CACHE STRING "")
   set_property(CACHE BUILD_TYPE PROPERTY STRINGS "Release" "Debug")
@@ -34,7 +34,7 @@ elseif (COMPILER STREQUAL "GCC")
     endif()
   endif()
 else()
-	message(FATAL_ERROR "Invalid compiler selected.")
+  message(FATAL_ERROR "Invalid compiler selected.")
 endif()
 
 # SETUP COMPILER
@@ -89,10 +89,10 @@ if(COMPILER STREQUAL "MSVC")
   # enable/disable OpenMP for MSVC
   if (_openmp_supported AND ENABLE_OPENMP STREQUAL "Enable")
     add_compile_options("/openmp")
-	  message(STATUS "[*] Enable OpenMP.")
-	else ()
+    message(STATUS "[*] Enable OpenMP.")
+  else ()
     add_compile_options("/openmp-")
-	  message(STATUS "[*] Disable OpenMP.")
+    message(STATUS "[*] Disable OpenMP.")
   endif()
 elseif (COMPILER STREQUAL "GCC")
   CHECK_CXX_COMPILER_FLAG("-fopenmp" _openmp_supported)
@@ -139,7 +139,7 @@ target_include_directories(sgl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/zip/"
 
 # SDL2
 if(COMPILER STREQUAL "MSVC")
-	# Setting up SDL2.lib, SDL2main.lib and SDL2 include dir
+  # Setting up SDL2.lib, SDL2main.lib and SDL2 include dir
   set(SDL2_LIB_PATH "<Please paste the compiled SDL2 library path (SDL2.lib).>" CACHE STRING "")
   set(SDL2MAIN_LIB_PATH "<Please paste the path of SDL2main.lib.>" CACHE STRING "")
   set(SDL2_INCLUDE_DIR "<Please paste the path of SDL2 include dir.>" CACHE STRING "")
