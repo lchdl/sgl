@@ -10,12 +10,13 @@
 
 <b>SGL</b> is a tiny, light-weight cross-platform (for Windows & Linux-based systems) <i><b>software rasterizer written in C++</i></b> by strictly following the classic GPU rasterization pipeline specifications with <i><b>skeletal animation support</i></b>.
 Users can program their own <i><b>vertex and fragment shaders</i></b> and attach them to the pipeline to achieve custom effects.
+The overall design of the rasterization pipeline is shown below.
 
 <p align="center">
   <img width="700" src="https://github.com/lchdl/sgl/blob/develop/demos/pipeline.png">
 </p>
 
-* Currently used as my own retro-style game engine.
+* SGL is currently used as my own retro-style game engine.
 
 ## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
@@ -25,7 +26,7 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 
 ## How to compile (CMake)
 
-* <b>sgl</b> relies on these external libraries:
+* <b>SGL relies on these external libraries</b>:
 
 | Library |  Link  | Description |
 |:-------:|:-------|:------------|
