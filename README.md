@@ -3,7 +3,7 @@
 - [About SGL](#about-sgl-software-graphics-library)
 - [Demos and tests](#demos-and-tests)
 - [Features and TODOs](#features-and-todos)
-- [How to compile (CMake)](#how-to-compile-cmake)
+- [How to compile SGL (using CMake)](#how-to-compile-sgl-using-cmake)
 - [For developers](#for-developers)
 
 ## About SGL (Software Graphics Library)
@@ -24,7 +24,7 @@ The overall design of the rasterization pipeline is shown below.
 | `test_hello_world.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.cpp`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
 | `test_bone_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Render time: <b>~1 ms</b> per frame in 320x240 resolution, <b>~3 ms</b> per frame in 800x600 resolution. |
 
-## How to compile (CMake)
+## How to compile SGL (using CMake)
 
 * <b>SGL relies on these external libraries</b>:
 
