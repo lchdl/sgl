@@ -46,12 +46,30 @@ The overall design of the rasterization pipeline is shown below.
 </p>
    
 ### For Linux-based systems (g++ & make)
-1. Manually compile all external libraries. I have provided the precompiled libraries in [<b>here</b>](https://drive.google.com/file/d/1hRSdiFgJHsPx1dYLDkSt6EPA2VP-0wnu/view?usp=sharing) for download.
+1. Manually compile all external libraries. I have provided the precompiled libraries in [<b>here</b>](https://drive.google.com/file/d/1Z_MBPST6IFheGnUseI-6bwaOUG4MM3s3/view?usp=sharing) for download.
+
+   > All libraries are <b>statically</b> built (in "<b>x64</b>" mode) using g++ 11.4.0 under Ubuntu 22.04.<br>
+   > <b>NOTE</b>: If the precompiled libraries are not compatible with your development environment, you will need to compile them manually. Please also note that all libraries should be <i><b>statically linked</b></i> if you want to build SGL on Linux.
+
 2. Make sure your g++ compiler supports <b>C++17</b> language standard. I recommend using <b>ccmake</b> to generate makefiles. Create a new empty directory and `cd` into it, then
    
    > **ccmake \<path_to_sgl_CMakeLists.txt\>**
    
-   to initiate CMake build system and configure the project. ccmake will also prompt you to <b>input the path of those precompiled libraries and include headers</b>.
+   to initiate CMake build system and configure the project. ccmake will also prompt you to <b>input the path of those precompiled libraries and include headers</b>. Here are the configurations
+
+   > Under the "<b>COMPILER</b>" option list, select "<b>GCC</b>".<br>
+   > Under the "<b>BUILD_TYPE</b>" option list, select "<b>Release</b>" (if you want to debug SGL on Linux, select "Debug").<br>
+
+   Then, ccmake will prompt you to provide the file paths of the precompiled libraries (\*.a) and headers (\*.h). After filling in all the paths, the final configuration should look like this:
+
+   <p align="center">
+     <img width=800 src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_linux_compile.png">
+   </p>
+
+   Hit `g` to generate makefile and ccmake will automatically quit if succeed.
+
+   Finally, `make -jN` to compile SGL using `N` threads (such as `make -j8`) and wait for it to finish.
+   
 
 ## For developers
 ### Project structure
