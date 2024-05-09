@@ -23,22 +23,6 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 | `test_hello_world.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.cpp`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
 | `test_bone_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Render time: <b>~1 ms</b> per frame in 320x240 resolution, <b>~3 ms</b> per frame in 800x600 resolution. |
 
-## Features and TODOs
-### Features
-* Flexible vertex format
-* Vertex & fragment shader support
-* md5 (*.md5mesh, *.md5anim) format import & parsing
-* <b>Skeletal animation</b> support
-### TODOs
-* Wireframe rendering
-* Reflection effect
-  - Stencil buffer
-  - Alpha blending
-* Text rendering
-* Phong shading
-* Texture baking
-  - Ray tracing
-
 ## How to compile (CMake)
 
 * <b>sgl</b> relies on these external libraries:
@@ -46,9 +30,9 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 | Library |  Link  | Description |
 |:-------:|:-------|:------------|
 | SDL2 | https://github.com/libsdl-org/SDL | Frame buffer visualization & window message loop handling. |
-| Assimp | https://github.com/assimp/assimp | Model assets import. |
+| Assimp | https://github.com/assimp/assimp | Open-Asset-Importer-Library for importing model assets. |
 
-* Before `git clone` this repository, you need to <b>manually compile</b> all external libraries and remember the paths of all compiled libraries (\*.lib/\*.a/\*.so). 
+* Before `git clone` this repository, you need to <b>manually compile</b> all external libraries and remember the paths of all compiled libraries (\*.lib/\*.a/\*.so) and header files (\*.h/\*.hpp). 
 
 ### For Windows (Visual Studio IDE)
 1. If you are using <b>Visual Studio 2017</b>, things will become much more simpler, I have provided the precompiled libraries, include headers, and all external dependencies in [<b>here</b>](https://drive.google.com/file/d/11XBagdOkChDR2-2krSxKdTlhQcbmsMoI/view?usp=sharing) for download.
@@ -94,3 +78,19 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
     - Include headers of 3rd-party libraries.
     - Compiled libraries (*.lib/*.a) and shared objects / DLLs (*.dll/*.so).
   - Usually all the files in this folder are collected from `ext/`. You need to compile all the 3rd-party libraries in `ext/` and then copy the generated binaries and include headers to this folder.
+
+### Features and TODOs
+#### Features
+* Flexible vertex format
+* Vertex & fragment shader support
+* md5 (*.md5mesh, *.md5anim) format import & parsing
+* <b>Skeletal animation</b> support
+#### TODOs
+* Wireframe rendering
+* Reflection effect
+  - Stencil buffer
+  - Alpha blending
+* Text rendering
+* Phong shading
+* Texture baking
+  - Ray tracing
