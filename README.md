@@ -47,7 +47,9 @@ The overall design of the rasterization pipeline is shown below.
    </p>
 
    Then, press `Configure`, `Generate`, and `Open Project` to open Visual Studio. In Visual Studio, choose `Release` or `MinSizeRel` and compile SGL.
-   
+
+   > After compiling SGL, you may need to copy all \*.dll files and the contents of the `res/` folder to the same location as the generated executables.
+
 ### For Linux-based systems (g++ & make)
 1. Manually compile all external libraries. I have provided the precompiled libraries in [<b>here</b>](https://drive.google.com/file/d/1Z_MBPST6IFheGnUseI-6bwaOUG4MM3s3/view?usp=sharing) for download.
 
@@ -73,6 +75,7 @@ The overall design of the rasterization pipeline is shown below.
 
    Finally, `make -jN` to compile SGL using `N` threads (such as `make -j8`) and wait for it to finish.
    
+   > After compiling SGL, you may need to copy all the contents of the `res/` folder to the same location as the generated executables.
 
 ## For developers
 ### Project structure
