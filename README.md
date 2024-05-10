@@ -15,8 +15,6 @@ The overall design of the rasterization pipeline is shown below.
   <img width="700" src="https://github.com/lchdl/sgl/blob/develop/demos/pipeline.png">
 </p>
 
-* SGL is currently used as my own retro-style game engine.
-
 ## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
 |:------------------|:---------------:|:------------|
