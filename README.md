@@ -38,25 +38,27 @@ The overall design of the rasterization pipeline is shown below.
 ### For Windows (Visual Studio IDE)
 1. If you are using <b>Visual Studio 2017</b>, things will become much more simpler, I have provided the precompiled libraries, include headers, and all external dependencies in [<b>here</b>](https://drive.google.com/file/d/11XBagdOkChDR2-2krSxKdTlhQcbmsMoI/view?usp=sharing) for download.
    
-   > Otherwise you may need to compile all external libraries using other versions of Visual Studio.
+   > Otherwise, you may need to compile all external libraries using you own version of Visual Studio.
 
 2. Using CMake build system (<b>cmake-gui</b>) to generate Visual Studio solutions. Select "<b>x64</b>" platform. CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
 
    <p align="center">
      <img src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_windows_compile.png">
    </p>
-
-   Then, press `Configure`, `Generate`, and `Open Project` to open Visual Studio. In Visual Studio, choose `Release` or `MinSizeRel` and compile SGL.
+   
+   > Under the "<b>COMPILER</b>" option list, select "<b>MSVC</b>".
+   
+   Then, press `Configure`, `Generate`, and `Open Project` to open Visual Studio. In Visual Studio, choose `Release` or `MinSizeRel` and compile SGL (if you want to debug SGL on Windows, select "Debug").
 
    > After compiling SGL, you may need to copy all \*.dll files and the contents of the `res/` folder to the same location as the generated executables.
 
 ### For Linux-based systems (g++ & make)
 1. Manually compile all external libraries. I have provided the precompiled libraries in [<b>here</b>](https://drive.google.com/file/d/1Z_MBPST6IFheGnUseI-6bwaOUG4MM3s3/view?usp=sharing) for download.
 
-   > All libraries are <b>statically</b> built (in "<b>x64</b>" mode) using g++ 11.4.0 under Ubuntu 22.04.<br>
+   > All libraries are <b>statically built in "<b>x64</b>" mode</b> using g++ <b>11.4.0</b> under Ubuntu 22.04.<br>
    > <b>NOTE</b>: If the precompiled libraries are not compatible with your development environment, you will need to compile them manually. Please also note that all libraries should be <i><b>statically linked</b></i> if you want to build SGL on Linux.
 
-2. Make sure your g++ compiler supports <b>C++17</b> language standard. I recommend using <b>ccmake</b> to generate makefiles. Create a new empty directory and `cd` into it, then
+2. Make sure your g++ compiler supports <b>C++17</b> language standard. I recommend using <b>ccmake</b> to generate makefiles. Create a new empty directory and `cd` into it, then use the following command
    
    > **ccmake \<path_to_sgl_CMakeLists.txt\>**
    
