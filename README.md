@@ -40,7 +40,7 @@ The overall design of the rasterization pipeline is shown below.
    
    > Otherwise you may need to compile all external libraries using other versions of Visual Studio.
 
-2. Using CMake build system to generate Visual Studio solutions. Select "<b>x64</b>" platform. CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
+2. Using CMake build system (<b>cmake-gui</b>) to generate Visual Studio solutions. Select "<b>x64</b>" platform. CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
 
    <p align="center">
      <img src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_windows_compile.png">
@@ -109,6 +109,7 @@ The overall design of the rasterization pipeline is shown below.
 * <b>Skeletal animation</b> support
 #### TODOs
 * Wireframe rendering
+* Shadow mapping
 * Reflection effect
   - Stencil buffer
   - Alpha blending
