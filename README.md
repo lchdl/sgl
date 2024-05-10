@@ -42,6 +42,8 @@ The overall design of the rasterization pipeline is shown below.
    <p align="center">
      <img src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_windows_compile.png">
    </p>
+
+   > <b>DO NOT add extra "\\" after directories</b> to avoid strange include errors when building the project.
    
    Finally, press `Generate`, and `Open Project` to open Visual Studio. In Visual Studio, choose `Release` or `MinSizeRel` and compile SGL (if you want to debug SGL on Windows, select "Debug").
 
