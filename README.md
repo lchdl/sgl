@@ -2,7 +2,6 @@
 
 - [About SGL](#about-sgl-software-graphics-library)
 - [Demos and tests](#demos-and-tests)
-- [Features and TODOs](#features-and-todos)
 - [How to compile SGL (using CMake)](#how-to-compile-sgl-using-cmake)
 - [For developers](#for-developers)
 
