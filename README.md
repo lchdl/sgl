@@ -38,7 +38,7 @@ The overall design of the rasterization pipeline is shown below.
 ### For Windows (Visual Studio IDE)
 1. If you are using <b>Visual Studio 2017</b>, things will become much more simpler, I have provided the precompiled libraries, include headers, and all external dependencies in [<b>here</b>](https://drive.google.com/file/d/11XBagdOkChDR2-2krSxKdTlhQcbmsMoI/view?usp=sharing) for download.
    
-   > Otherwise, you may need to compile all external libraries using you own version of Visual Studio.
+   > Otherwise, you may need to compile all external libraries using your own version of Visual Studio.
 
 2. Using CMake build system (<b>cmake-gui</b>) to generate Visual Studio solutions. Select "<b>x64</b>" platform. CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
 
