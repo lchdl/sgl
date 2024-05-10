@@ -67,7 +67,7 @@ The overall design of the rasterization pipeline is shown below.
    Then, ccmake will prompt you to provide the file paths of the precompiled libraries (\*.a) and headers (\*.h). After filling in all the paths, the final configuration should look like this:
 
    <p align="center">
-     <img width=800 src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_linux_compile.png">
+     <img width=650 src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_linux_compile.png">
    </p>
 
    Hit `g` to generate makefile and ccmake will automatically quit if succeed.
