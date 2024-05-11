@@ -10,8 +10,8 @@ bool keystate[SDL_NUM_SCANCODES];
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
 
-ModelPass render_pass;
 Model boblamp_model;
+ModelPass render_pass;
 Pipeline pipeline;
 Texture color_texture, depth_texture;
 
@@ -103,10 +103,9 @@ init_render() {
   render_pass.eye.orthographic.height = 9.0;
   /* setup model to be rendered */
   render_pass.model = &boblamp_model;
-  /* link to the pipeline */
-  render_pass.pipeline = &pipeline;
 
-  pipeline.set_num_threads(4);
+	render_pass.pipeline = &pipeline;
+	render_pass.pipeline->set_num_threads(4);
   printf("Press space bar to switch between perspective/orthographic mode.\n");
 }
 
