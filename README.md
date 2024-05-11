@@ -15,6 +15,8 @@ The overall design of the rasterization pipeline is shown below.
   <img width="700" src="https://github.com/lchdl/sgl/blob/develop/demos/pipeline.png">
 </p>
 
+* Currently, SGL is designed to <i><b>serve as a graphical backend for retro-style game engines</b></i>. Rendering something onto the screen with SGL can be <i><b>very simple</b></i>: simply provide the vertex positions, texture coordinates, and normals. SGL will then draw the model for you without any help from the dedicated GPU.
+
 ## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
 |:------------------|:---------------:|:------------|
