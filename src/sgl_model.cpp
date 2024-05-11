@@ -130,7 +130,7 @@ Model::load(const std::string& file) {
     for (uint32_t i_bone = 0; i_bone < mesh->mNumBones; i_bone++) {
       Bone bone;
       bone.name = mesh->mBones[i_bone]->mName.data;
-      bone.offset_matrix = convert_assimp_mat4x4(mesh->mBones[i_bone]->mOffsetMatrix);
+      bone.offset = convert_assimp_mat4x4(mesh->mBones[i_bone]->mOffsetMatrix);
       /* number of affected vertices by this bone */
       uint32_t n_bone_verts = mesh->mBones[i_bone]->mNumWeights;
       for (uint32_t i_vert = 0; i_vert < n_bone_verts; i_vert++) {
@@ -264,7 +264,7 @@ Model::_parse_node_hierarchy(Node* node, aiNode* ai_node)
       "exceeded when registering node \"%s\".", 
       MAX_NODES_PER_MODEL, node->name.c_str());
   }
-  node->transformation_matrix = convert_assimp_mat4x4(ai_node->mTransformation);
+  node->transform = convert_assimp_mat4x4(ai_node->mTransformation);
   node_name_to_unique_id.insert_or_assign(node_name, (uint32_t)node_name_to_unique_id.size());
   node_name_to_ptr.insert_or_assign(node_name, node);
   for (uint32_t i_node = 0; i_node < ai_node->mNumChildren; i_node++) {
@@ -344,7 +344,7 @@ Model::_update_mesh_skeletal_animation_from_node(
     node_transform = _interpolate_skeletal_animation(anim, anim_tick);
   }
   else {
-    node_transform = node->transformation_matrix;
+    node_transform = node->transform;
   }
 
   /* Compute accumulated node transform for recursion */
@@ -357,7 +357,7 @@ Model::_update_mesh_skeletal_animation_from_node(
     /* in some tutorials, a global inverse transform is applied to the end
     of the transformation chain, but here I ignore it as apply an additional
     transformation seems to mess up the model location. */
-    uniform_matrix = mul(accumulated_transform, bone->offset_matrix); 
+    uniform_matrix = mul(accumulated_transform, bone->offset); 
   }
   else {
     /* This node is not a bone and no vertices should linked to this node.

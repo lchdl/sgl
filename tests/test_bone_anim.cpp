@@ -79,8 +79,10 @@ init_render() {
   depth_texture.create(w, h,
     TextureFormat::texture_format_float64,
     TextureSampling::texture_sampling_point);
+  boblamp_model.load("models/boblamp.zip");
+  boblamp_model.dump();
 
-  /* Step 2: Setup render config. */
+  /* Step 2: Setup render pass. */
   render_pass.VS = model_VS;
   render_pass.FS = model_FS;
   render_pass.color_texture = &color_texture;
@@ -99,11 +101,10 @@ init_render() {
   render_pass.eye.orthographic.far = 50.0;
   render_pass.eye.orthographic.width = 12.0;
   render_pass.eye.orthographic.height = 9.0;
-
-  /* Step 3: Initialize model. */
-  boblamp_model.load("models/boblamp.zip");
-  boblamp_model.dump();
+  /* setup model to be rendered */
   render_pass.model = &boblamp_model;
+  /* link to the pipeline */
+  render_pass.pipeline = &pipeline;
 
   pipeline.set_num_threads(4);
   printf("Press space bar to switch between perspective/orthographic mode.\n");
@@ -115,7 +116,7 @@ render_frame(double T) {
   render_pass.anim_name = ""; /* play the animation "" */
   render_pass.eye.position = Vec3(10 * sin(T / 3), 6, 10 * cos(T / 3));
   render_pass.eye.look_at = Vec3(0, 3.5, 0);
-  render_pass.run(pipeline);
+  render_pass.run();
 }
 
 int 

@@ -10,9 +10,8 @@ A `pass` is an object that describes a complete render operation
 and stores all the resources used during rendering. All `pass`
 objects & instances should inherit from `Pass` base class. All
 child classes that inherit from class `Pass` must implement their
-own version of "virtual void run(Pipeline& ppl)" function, as
-this function describes a complete process of drawing something
-onto screen.
+own version of "virtual void run()" function, as this function 
+describes a complete process of drawing something onto screen.
 
 * The reason I introduce the concept of `pass` is that drawing an
 object onto the screen correctly requires a lot of preparation
@@ -55,7 +54,7 @@ public:
   Mat4x4 get_view_matrix() const;
   Mat4x4 get_projection_matrix() const;
   /* run the whole pass (rendering) */
-  virtual void run(Pipeline& ppl) = 0;
+  virtual void run() = 0;
   /* default ctor & dtor */
   Pass();
   virtual ~Pass() {}
@@ -69,14 +68,15 @@ Simply draw a model (probably with animation) onto screen.
 **/
 struct ModelPass : public Pass {
 public:
+  Pipeline* pipeline; /* the pipeline that is used to render to model */
   Model* model; /* a pointer to model object that is being drawn */
   std::string anim_name; /* name of the current animation being played */
   double time; /* time value for controlling the skeletal animation (in sec.) */
 
 public:
-  virtual void run(Pipeline& ppl);
+  virtual void run();
 
-  ModelPass() { model = NULL; time = 0.0; }
+  ModelPass() { model = NULL; time = 0.0; pipeline = NULL; }
   virtual ~ModelPass() {}
 };
 

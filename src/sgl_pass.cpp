@@ -81,12 +81,12 @@ Pass::Pass()
 }
 
 void
-ModelPass::run(Pipeline& ppl) {
+ModelPass::run() {
   if (this->model == NULL) return;
 
-  ppl.set_shaders(this->VS, this->FS);
-  ppl.set_render_targets(this->color_texture, this->depth_texture);
-  ppl.clear_render_targets(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
+  this->pipeline->set_shaders(this->VS, this->FS);
+  this->pipeline->set_render_targets(this->color_texture, this->depth_texture);
+  this->pipeline->clear_render_targets(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
 
   /* setup internal variables (gl_*) */
   if (this->eye.perspective.enabled) {
@@ -118,7 +118,7 @@ ModelPass::run(Pipeline& ppl) {
     /* Setting up mesh materials. */
     uniforms.in_textures[0] = &materials[mat_id].diffuse_texture; /* diffuse texture */
     /* Launch the pipeline to render all the triangles in this mesh */
-    ppl.draw(vertices, indices, uniforms);
+    this->pipeline->draw(vertices, indices, uniforms);
   }
 }
 

@@ -36,14 +36,14 @@ struct Bone {
   std::string name; 
   /* transform vertex from local model space to bone space
      when the model is in bind pose (default T-pose). */
-  Mat4x4 offset_matrix;
+  Mat4x4 offset;
 };
 struct Node {
-  std::string name;
-  std::vector<Node*> childs;
-  Node* parent;
-  uint32_t unique_id;
-  Mat4x4 transformation_matrix;
+  std::string          name; /* name of the node */
+  Node*              parent; /* parent node name */
+  std::vector<Node*> childs; /* child nodes */
+  uint32_t        unique_id; /* unique node id */
+  Mat4x4          transform; /* node transformation matrix */
   /* skeletal animations */
   std::vector<Animation> animations;
 };
