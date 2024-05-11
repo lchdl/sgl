@@ -109,7 +109,7 @@ The overall design of the rasterization pipeline is shown below.
 * Vertex & fragment shader support
 * md5 (*.md5mesh, *.md5anim) format import & parsing
 * <b>Skeletal animation</b> support
-#### TODOs
+#### TODOs (lots of things...)
 * Wireframe rendering
 * Shadow mapping
 * Reflection effect
