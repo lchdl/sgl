@@ -135,8 +135,16 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
         /* Step 3.4: Assemble fragment and render pixel. */
         Fragment_gl fragment;
         assemble_fragment(v_lerp, fragment);
-        /* v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC 
-        space, which is in range [-1, +1], then we need to map it to [0, +1]. */
+        /*
+        v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC 
+        space, which is in range [-1, +1], then we need to map it to [0, +1]. 
+
+        * Although OpenGL's depth range is [-1, +1], but if you want to read the 
+          depth value from a depth texture, the value is further normalized to 
+          [0, +1]. So here for convenience we directly convert it to [0, +1] here
+          because reading from depth buffer is rather common in graphics 
+          programming. 
+        */
         double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
         fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
         Vec4 color_out;
@@ -224,8 +232,16 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
           /* Step 3.4: Assemble fragment and render pixel. */
           Fragment_gl fragment;
           assemble_fragment(v_lerp, fragment);
-          /* v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC
-          space, which is in range [-1, +1], then we need to map it to [0, +1]. */
+          /*
+          v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC
+          space, which is in range [-1, +1], then we need to map it to [0, +1].
+
+          * Although OpenGL's depth range is [-1, +1], but if you want to read the
+            depth value from a depth texture, the value is further normalized to
+            [0, +1]. So here for convenience we directly convert it to [0, +1] here
+            because reading from depth buffer is rather common in graphics
+            programming.
+          */
           double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
           fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
           Vec4 color_out;
