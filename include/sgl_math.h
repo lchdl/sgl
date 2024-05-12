@@ -372,6 +372,7 @@ struct Quat {
   static Quat rot_z(double angle) { return Quat(cos(angle / 2.0), 0.0, 0.0, sin(angle / 2.0)); }
   static Quat from_euler(double yaw, double pitch, double roll) {
     /* https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles */
+    /* note that euler rotations first does yaw, then pitch, finally roll (body 3-2-1 sequence). */
     double cy = cos(yaw * 0.5);
     double sy = sin(yaw * 0.5);
     double cp = cos(pitch * 0.5);
@@ -383,6 +384,19 @@ struct Quat {
       sr * cp * cy - cr * sp * sy,
       cr * sp * cy + sr * cp * sy,
       cr * cp * sy - sr * sp * cy);
+  }
+  void to_euler(double& yaw, double& pitch, double& roll) {
+    /* https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles */
+    /* note that euler rotations first does yaw, then pitch, finally roll (body 3-2-1 sequence). */
+    double sinr_cosp = 2 * (s * x + y * z);
+    double cosr_cosp = 1 - 2 * (x * x + y * y);
+    roll = atan2(sinr_cosp, cosr_cosp);
+    double sinp = std::sqrt(1 + 2 * (s * y - x * z));
+    double cosp = std::sqrt(1 - 2 * (s * y - x * z));
+    pitch = 2 * atan2(sinp, cosp) - sgl::PI / 2;
+    double siny_cosp = 2 * (s * z + x * y);
+    double cosy_cosp = 1 - 2 * (y * y + z * z);
+    yaw = atan2(siny_cosp, cosy_cosp);
   }
 
 };
@@ -833,10 +847,16 @@ mul(Vec3 v, Quat q)
   Quat t(0.0, v); /* expand vector to quaternion */
   return t * q;
 }
+/* note that euler rotations first does yaw, then pitch, finally roll (body 3-2-1 sequence). */
 inline Quat
 euler_to_quat(double yaw, double pitch, double roll)
 {
   return Quat::from_euler(yaw, pitch, roll);
+}
+/* note that euler rotations first does yaw, then pitch, finally roll (body 3-2-1 sequence). */
+inline void
+quat_to_euler(Quat q, double& yaw, double& pitch, double& roll) {
+  q.to_euler(yaw, pitch, roll);
 }
 
 }; /* namespace sgl */

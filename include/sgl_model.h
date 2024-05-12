@@ -169,8 +169,8 @@ protected:
   Node* root_node;
 
 private:
-  /* IO utility functions */
-  void _parse_node_hierarchy(Node* node, aiNode* ai_node);
+  /* utility functions for loading the model */
+  void _parse_and_copy_node(Node* node, aiNode* ai_node);
   void _delete_node(Node* node);
 
   /* animation related utility functions */

@@ -90,7 +90,7 @@ Model::load(const std::string& file) {
   /* parse node hierarchy */
   root_node = new Node();
   root_node->parent = NULL;
-  _parse_node_hierarchy(root_node, _scene->mRootNode);
+  _parse_and_copy_node(root_node, _scene->mRootNode);
 
   /* parse meshes */
   uint32_t n_meshes = _scene->mNumMeshes;
@@ -254,7 +254,7 @@ Model::dump()
 }
 
 void 
-Model::_parse_node_hierarchy(Node* node, aiNode* ai_node)
+Model::_parse_and_copy_node(Node* node, aiNode* ai_node)
 {
   std::string node_name = ai_node->mName.data;
   node->name = node_name;
@@ -271,7 +271,7 @@ Model::_parse_node_hierarchy(Node* node, aiNode* ai_node)
     Node* child_node = new Node();
     child_node->parent = node;
     node->childs.push_back(child_node);
-    _parse_node_hierarchy(child_node, ai_node->mChildren[i_node]);
+    _parse_and_copy_node(child_node, ai_node->mChildren[i_node]);
   }
 }
 
