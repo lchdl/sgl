@@ -12,6 +12,22 @@
 
 namespace sgl {
 
+/**
+  Internal class that is used in primitive assembly stage.
+  Users do not need to care about it too much since it is just an simple
+  aggregation of vertices that represent an assembled primitive.
+  **/
+class Triangle_gl {
+public:
+  Vertex_gl v[3];
+
+public:
+  Triangle_gl() {}
+  Triangle_gl(const Vertex_gl &v1, const Vertex_gl &v2, const Vertex_gl &v3) {
+    this->v[0] = v1, this->v[1] = v2, this->v[2] = v3;
+  }
+};
+
 class Pipeline {
  public:
   /**
@@ -97,23 +113,6 @@ class Pipeline {
   void set_num_threads(const int& num_threads) {
     ppl.num_threads = num_threads;
   }
-
- protected:
-  /**
-  Internal class that is used in primitive assembly stage.
-  Users do not need to care about it too much since it is just an simple
-  aggregation of vertices that represent an assembled primitive.
-  **/
-  class Triangle_gl {
-   public:
-    Vertex_gl v[3];
-
-   public:
-    Triangle_gl() {}
-    Triangle_gl(const Vertex_gl &v1, const Vertex_gl &v2, const Vertex_gl &v3) {
-      this->v[0] = v1, this->v[1] = v2, this->v[2] = v3;
-    }
-  };
 
  protected:
   /**

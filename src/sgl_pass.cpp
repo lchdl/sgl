@@ -83,16 +83,17 @@ BasicAnimPass::BasicAnimPass() {
   FS = NULL;
   model = NULL; 
   time = 0.0; 
-  pipeline = NULL; 
+  pipeline = NULL;
 }
 
 void
-BasicAnimPass::run() {
+BasicAnimPass::run(bool clear) {
   if (this->model == NULL) return;
 
   this->pipeline->set_shaders(this->VS, this->FS);
   this->pipeline->set_render_targets(this->color_texture, this->depth_texture);
-  this->pipeline->clear_render_targets(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
+  if (clear)
+    this->pipeline->clear_render_targets(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
 
   /* setup internal variables (gl_*) */
   if (this->eye.perspective.enabled) {
@@ -127,5 +128,6 @@ BasicAnimPass::run() {
     this->pipeline->draw(vertices, indices, uniforms);
   }
 }
+
 
 }; /* namespace sgl */

@@ -6,6 +6,7 @@ using namespace sgl;
 
 int w = 800, h = 600;
 bool keystate[SDL_NUM_SCANCODES];
+int render_mode = 0; /* 0=normal, 1=wireframe, 2=normal+wireframe */
 
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
@@ -13,6 +14,7 @@ SDL_Surface* pWindowSurface;
 Model boblamp_model;
 BasicAnimPass render_pass;
 Pipeline pipeline;
+WireframePipeline wireframe_pipeline;
 Texture color_texture, depth_texture;
 
 void
@@ -68,6 +70,10 @@ process_key(SDL_KeyboardEvent *key) {
       printf("Now enables perspective projection.\n");
     }
   }
+  if (keycode == SDLK_RETURN && is_press) {
+    render_mode = (render_mode + 1) % 3;
+    printf("Now uses render mode %d.\n", render_mode);
+  }
 }
 
 void
@@ -105,8 +111,13 @@ init_render() {
   render_pass.model = &boblamp_model;
 
 	render_pass.pipeline = &pipeline;
+  wireframe_pipeline.set_wireframe_color(Vec3(1.0, 1.0, 1.0));
 	render_pass.pipeline->set_num_threads(4);
-  printf("Press space bar to switch between perspective/orthographic mode.\n");
+  render_mode = 0;
+  printf("\n");
+  printf("Press space bar to switch between perspective/orthographic modes.\n");
+  printf("Press enter/return to switch between normal/wireframe render modes.\n");
+  printf("\n");
 }
 
 void 
@@ -115,7 +126,22 @@ render_frame(double T) {
   render_pass.anim_name = ""; /* play the animation "" */
   render_pass.eye.position = Vec3(10 * sin(T / 3), 6, 10 * cos(T / 3));
   render_pass.eye.look_at = Vec3(0, 3.5, 0);
-  render_pass.run();
+  if (render_mode == 0) {
+    render_pass.pipeline = &pipeline;
+    render_pass.run();
+  }
+  else if (render_mode == 1) {
+    render_pass.pipeline = &wireframe_pipeline;
+    render_pass.run();
+  }
+  else {
+    render_pass.pipeline = &pipeline;
+    render_pass.run();
+    render_pass.pipeline = &wireframe_pipeline;
+    render_pass.run(false); /* don't clear frame buffers as we want to draw 
+                               wireframe directly onto previous render. */
+
+  }
 }
 
 int 

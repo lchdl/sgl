@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sgl_pipeline.h"
+#include "sgl_pipeline_wireframe.h"
 
 namespace sgl {
 
@@ -73,7 +74,7 @@ public:
   double           time; /* time value for controlling the skeletal animation (in sec.) */
 
 public:
-  void run();
+  void run(bool clear = true);
 
   BasicAnimPass();
   virtual ~BasicAnimPass() {}
