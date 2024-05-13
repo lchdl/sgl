@@ -75,8 +75,8 @@ WireframePipeline::_inner_interpolate(
   v_lerp *= z_real;
   Fragment_gl fragment;
   assemble_fragment(v_lerp, fragment);
-  double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
-  gl_FragDepth *= 0.9998; /* bring it up a little bit */
+  double gl_FragDepth = (v_lerp.gl_Position.z / v_lerp.gl_Position.w + 1.0) * 0.5;
+	gl_FragDepth = max(gl_FragDepth * 0.999, gl_FragDepth - 0.001*(1.0 - gl_FragDepth)); /* needs adjustment */
   fragment.gl_FragCoord = Vec4(x, y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
   write_render_targets(fragment.gl_FragCoord.xy(), Vec4(wppl.wire_color, 1.0), gl_FragDepth);
 }

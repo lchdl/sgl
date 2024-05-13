@@ -24,7 +24,7 @@ max(T _a, T _b) {
 }
 template <typename T>
 T
-clamp(const T& _low, T& _var, const T& _high) {
+clamp(const T& _low, const T& _var, const T& _high) {
   return min(max(_var, _low), _high);
 }
 template <typename T1, typename T2>
