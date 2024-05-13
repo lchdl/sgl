@@ -83,9 +83,9 @@ The overall design of the rasterization pipeline is shown below.
 ## For developers
 ### Project structure
 * CMakeLists.txt
-  - For CMAKE.
+  - For CMake.
 * `demos/`
-  - All demo outputs (*.png, *.gif).
+  - All demo outputs (*.png, *.gif), tutorials, and media files.
 * `include/`
   - Header files and inline implementations (*.h).
 * `src/`
