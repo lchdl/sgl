@@ -41,6 +41,8 @@ The overall design of the rasterization pipeline is shown below.
 
 2. Using CMake build system (<b>cmake-gui</b>) to generate Visual Studio solutions. Press `Configure`, select "<b>x64</b>" platform, under the "<b>COMPILER</b>" option list, select "<b>MSVC</b>". Then, CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
 
+   > Watch this self-explanatory [<b>video</b>](https://github.com/lchdl/sgl/blob/develop/demos/how_to_compile_using_cmake_gui.mp4) for more infomation.
+
    <p align="center">
      <img src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_windows_compile.png">
    </p>
