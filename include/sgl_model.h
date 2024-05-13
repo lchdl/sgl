@@ -52,9 +52,9 @@ struct Mesh {
    * one material. A mesh can contain multiple meshes. */
   /* vertex buffer, used in rasterization */
   std::string name; /* name of the mesh */
-  std::vector<Vertex> vertices;
+  VertexBuffer_t vertices;
   /* index buffer, used in rasterization */
-  std::vector<int32_t> indices;
+  IndexBuffer_t indices;
   /* material id */
   uint32_t mat_id; 
   /* all the bones in this mesh */

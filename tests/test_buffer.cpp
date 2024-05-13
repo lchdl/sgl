@@ -12,9 +12,7 @@ bool keystate[SDL_NUM_SCANCODES];
 
 Pipeline pipeline;
 Uniforms uniforms;
-VertexBuffer_t vertices;
-IndexBuffer_t indices;
-
+int32_t vbo, ibo; /* vertex & index buffer objects */
 Texture color_texture, depth_texture;
 Texture image_texture;
 
@@ -95,7 +93,7 @@ init_render() {
   );
   /* near = 0.1, far = 10.0, field of view = 45 degrees */
   Mat4x4 projection = compute_projection_matrix(w, h, 0.1, 10.0, degrees_to_radians(45));
-  
+
   /* initialize resources and render pipeline */
   image_texture = sgl::load_texture("textures/checker_256.png");
   uniforms.model = model;
@@ -107,8 +105,11 @@ init_render() {
   pipeline.set_shaders(default_VS, default_FS);
   pipeline.disable_backface_culling();
 
+  VertexBuffer_t vertices;
+  IndexBuffer_t indices;
+
   Vertex v;
-  /* 
+  /*
   v.p: position (x,y,z)
   v.t: texture coords (u,v)
   */
@@ -133,11 +134,16 @@ init_render() {
   indices.push_back(1);
   indices.push_back(2);
   indices.push_back(3);
+
+  vbo = pipeline.create_vertex_buffer();
+  ibo = pipeline.create_index_buffer();
+  pipeline.fill_vertex_buffer(vbo, vertices);
+  pipeline.fill_index_buffer(ibo, indices);
 }
 
 void
 render_frame() {
-  pipeline.draw(vertices, indices, uniforms);
+  pipeline.draw(vbo, ibo, uniforms);
 }
 
 int

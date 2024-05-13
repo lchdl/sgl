@@ -26,9 +26,59 @@ Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
 }
 Pipeline::~Pipeline() {}
 
+int32_t Pipeline::create_index_buffer()
+{
+  for (uint32_t i = 0; i < buffers.IndexBuffers.size(); i++) {
+    if (buffers.IndexBuffers[i].size() == 0) {
+      return (int32_t)i;
+    }
+  }
+  buffers.IndexBuffers.push_back(IndexBuffer_t());
+  return (int32_t)buffers.IndexBuffers.size() - 1;
+}
+
+int32_t Pipeline::create_vertex_buffer()
+{
+  for (uint32_t i = 0; i < buffers.VertexBuffers.size(); i++) {
+    if (buffers.VertexBuffers[i].size() == 0) {
+      return (int32_t)i;
+    }
+  }
+  buffers.VertexBuffers.push_back(VertexBuffer_t());
+  return (int32_t)buffers.VertexBuffers.size() - 1;
+}
+
+void Pipeline::fill_index_buffer(const int32_t & ibo, const IndexBuffer_t & buffer_data)
+{
+  IndexBuffer_t& buffer = buffers.IndexBuffers[ibo];
+  buffer.clear();
+  buffer.shrink_to_fit();
+  buffer = buffer_data;
+}
+
+void Pipeline::fill_vertex_buffer(const int32_t & vbo, const VertexBuffer_t & buffer_data)
+{
+  VertexBuffer_t& buffer = buffers.VertexBuffers[vbo];
+  buffer.clear();
+  buffer.shrink_to_fit();
+  buffer = buffer_data;
+}
+
+void Pipeline::delete_index_buffer(const int32_t & ibo)
+{
+  buffers.IndexBuffers[ibo].clear();
+  buffers.IndexBuffers[ibo].shrink_to_fit();
+}
+
+void Pipeline::delete_vertex_buffer(const int32_t & vbo)
+{
+  buffers.IndexBuffers[vbo].clear();
+  buffers.IndexBuffers[vbo].shrink_to_fit();
+}
+
 void Pipeline::draw(
-  const std::vector<Vertex>& vertices,
-  const std::vector<int32_t>& indices,
+  const VertexBuffer_t& vertices,
+  const IndexBuffer_t& indices,
   const Uniforms& uniforms) 
 {
   if (shaders.VS == NULL || shaders.FS == NULL)
@@ -48,8 +98,20 @@ void Pipeline::draw(
   fragment_processing_MT(uniforms, ppl.num_threads);
 }
 
+void Pipeline::draw(
+  const int32_t & vbo, 
+  const int32_t & ibo, 
+  const Uniforms& uniforms)
+{
+  this->draw(
+    buffers.VertexBuffers[vbo], 
+    buffers.IndexBuffers[ibo], 
+    uniforms
+  );
+}
+
 void
-Pipeline::vertex_processing(const std::vector<Vertex> &vertex_buffer,
+Pipeline::vertex_processing(const VertexBuffer_t &vertex_buffer,
                             const Uniforms &uniforms) {
   for (uint32_t i_vert = 0; i_vert < vertex_buffer.size(); i_vert++) {
     Vertex_gl vertex_out;

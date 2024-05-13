@@ -2,6 +2,7 @@
 
 #include "sgl_math.h"
 #include "sgl_texture.h"
+#include <vector>
 
 namespace sgl {
 
@@ -21,6 +22,9 @@ struct Vertex {
   IVec4 bone_IDs; /* bones up to 4 */
   Vec4  bone_weights;
 };
+
+typedef std::vector<Vertex> VertexBuffer_t;
+typedef std::vector<int32_t> IndexBuffer_t;
 
 /**
 Internal vertex format used by the pipeline.

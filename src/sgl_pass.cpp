@@ -114,8 +114,8 @@ BasicAnimPass::run() {
   const std::vector<Material>& materials = model->get_materials();
 
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
-    const std::vector<Vertex>& vertices = mesh_data[i_mesh].vertices;
-    const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
+    const VertexBuffer_t& vertices = mesh_data[i_mesh].vertices;
+    const IndexBuffer_t& indices = mesh_data[i_mesh].indices;
     const int32_t mat_id = mesh_data[i_mesh].mat_id;
     const Mesh& mesh = mesh_data[i_mesh];
 

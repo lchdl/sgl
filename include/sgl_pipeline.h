@@ -63,6 +63,15 @@ class Pipeline {
   void disable_depth_test() {
     ppl.do_depth_test = false;
   }
+  /**
+  Buffer manipulations.
+  **/
+  int32_t create_index_buffer();
+  int32_t create_vertex_buffer();
+  void fill_index_buffer(const int32_t& ibo, const IndexBuffer_t& buffer_data);
+  void fill_vertex_buffer(const int32_t& vbo, const VertexBuffer_t& buffer_data);
+  void delete_index_buffer(const int32_t& ibo);
+  void delete_vertex_buffer(const int32_t& vbo);
   /** 
   Render triangles onto target textures.
   @param vertices: Vertex buffer object.
@@ -71,9 +80,14 @@ class Pipeline {
     fragment shaders.
   **/
   virtual void draw(
-    const std::vector<Vertex>& vertices,
-    const std::vector<int32_t>& indices,
+    const VertexBuffer_t& vertices,
+    const IndexBuffer_t& indices,
     const Uniforms& uniforms);
+  virtual void draw(
+    const int32_t& vbo,
+    const int32_t& ibo,
+    const Uniforms& uniforms
+  );
 
  public:
   /**
@@ -109,7 +123,7 @@ class Pipeline {
   @note: This function will invoke vertex shader, and all processed vertices
   will be stored into this->ppl.Vertices for further use.
   **/
-  void vertex_processing(const std::vector<Vertex> &vertex_buffer,
+  void vertex_processing(const VertexBuffer_t &vertex_buffer,
                          const Uniforms &uniforms);
 
   /**
@@ -245,6 +259,10 @@ class Pipeline {
     bool backface_culling; /* enable/disable backface culling when rendering */
     bool do_depth_test; /* enable/disable depth test when rendering */
   } ppl; /* pipeline internal states and variables */
+  struct {
+    std::vector<VertexBuffer_t> VertexBuffers;
+    std::vector<IndexBuffer_t> IndexBuffers;
+  } buffers; /* cached buffers */
   struct {
     VS_func_t VS;
     FS_func_t FS;
