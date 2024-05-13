@@ -70,9 +70,10 @@ class Pipeline {
   @param uniforms: Uniform variables used by vertex and
     fragment shaders.
   **/
-  void draw(const std::vector<Vertex>& vertices,
-            const std::vector<int32_t>& indices,
-            const Uniforms& uniforms);
+  virtual void draw(
+    const std::vector<Vertex>& vertices,
+    const std::vector<int32_t>& indices,
+    const Uniforms& uniforms);
 
  public:
   /**

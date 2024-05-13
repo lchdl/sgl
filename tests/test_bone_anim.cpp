@@ -11,7 +11,7 @@ SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
 
 Model boblamp_model;
-ModelPass render_pass;
+BasicAnimPass render_pass;
 Pipeline pipeline;
 Texture color_texture, depth_texture;
 

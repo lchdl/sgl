@@ -64,8 +64,6 @@ Pass::Pass()
 {
   color_texture = NULL;
   depth_texture = NULL;
-  VS = NULL;
-  FS = NULL;
   eye.look_at = Vec3(0, 0, 0);
   eye.position = Vec3(10, 10, 10);
   eye.up_dir = Vec3(0, 1, 0);
@@ -80,8 +78,16 @@ Pass::Pass()
   eye.orthographic.far = 100.0;
 }
 
+BasicAnimPass::BasicAnimPass() { 
+  VS = NULL;
+  FS = NULL;
+  model = NULL; 
+  time = 0.0; 
+  pipeline = NULL; 
+}
+
 void
-ModelPass::run() {
+BasicAnimPass::run() {
   if (this->model == NULL) return;
 
   this->pipeline->set_shaders(this->VS, this->FS);

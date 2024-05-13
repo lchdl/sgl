@@ -23,15 +23,11 @@ convenient when drawing something complex onto the screen.
 
 **/
 
-struct Pass {
+class Pass {
+public:
   /* output texture buffers (write only) */
   Texture* color_texture;
   Texture* depth_texture;
-  /* uniform variables */
-  Uniforms uniforms;
-  /* vertex & fragment shaders */
-  VS_func_t VS;
-  FS_func_t FS;
   /* camera/eye settings */
   struct {
     Vec3 position; /* eye position */
@@ -61,18 +57,26 @@ Simply draw a model (probably with animation) onto screen.
   wraps up multiple draw calls to fully render a model, each draw call
   only renders a single mesh.
 **/
-class ModelPass : public Pass {
+class BasicAnimPass : public Pass {
+
 public:
-	Pipeline* pipeline; /* the pipeline that is used to render to model */
-	Model* model; /* a pointer to model object that is being drawn */
+  /* uniform variables */
+  Uniforms uniforms;
+  /* vertex & fragment shaders */
+  VS_func_t VS;
+  FS_func_t FS;
+
+public:
+	Pipeline*    pipeline; /* the pipeline that is used to render to model */
+	Model*          model; /* a pointer to model object that is being drawn */
   std::string anim_name; /* name of the current animation being played */
-  double time; /* time value for controlling the skeletal animation (in sec.) */
+  double           time; /* time value for controlling the skeletal animation (in sec.) */
 
 public:
   void run();
 
-	ModelPass() { model = NULL; time = 0.0; pipeline = NULL; }
-  virtual ~ModelPass() {}
+  BasicAnimPass();
+  virtual ~BasicAnimPass() {}
 };
 
 }; /* namespace sgl */

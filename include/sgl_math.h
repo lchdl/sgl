@@ -391,8 +391,8 @@ struct Quat {
     double sinr_cosp = 2 * (s * x + y * z);
     double cosr_cosp = 1 - 2 * (x * x + y * y);
     roll = atan2(sinr_cosp, cosr_cosp);
-    double sinp = std::sqrt(1 + 2 * (s * y - x * z));
-    double cosp = std::sqrt(1 - 2 * (s * y - x * z));
+    double sinp = sqrt(1 + 2 * (s * y - x * z));
+    double cosp = sqrt(1 - 2 * (s * y - x * z));
     pitch = 2 * atan2(sinp, cosp) - sgl::PI / 2;
     double siny_cosp = 2 * (s * z + x * y);
     double cosy_cosp = 1 - 2 * (y * y + z * z);
