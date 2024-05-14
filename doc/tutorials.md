@@ -25,6 +25,9 @@ Some tutorials that I found useful on the internet.
 * Assimp model loading tutorial:
   https://www.youtube.com/watch?v=sP_kiODC25Q
 
-
+### Git
+* Delete a remote-tracking branch locally:
+  > `git branch -r -d origin/<branch_name>`. <br>
+  > This will happen if you delete a branch remotely but the branch still exists locally.
 
 
