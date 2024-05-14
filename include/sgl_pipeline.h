@@ -13,10 +13,10 @@
 namespace sgl {
 
 /**
-  Internal class that is used in primitive assembly stage.
-  Users do not need to care about it too much since it is just an simple
-  aggregation of vertices that represent an assembled primitive.
-  **/
+Internal class that is used in primitive assembly stage.
+Users do not need to care about it too much since it is just an simple
+aggregation of vertices that represent an assembled primitive.
+**/
 class Triangle_gl {
 public:
   Vertex_gl v[3];

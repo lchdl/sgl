@@ -10,22 +10,6 @@ This implementation also covers every details you need to know
 about writing a software rasterizer from scratch. The whole
 pipeline also supports OpenMP accelerating, you can dynamically
 adjust the number of CPU cores used for rendering.
-
-Completed:
-  1. Flexible vertex format
-  2. Vertex & fragment shader support
-  3. *.md5 mesh import
-  4. Animation support
-
-TODOs:
-  1. Reflection effect
-    1.1. Stencil buffer
-    1.2. Alpha blending
-  2. Text rendering
-  3. Phong shading
-  4. Texture baking
-    4.1. Ray tracing
-
 **/
 
 #pragma once

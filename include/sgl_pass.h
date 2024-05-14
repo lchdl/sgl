@@ -68,8 +68,8 @@ public:
   FS_func_t FS;
 
 public:
-	Pipeline*    pipeline; /* the pipeline that is used to render to model */
-	Model*          model; /* a pointer to model object that is being drawn */
+  Pipeline*    pipeline; /* the pipeline that is used to render to model */
+  Model*          model; /* a pointer to model object that is being drawn */
   std::string anim_name; /* name of the current animation being played */
   double           time; /* time value for controlling the skeletal animation (in sec.) */
 
