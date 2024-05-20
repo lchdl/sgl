@@ -203,7 +203,7 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
 
         * Although OpenGL's depth range is [-1, +1], but if you want to read the 
           depth value from a depth texture, the value is further normalized to 
-          [0, +1]. So here for convenience we directly convert it to [0, +1] here
+          [0, +1]. So here for convenience we directly convert it to [0, +1]
           because reading from depth buffer is rather common in graphics 
           programming. 
         */
@@ -300,7 +300,7 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
 
           * Although OpenGL's depth range is [-1, +1], but if you want to read the
             depth value from a depth texture, the value is further normalized to
-            [0, +1]. So here for convenience we directly convert it to [0, +1] here
+            [0, +1]. So here for convenience we directly convert it to [0, +1]
             because reading from depth buffer is rather common in graphics
             programming.
           */
@@ -403,12 +403,14 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
   if (p1_sign < 0 && p2_sign < 0 && p3_sign < 0) {
     /* triangle is completely outside the clipping volume, simply discard it. */
     n_tri = 0;
-  } else if (p1_sign > 0 && p2_sign > 0 && p3_sign > 0) {
+  } 
+	else if (p1_sign > 0 && p2_sign > 0 && p3_sign > 0) {
     /* triangle is completely inside clipping volume, we don't need to do any
      * clipping operations */
     n_tri = 1;
     q1 = v1, q2 = v2, q3 = v3;
-  } else {
+  } 
+	else {
     /* clipping is needed, check how many vertices are in the upper side of
     the plane, to obtain the number of newly generated triangles */
     n_tri = 0;
@@ -477,7 +479,8 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
       q1 = *(v[0]);
       q2 = Vertex_gl::lerp(*v[0], *v[1], t[0]);
       q3 = Vertex_gl::lerp(*v[0], *v[2], t[1]);
-    } else { /* n_tri==2 */
+    } 
+		else if (n_tri == 2) {
       q1 = *(v[1]), q2 = *(v[2]);
       q3 = Vertex_gl::lerp(*v[0], *v[2], t[1]);
       q4 = Vertex_gl::lerp(*v[0], *v[1], t[0]);
