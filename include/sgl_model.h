@@ -31,6 +31,10 @@ struct Animation {
   std::vector<KeyFrame<Quat>> rotation_key_frames;
   double ticks_per_second; /* default = 25 */
 };
+enum KeyframeInterp_t {
+	KeyFrameInterp_Nearest,
+	KeyFrameInterp_Linear,
+};
 struct Bone {
   /* bone name */
   std::string name; 
@@ -149,6 +153,9 @@ public:
     so if a model contains N meshes, it will need N draw calls to fully
     render the whole model, with i-th draw call renders the i-th mesh. */
   );
+	void set_keyframe_interp_mode(const KeyframeInterp_t interp) {
+		this->keyframe_interp_mode = interp;
+	}
 
   /* ctor & dtor that we don't even care about much. */
   Model();
@@ -167,6 +174,8 @@ protected:
   std::map<std::string, uint32_t> node_name_to_unique_id;
   std::map<std::string, Node*> node_name_to_ptr;
   Node* root_node;
+	/* key frame interpolation modes (nearest, linear, ...) */
+	KeyframeInterp_t keyframe_interp_mode;
 
 private:
   /* utility functions for loading the model */
@@ -186,7 +195,7 @@ private:
     Uniforms& uniforms              /* uniform variables that will be written to */
   );
   Mat4x4 _interpolate_skeletal_animation(
-    const Animation& anim, double tick
+    const Animation& anim, const double tick, const KeyframeInterp_t interp
   );
 
   /* utility functions for mesh debugging */
