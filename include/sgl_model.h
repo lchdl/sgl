@@ -87,7 +87,7 @@ public:
   /* Set model global transformation matrix */
   void set_model_transform(const Mat4x4& transform) { this->model_transform = transform; }
   /* getters */
-  const std::vector<Mesh>& get_mesh_data() const { return this->meshes; }
+  const std::vector<Mesh>& get_meshes() const { return this->meshes; }
   const std::vector<Material>& get_materials() const { return this->materials; }
   const Mat4x4 get_model_transform() const { return this->model_transform; }
 
