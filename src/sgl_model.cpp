@@ -9,7 +9,7 @@ namespace sgl {
 Model::Model() {
   root_node = NULL;
   model_transform = Mat4x4::identity();
-	keyframe_interp_mode = KeyframeInterp_t::KeyFrameInterp_Linear;
+  keyframe_interp_mode = KeyframeInterp_t::KeyFrameInterp_Linear;
 }
 Model::~Model() {
   this->unload();
@@ -382,52 +382,52 @@ inline T
 _interpolate_key_frames(
   const std::vector<KeyFrame<T>>& key_frames, 
   const double tick,
-	const KeyframeInterp_t interp)
+  const KeyframeInterp_t interp)
 {
-	uint32_t n_frames = (uint32_t)key_frames.size();
+  uint32_t n_frames = (uint32_t)key_frames.size();
 
-	/* special cases handling */
-	if (n_frames == 1)
-		return key_frames[0].value;
-	if (tick <= key_frames[0].tick)
-		return key_frames[0].value;
-	if (tick >= key_frames[n_frames - 1].tick)
-		return key_frames[n_frames - 1].value;
+  /* special cases handling */
+  if (n_frames == 1)
+    return key_frames[0].value;
+  if (tick <= key_frames[0].tick)
+    return key_frames[0].value;
+  if (tick >= key_frames[n_frames - 1].tick)
+    return key_frames[n_frames - 1].value;
 
-	/* binary search */
-	uint32_t left = 0, right = (uint32_t)key_frames.size() - 1;
-	while (left < right) {
-		uint32_t mid = (left + right) / 2;
-		if (key_frames[mid].tick <= tick && tick < key_frames[mid + 1].tick) {
-			/* found */
-			left = mid;
-			right = mid + 1;
-			break;
-		}
-		else {
-			if (key_frames[mid].tick < tick)
-				left = mid + 1;
-			else
-				right = mid;
-		}
-	}
+  /* binary search */
+  uint32_t left = 0, right = (uint32_t)key_frames.size() - 1;
+  while (left < right) {
+    uint32_t mid = (left + right) / 2;
+    if (key_frames[mid].tick <= tick && tick < key_frames[mid + 1].tick) {
+      /* found */
+      left = mid;
+      right = mid + 1;
+      break;
+    }
+    else {
+      if (key_frames[mid].tick < tick)
+        left = mid + 1;
+      else
+        right = mid;
+    }
+  }
 
-	/* interpolate left and right using different modes */
-	if (interp == KeyFrameInterp_Nearest) {
-		return key_frames[left].value;
-	}
-	else if (interp == KeyframeInterp_t::KeyFrameInterp_Linear) {
-		/* interpolate left and right (=left+1) */
-		double weight = (tick - key_frames[left].tick) /
-			(key_frames[right].tick - key_frames[left].tick);
-		if (weight < 0.0) weight = 0.0;
-		if (weight > 1.0) weight = 1.0;
+  /* interpolate left and right using different modes */
+  if (interp == KeyFrameInterp_Nearest) {
+    return key_frames[left].value;
+  }
+  else if (interp == KeyframeInterp_t::KeyFrameInterp_Linear) {
+    /* interpolate left and right (=left+1) */
+    double weight = (tick - key_frames[left].tick) /
+      (key_frames[right].tick - key_frames[left].tick);
+    if (weight < 0.0) weight = 0.0;
+    if (weight > 1.0) weight = 1.0;
 
-		return key_frames[left].value * (1 - weight) +
-			key_frames[right].value * weight;
-	}
-	else /* this line should never be run */
-		return key_frames[0].value;
+    return key_frames[left].value * (1 - weight) +
+      key_frames[right].value * weight;
+  }
+  else /* this line should never be run */
+    return key_frames[0].value;
 }
 
 /* 
@@ -440,54 +440,54 @@ inline Quat
 _interpolate_key_frames(
   const std::vector<KeyFrame<Quat>>& key_frames,
   const double tick,
-	const KeyframeInterp_t interp)
+  const KeyframeInterp_t interp)
 {
-	uint32_t n_frames = (uint32_t)key_frames.size();
+  uint32_t n_frames = (uint32_t)key_frames.size();
 
-	/* special cases handling */
-	if (n_frames == 1)
-		return key_frames[0].value;
-	if (tick <= key_frames[0].tick)
-		return key_frames[0].value;
-	if (tick >= key_frames[n_frames - 1].tick)
-		return key_frames[n_frames - 1].value;
+  /* special cases handling */
+  if (n_frames == 1)
+    return key_frames[0].value;
+  if (tick <= key_frames[0].tick)
+    return key_frames[0].value;
+  if (tick >= key_frames[n_frames - 1].tick)
+    return key_frames[n_frames - 1].value;
 
-	/* binary search */
-	uint32_t left = 0, right = (uint32_t)key_frames.size() - 1;
-	while (left < right) {
-		uint32_t mid = (left + right) / 2;
-		if (key_frames[mid].tick <= tick && tick < key_frames[mid + 1].tick) {
-			/* found */
-			left = mid;
-			right = mid + 1;
-			break;
-		}
-		else {
-			if (key_frames[mid].tick < tick)
-				left = mid + 1;
-			else
-				right = mid;
-		}
-	}
+  /* binary search */
+  uint32_t left = 0, right = (uint32_t)key_frames.size() - 1;
+  while (left < right) {
+    uint32_t mid = (left + right) / 2;
+    if (key_frames[mid].tick <= tick && tick < key_frames[mid + 1].tick) {
+      /* found */
+      left = mid;
+      right = mid + 1;
+      break;
+    }
+    else {
+      if (key_frames[mid].tick < tick)
+        left = mid + 1;
+      else
+        right = mid;
+    }
+  }
 
-	/* interpolate left and right using different modes */
-	if (interp == KeyFrameInterp_Nearest) {
-		Quat q1 = key_frames[left].value;
-		return normalize(q1);
-	}
-	else if (interp == KeyFrameInterp_Linear) {
-		/* interpolate left and right (=left+1) */
-		double weight = (tick - key_frames[left].tick) / (key_frames[right].tick - key_frames[left].tick);
-		if (weight < 0.0) weight = 0.0;
-		if (weight > 1.0) weight = 1.0;
+  /* interpolate left and right using different modes */
+  if (interp == KeyFrameInterp_Nearest) {
+    Quat q1 = key_frames[left].value;
+    return normalize(q1);
+  }
+  else if (interp == KeyFrameInterp_Linear) {
+    /* interpolate left and right (=left+1) */
+    double weight = (tick - key_frames[left].tick) / (key_frames[right].tick - key_frames[left].tick);
+    if (weight < 0.0) weight = 0.0;
+    if (weight > 1.0) weight = 1.0;
 
-		Quat q1 = key_frames[left].value;
-		Quat q2 = key_frames[right].value;
-		Quat q = slerp(q1, q2, weight);
-		return normalize(q);
-	}
-	else /* this line should never be run */
-		return key_frames[0].value;
+    Quat q1 = key_frames[left].value;
+    Quat q2 = key_frames[right].value;
+    Quat q = slerp(q1, q2, weight);
+    return normalize(q);
+  }
+  else /* this line should never be run */
+    return key_frames[0].value;
 }
 
 Mat4x4 
@@ -497,7 +497,7 @@ Model::_interpolate_skeletal_animation(
   /*
   Interpolate position, scaling, and rotation.
   NOTE: key frames are sorted by default, and at least one keyframe 
-	should exist in the animation (even if the model has no animation).
+  should exist in the animation (even if the model has no animation).
   */
   Vec3 position = _interpolate_key_frames<Vec3>(anim.position_key_frames, tick, interp);
   Vec3 scaling = _interpolate_key_frames<Vec3>(anim.scaling_key_frames, tick, interp);

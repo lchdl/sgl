@@ -81,6 +81,9 @@ The overall design of the rasterization pipeline is shown below.
    > After compiling SGL, you may need to copy all the contents of the `res/` folder to the same location as the generated executables.
 
 ## For developers
+### Before commit
+* Make sure all source and header files are indented using 2 spaces (not tabs).
+
 ### Project structure
 * CMakeLists.txt
   - For CMake.
