@@ -82,7 +82,7 @@ The overall design of the rasterization pipeline is shown below.
 
 ## For developers
 ### Before commit
-* Make sure all source and header files are indented using 2 spaces (not tabs).
+* Make sure all source and header files are indented using <b>2 spaces</b> (not tabs).
 
 ### Project structure
 * CMakeLists.txt
