@@ -81,11 +81,15 @@ The overall design of the rasterization pipeline is shown below.
    > After compiling SGL, you may need to copy all the contents of the `res/` folder to the same location as the generated executables.
 
 ## For developers
+
+### Quick start
+* After successfully compiling SGL in debug mode, you may want to start with the [<b>hello world</b>](https://github.com/lchdl/sgl/blob/develop/tests/test_hello_world.cpp) demo in `tests/test_hello_world.cpp`, which can help you quickly go through the entire software raterization pipeline.
+
 ### Before commit
-* Make sure all source and header files are indented using <b>2 spaces</b> (not tabs).
+* Code formatting: please make sure all source and header files are indented using <b>2 spaces</b> (not tabs).
 
 ### Project structure
-* CMakeLists.txt
+* `CMakeLists.txt`
   - For CMake.
 * `demos/`
   - All demo outputs (*.png, *.gif), tutorials, and media files.
