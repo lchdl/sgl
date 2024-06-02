@@ -74,7 +74,7 @@ The overall design of the rasterization pipeline is shown below.
 
 2. Make sure your g++ compiler supports <b>C++17</b> language standard. I recommend using <b>ccmake</b> to generate makefiles. Create a new empty directory and `cd` into it, then use the following command
    
-   > **ccmake \<path_to_sgl_CMakeLists.txt\>**
+   > **ccmake \<path_to_CMakeLists.txt\>**
    
    to initiate CMake build system and configure the project. ccmake will also prompt you to <b>input the path of those precompiled libraries and include headers</b>. Here are the configurations
 
