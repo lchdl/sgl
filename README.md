@@ -17,12 +17,12 @@ The overall design of the rasterization pipeline is shown below.
 
 * Currently, SGL is designed to <i><b>serve as a graphical backend for retro-style game engines</b></i>. Rendering something onto the screen with SGL can be <i><b>very simple</b></i>: simply provide the vertex positions, texture coordinates, and normals. SGL will then draw the model for you without any help from the dedicated GPU.
 
-* Write your own vertex and fragment shaders for the software rasterizer: SGL supports customized vertex and fragment shaders. The image below shows an example:
-<p align="center">
-  <img src="https://github.com/lchdl/sgl/blob/develop/demos/shaders_code_demo.png">
-</p>
+* <b><i>Write your own vertex and fragment shaders for the software rasterizer</i></b>: SGL supports customized vertex and fragment shaders. The image below shows an example:
+  <p align="center">
+    <img src="https://github.com/lchdl/sgl/blob/develop/demos/shaders_code_demo.png">
+  </p>
 
-* Due to the benefit of abstracting the entire rendering operation into multiple <b>render passes</b>, SGL can also easily support hardware acceleration (GPU rendering using OpenGL) to render complex scenes. This feature is currently working in progress.
+* Due to the benefit of abstracting the entire rendering operation into multiple <b><i>render passes</i></b>, SGL can also easily support hardware acceleration (GPU rendering using OpenGL) to render complex scenes. This feature is currently working in progress.
 
 ## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
