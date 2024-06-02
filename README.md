@@ -122,11 +122,12 @@ The overall design of the rasterization pipeline is shown below.
 
 ### Features and TODOs
 #### Features
-* Flexible vertex format
-* Vertex & fragment shader support
+* Flexible vertex format supoort
+* Customized vertex & fragment shader support
 * md5 (*.md5mesh, *.md5anim) format import & parsing
 * <b>Skeletal animation</b> support
 * Wireframe rendering
+* Perspective / orthographic projection
 #### TODOs (lots of things...)
 * Shadow mapping
 * Reflection effect
