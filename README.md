@@ -16,6 +16,7 @@ The overall design of the rasterization pipeline is shown below.
 </p>
 
 * Currently, SGL is designed to <i><b>serve as a graphical backend for retro-style game engines</b></i>. Rendering something onto the screen with SGL can be <i><b>very simple</b></i>: simply provide the vertex positions, texture coordinates, and normals. SGL will then draw the model for you without any help from the dedicated GPU.
+* Due to the benefit of abstracting the entire rendering operation into multiple <b>render passes</b>, SGL can also easily support hardware acceleration (GPU rendering using OpenGL) to render complex scenes. This feature is currently working in progress.
 
 ## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
