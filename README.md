@@ -7,7 +7,7 @@
 
 ## About SGL (Software Graphics Library)
 
-<b>SGL</b> is a tiny, light-weight cross-platform (for Windows & Linux-based systems) <i><b>software rasterizer written in C++</i></b> by <i><b>strictly following the classic GPU rasterization pipeline specifications</b></i> with <i><b>skeletal animation support</i></b>.
+<b>SGL</b> is a tiny, light-weight, cross-platform <i><b>software rasterizer</i></b> for Windows and Linux-based systems, written in C++. It <i><b>strictly follows the classic GPU rasterization pipeline specifications</b></i> and supports <i><b>skeletal animation</i></b>.
 Users can program their own <i><b>vertex and fragment shaders</i></b> and attach them to the pipeline to achieve custom effects.
 The overall design of the rasterization pipeline is shown below.
 
