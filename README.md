@@ -26,7 +26,7 @@ The overall design of the rasterization pipeline is shown below.
 ### Performance benchmarking
 | Demo or test name | Description |
 |:------------------|:------------|
-| `test_skeletal_anim.cpp` | CPU: Core i7-3770 8 cores 3.4 GHz.<br>OpenMP multi-thread: <b>1.78 ms</b> per frame in classic 320x240 resolution, <b>3.69 ms</b> per frame in 800x600 resolution. Single-thread: <b>2.14ms</b> in classic 320x240 resolution, <b>8.31ms</b> in 800x600 resolution. |
+| `test_skeletal_anim.cpp` | CPU: Core i7-3770 8 cores 3.4 GHz.<br>Mesh & render info: <b>1027</b> triangles with backface culling.<br>OpenMP multi-thread: <b>1.78 ms</b> per frame in classic 320x240 resolution, <b>3.69 ms</b> per frame in 800x600 resolution. Single-thread: <b>2.14ms</b> in classic 320x240 resolution, <b>8.31ms</b> in 800x600 resolution. |
 
 ## How to compile SGL (using CMake)
 
@@ -37,12 +37,13 @@ The overall design of the rasterization pipeline is shown below.
 | SDL2 | https://github.com/libsdl-org/SDL | Frame buffer visualization & window message loop handling. |
 | Assimp | https://github.com/assimp/assimp | Open-Asset-Importer-Library for importing model assets. |
 
-* Before `git clone` this repository, you need to <b>manually compile</b> all external libraries and remember the paths of all compiled libraries (\*.lib/\*.a/\*.so) and header files (\*.h/\*.hpp). 
+* Before `git clone` this repository, you need to <b>manually compile</b> all external libraries and remember the paths of all compiled libraries (\*.lib/\*.a/\*.so) and header files (\*.h/\*.hpp).
+* For convenience, the <b>precompiled binaries</b> for Windows and Linux-based systems are provided below.
 
 ### For Windows (Visual Studio IDE)
 1. If you are using <b>Visual Studio 2017</b>, things will become much more simpler, I have provided the precompiled libraries, include headers, and all external dependencies in [<b>here</b>](https://drive.google.com/file/d/11XBagdOkChDR2-2krSxKdTlhQcbmsMoI/view?usp=sharing) for download.
    
-   > Otherwise, you may need to compile all external libraries using your own version of Visual Studio.
+   > Otherwise, you may need to compile all external libraries using your own version of Visual Studio (newer versions might also work, but I have not tested them yet).
 
 2. Using CMake build system (<b>cmake-gui</b>) to generate Visual Studio solutions. Press `Configure`, select "<b>x64</b>" platform, under the "<b>COMPILER</b>" option list, select "<b>MSVC</b>". Then, CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
 
