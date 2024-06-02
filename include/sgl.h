@@ -3,8 +3,6 @@
 ---------------------------------------------------------------
                                 By lchdl (chenghao1652@126.com)
                            Project started from Feb-2024 to now
- -> "I enjoy implementing simple math principles behind complex
-     (or seemingly complex) things using code."
 A complete software implementation of OpenGL graphic pipeline.
 This implementation also covers every details you need to know
 about writing a software rasterizer from scratch. The whole
