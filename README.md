@@ -35,6 +35,8 @@ The overall design of the rasterization pipeline is shown below.
 |:------------------|:------------|
 | `test_skeletal_anim.cpp` | CPU: Core i7-3770 8 cores 3.4 GHz.<br>Mesh & render info: <b>1027</b> triangles with backface culling.<br>OpenMP multi-thread: <b>1.78 ms</b> per frame in classic 320x240 resolution, <b>3.69 ms</b> per frame in 800x600 resolution. Single-thread: <b>2.14ms</b> in classic 320x240 resolution, <b>8.31ms</b> in 800x600 resolution. |
 
+* Now SGL supports multiple internal texture formats (BGRA, RGBA, etc.). Using the <b>native texture format</b> (BGRA8888) can gain an extra <b>8%</b> in performance (3.69 ms to 3.40 ms).
+
 ## How to compile SGL (using CMake)
 
 * <b>SGL relies on these external libraries</b>:
