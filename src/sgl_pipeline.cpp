@@ -340,11 +340,11 @@ Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z
   if (ppl.do_depth_test)
     depths[pixel_id] = z_new;
   uint8_t R, G, B, A;
-  uint32_t RGBA;
-  convert_Vec4_to_RGBA8(color, R, G, B, A);
-  convert_RGBA8_to_uint32(R, G, B, A, RGBA);
+  uint32_t packed_32bit;
+  unpack_color_to_unsigned_RGBA(color, R, G, B, A);
+  pack_RGBA8888_to_uint32(R, G, B, A, this->targets.color->format, packed_32bit);
   uint32_t *pixels = (uint32_t *) this->targets.color->pixels;
-  pixels[pixel_id] = RGBA;
+  pixels[pixel_id] = packed_32bit;
 }
 
 void
@@ -495,15 +495,15 @@ Pipeline::clear_render_targets(
   const Vec4 &clear_color)
 { 
   uint8_t R, G, B, A;
-  uint32_t RGBA;
-  convert_Vec4_to_RGBA8(clear_color, R, G, B, A);
-  convert_RGBA8_to_uint32(R, G, B, A, RGBA);
+  uint32_t packed_32bit;
+  unpack_color_to_unsigned_RGBA(clear_color, R, G, B, A);
+  pack_RGBA8888_to_uint32(R, G, B, A, this->targets.color->format, packed_32bit);
 
   if (color != NULL) {
     int n_pixels = color->w * color->h;
     uint32_t *pixels = (uint32_t *) color->pixels;
     for (int i = 0; i < n_pixels; i++) 
-      pixels[i] = RGBA;
+      pixels[i] = packed_32bit;
   }
   if (depth != NULL) {
     int n_pixels = depth->w * depth->h;

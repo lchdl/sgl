@@ -62,6 +62,9 @@ struct Vec3 {
       double x, y, z;
     };
     struct {
+      double r, g, b;
+    };
+    struct {
       double i[3];
     };
   };
@@ -83,6 +86,9 @@ struct Vec4 {
   union {
     struct {
       double x, y, z, w;
+    };
+    struct {
+      double r, g, b, a;
     };
     struct {
       double i[4];
@@ -108,6 +114,7 @@ struct Vec4 {
     x *= inv_b, y *= inv_b, z *= inv_b, w *= inv_b;
   }
   Vec3 xyz() const { return Vec3(x, y, z); }
+  Vec3 rgb() const { return Vec3(r, g, b); }
   Vec2 xy() const { return Vec2(x, y); }
   Vec2 zw() const { return Vec2(z, w); }
   double& operator[](const int& _idx) { return this->i[_idx]; }

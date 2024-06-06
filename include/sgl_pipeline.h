@@ -226,16 +226,26 @@ class Pipeline {
   @param color: A Vec4 color (r,g,b,a), map value range [0.0, 1.0] to [0, 255],
   out of bound values will be clamped to 0 or 1 before conversion.
   **/
-  void convert_Vec4_to_RGBA8(const Vec4 &color, uint8_t &R, uint8_t &G,
-                             uint8_t &B, uint8_t &A) {
-    R = uint8_t(min(max(int(color.x * 255.0), 0), 255));
-    G = uint8_t(min(max(int(color.y * 255.0), 0), 255));
-    B = uint8_t(min(max(int(color.z * 255.0), 0), 255));
-    A = uint8_t(min(max(int(color.w * 255.0), 0), 255));
+  void unpack_color_to_unsigned_RGBA(
+    const Vec4 &color, uint8_t &R, uint8_t &G, uint8_t &B, uint8_t &A) {
+    R = uint8_t(min(max(int(color.r * 255.0), 0), 255));
+    G = uint8_t(min(max(int(color.g * 255.0), 0), 255));
+    B = uint8_t(min(max(int(color.b * 255.0), 0), 255));
+    A = uint8_t(min(max(int(color.a * 255.0), 0), 255));
   }
-  void convert_RGBA8_to_uint32(const uint8_t& R, const uint8_t& G,
-    const uint8_t& B, const uint8_t& A, uint32_t& RGBA) {
-    RGBA = ((A << 24) | (B << 16) | (G << 8) | R);
+  void pack_RGBA8888_to_uint32(
+    const uint8_t& R, const uint8_t& G, const uint8_t& B, const uint8_t& A, 
+    const PixelFormat& target_format, uint32_t& out_result) {
+    /* 
+    note that here we default to little endian, 
+    the order of all color components should be reversed when packing
+    */
+    if (target_format == PixelFormat::pixel_format_RGBA8888)
+      out_result = ((A << 24) | (B << 16) | (G << 8) | R);
+    else if (target_format == PixelFormat::pixel_format_BGRA8888)
+      out_result = ((A << 24) | (R << 16) | (G << 8) | B);
+    else
+      printf("Invalid texture format.\n");
   }
   /**
   Write final color data into targeted textures.

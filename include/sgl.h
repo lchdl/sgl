@@ -19,5 +19,4 @@ adjust the number of CPU cores used for rendering.
 #include "sgl_shader.h"
 #include "sgl_model.h"
 #include "sgl_pipeline.h"
-#include "sgl_pipeline_wireframe.h"
 #include "sgl_pass.h"

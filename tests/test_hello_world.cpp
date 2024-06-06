@@ -31,6 +31,7 @@ init_env(int argc, char* argv[]) {
     exit(1);
   SDL_ShowWindow(pWindow);
   pWindowSurface = SDL_GetWindowSurface(pWindow);
+  const char* SDL2_surface_native_format = SDL_GetPixelFormatName(pWindowSurface->format->format);
   SDL_UpdateWindowSurface(pWindow);
 
   for (uint32_t i_key = 0; i_key < SDL_NUM_SCANCODES; i_key++)
@@ -78,10 +79,10 @@ void
 init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h,
-    TextureFormat::texture_format_RGBA8,
+    PixelFormat::pixel_format_BGRA8888,
     TextureSampling::texture_sampling_point);
   depth_texture.create(w, h,
-    TextureFormat::texture_format_float64,
+    PixelFormat::pixel_format_float64,
     TextureSampling::texture_sampling_point);
 
   /* rotate model along x axis by -55 degrees */
@@ -97,7 +98,7 @@ init_render() {
   Mat4x4 projection = compute_projection_matrix(w, h, 0.1, 10.0, degrees_to_radians(45));
   
   /* initialize resources and render pipeline */
-  image_texture = sgl::load_texture("textures/checker_256.png");
+  image_texture = sgl::load_texture("textures/checker_256.png", PixelFormat::pixel_format_BGRA8888);
   uniforms.model = model;
   uniforms.view = view;
   uniforms.projection = projection;

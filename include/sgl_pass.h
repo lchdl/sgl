@@ -1,7 +1,6 @@
 #pragma once
 
 #include "sgl_pipeline.h"
-#include "sgl_pipeline_wireframe.h"
 
 namespace sgl {
 

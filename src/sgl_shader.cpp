@@ -35,7 +35,7 @@ default_FS(
   double& gl_FragDepth
 ) {
   Vec2 uv = fragment_in.t;
-  Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
+  Vec3 textured = texture(uniforms.in_textures[0], uv).rgb();
   color_out = Vec4(textured, 1.0);
 }
 

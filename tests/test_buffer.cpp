@@ -76,10 +76,10 @@ void
 init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h,
-    TextureFormat::texture_format_RGBA8,
+    PixelFormat::pixel_format_RGBA8888,
     TextureSampling::texture_sampling_point);
   depth_texture.create(w, h,
-    TextureFormat::texture_format_float64,
+    PixelFormat::pixel_format_float64,
     TextureSampling::texture_sampling_point);
 
   /* rotate model along x axis by -55 degrees */
