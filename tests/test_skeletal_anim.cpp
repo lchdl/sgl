@@ -110,9 +110,9 @@ init_render() {
   /* setup model to be rendered */
   render_pass.model = &boblamp_model;
 
-	render_pass.pipeline = &pipeline;
+  render_pass.pipeline = &pipeline;
   wireframe_pipeline.set_wireframe_color(Vec3(1.0, 1.0, 1.0));
-	render_mode = 0;
+  render_mode = 0;
   printf("\n");
   printf("Press space bar to switch between perspective/orthographic modes.\n");
   printf("Press enter/return to switch between normal/wireframe render modes.\n");
