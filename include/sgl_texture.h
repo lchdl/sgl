@@ -63,6 +63,10 @@ class Texture {
   Convert texture to another format.
   **/
   Texture to_format(const PixelFormat& target_format) const;
+  /**
+  Save texture to disk.
+  **/
+  bool save_png(const std::string& path) const;
 
  protected:
   /**
