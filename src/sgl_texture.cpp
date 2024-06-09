@@ -4,6 +4,8 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 namespace sgl {
 
@@ -152,6 +154,33 @@ Texture Texture::to_format(const PixelFormat & target_format) const
 
 
   return converted_texture;
+}
+
+bool Texture::save_png(const std::string & path) const
+{
+  if (this->w <= 0 || this->h <= 0 || this->pixels == NULL) {
+    printf("Cannot save texture, texture object is invalid.\n");
+    return false;
+  }
+  if (this->bypp != 4 || this->format == PixelFormat::pixel_format_float64 || 
+    this->format == PixelFormat::pixel_format_unknown) {
+    printf("Cannot save texture, unsupported pixel format.\n");
+    return false;
+  }
+  /* stb image default to RGBA format */
+  if (this->format != PixelFormat::pixel_format_RGBA8888) {
+    Texture texobj = this->to_format(PixelFormat::pixel_format_RGBA8888);
+    return texobj.save_png(path);
+  }
+  else {
+    if (stbi_write_png(path.c_str(), this->w, this->h, 4, this->pixels, this->w * 4) == 0) {
+      printf("Cannot save texture, stbi_write_png failed.\n");
+      return false;
+    }
+    else 
+      return true;
+  }
+  return false;
 }
 
 Texture
