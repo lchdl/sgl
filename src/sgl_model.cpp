@@ -608,11 +608,11 @@ model_VS(
   const Mat4x4 &model = uniforms.model;
   const Mat4x4 &view = uniforms.view;
   const Mat4x4 &projection = uniforms.projection;
-  Mat4x4 transform = mul(projection, mul(view, model));
+  Mat4x4 transform_WVP = mul(projection, mul(view, model));
 
   if (vertex_in.bone_IDs.i[0] < 0) {
     /* vertex does not belong to any bone */
-    Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
+    Vec4 gl_Position = mul(transform_WVP, Vec4(vertex_in.p, 1.0));
     vertex_out.gl_Position = gl_Position;
     vertex_out.t = vertex_in.t;
     vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
@@ -627,7 +627,7 @@ model_VS(
      * w[i] is the i-th bone influence weight to the vertex.
      * to make computation a little bit faster, we calculate
      * w[i]*m[i] for i in [0,1,2,3], then multiply it with p. */
-    Mat4x4 final_matrix;
+    Mat4x4 bone_transform;
     for (uint32_t i_bone=0; 
          i_bone<MAX_BONES_INFLUENCE_PER_VERTEX; 
          i_bone++) 
@@ -638,15 +638,18 @@ model_VS(
       if (bone_id < 0) break; 
       double bone_weight = vertex_in.bone_weights.i[i_bone];
       const Mat4x4& bone_matrix = uniforms.bone_matrices[bone_id];
-      final_matrix += bone_weight * bone_matrix;
+      bone_transform += bone_weight * bone_matrix;
     }
+    Vec4 p0 = mul(bone_transform, Vec4(vertex_in.p, 1.0));
+    Vec4 n0 = mul(bone_transform, Vec4(vertex_in.n, 0.0));
     /* apply final matrix to vertex position */
-    Vec4 p_rig = mul(final_matrix, Vec4(vertex_in.p, 1.0));
-    Vec4 n_rig = mul(final_matrix, Vec4(vertex_in.n, 1.0));
-    vertex_out.gl_Position = mul(transform, p_rig);
+    vertex_out.gl_Position = mul(transform_WVP, p0);
+    /* copy texture coordinate */
     vertex_out.t = vertex_in.t;
-    vertex_out.wn = mul(model, n_rig).xyz();
-    vertex_out.wp = mul(model, p_rig).xyz();
+    /* calculate world normal and position */
+    vertex_out.wn = mul(model, n0).xyz();
+    vertex_out.wn = normalize(vertex_out.wn);
+    vertex_out.wp = mul(model, p0).xyz();
   }
 }
 
@@ -660,7 +663,15 @@ model_FS(
 ) {
   Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);
   Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
-  color_out = Vec4(textured, 1.0);
+  Vec3 wn = fragment_in.wn;
+  Vec3 wp = fragment_in.wp;
+  //color_out = Vec4(wn, 1.0);
+  //color_out = Vec4((wn+1)/2, 1.0);
+  //color_out = Vec4(wp, 1.0);
+
+  double falloff = dot(wn, Vec3(0, 1, 0));
+  if (falloff < 0) falloff = 0;
+  color_out = Vec4(textured * falloff, 1.0);
 }
 
 }; /* namespace sgl */
