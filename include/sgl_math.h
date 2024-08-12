@@ -182,6 +182,57 @@ struct IVec4 {
   int& operator[](const int& _idx) { return this->i[_idx]; }
 };
 
+struct Mat2x2 {
+  union {
+    struct {
+      double i[4];
+    };
+    struct {
+      double i11, i12;
+      double i21, i22;
+    };
+    struct {
+      double i1x[2]; /* 1st row */
+      double i2x[2]; /* 2nd row */
+    };
+  };
+
+  Mat2x2() {
+    for (int t = 0; t < 4; t++) i[t] = 0.0;
+  }
+  Mat2x2(
+    double _11, double _12,
+    double _21, double _22) {
+    i11 = _11, i12 = _12;
+    i21 = _21, i22 = _22;
+  }
+  Mat2x2(double* _data) {
+    for (int t = 0; t < 4; t++)
+      this->i[t] = _data[t];
+  }
+  static Mat2x2 identity() {
+    return Mat2x2(
+      1, 0, 
+      0, 1);
+  }
+  inline Mat2x2 inverse() {
+    double a=i11, b=i12, c=i21, d=i22;
+    double A = 1.0 / (a * d - b * c);
+    return Mat2x2(d*A, -b * A, -c * A, a*A);
+  }
+  inline Mat2x2 operator+=(const Mat2x2& a) {
+    i11 += a.i11; i12 += a.i12;
+    i21 += a.i21; i22 += a.i22;
+    return (*this);
+  }
+  inline Mat2x2 operator-=(const Mat2x2& a) {
+    i11 -= a.i11; i12 -= a.i12;
+    i21 -= a.i21; i22 -= a.i22;
+    return (*this);
+  }
+
+};
+
 struct Mat3x3 {
   union {
     struct {
