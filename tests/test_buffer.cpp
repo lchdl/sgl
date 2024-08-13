@@ -77,10 +77,12 @@ init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h,
     PixelFormat::pixel_format_RGBA8888,
-    TextureSampling::texture_sampling_point);
+    SamplingMode::texture_sampling_point,
+    TextureUsage::color_components);
   depth_texture.create(w, h,
     PixelFormat::pixel_format_float64,
-    TextureSampling::texture_sampling_point);
+    SamplingMode::texture_sampling_point,
+    TextureUsage::depth_buffer);
 
   /* rotate model along x axis by -55 degrees */
   Mat4x4 model(quat_to_mat3x3(Quat::rot_x(degrees_to_radians(-55.0))));
@@ -100,8 +102,9 @@ init_render() {
   uniforms.view = view;
   uniforms.projection = projection;
   uniforms.in_textures[0] = &image_texture;
-  pipeline.set_render_targets(&color_texture, &depth_texture);
-  pipeline.clear_render_targets(&color_texture, &depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
+  pipeline.set_render_target(0, &color_texture);
+  pipeline.set_render_target(1, &depth_texture);
+  pipeline.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
   pipeline.set_shaders(default_VS, default_FS);
   pipeline.disable_backface_culling();
 

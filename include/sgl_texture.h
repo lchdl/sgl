@@ -16,26 +16,38 @@ enum PixelFormat {
   Useful reference:
   http://http.download.nvidia.com/developer/Papers/2005/Fast_Texture_Transfers/Fast_Texture_Transfers.pdf
   => "Storing 8-bit textures in a BGRA layout in system memory 
-      and use theGL_BGRA as the external format for textures 
+      and use the GL_BGRA as the external format for textures 
       to avoid swizzling."
 
   */
   pixel_format_unknown,
   pixel_format_RGBA8888,
   pixel_format_BGRA8888, /* NVIDIA graphics card native format */
-  pixel_format_float64,
+  pixel_format_float64, /* such as depth buffer, a single pixel stores a float64 */
 };
 
-enum TextureSampling {
-  texture_sampling_point,
+enum SamplingMode {
+  texture_sampling_point, /* point (nearest) sampling */
+};
+
+enum TextureUsage {
+  unknown_usage,
+  color_components, 
+  depth_buffer,
 };
 
 class Texture {
  public:
-  int32_t w, h, bypp;
-  void *pixels;
-  PixelFormat format;
-  TextureSampling sampling;
+  /* width, height, bytes per pixel */
+  int32_t w, h, bypp; 
+  /* raw pixel data */
+  void *pixels; 
+  /* pixel format, must be one of the types enumerated in `PixelFormat`. */
+  PixelFormat format; 
+  /* texture sampling method (such as nearest, linear, ...) */
+  SamplingMode sampling; 
+  /* some special textures have their own usage (such as depth buffers..) */
+  TextureUsage usage;
 
  public:
   /**
@@ -45,8 +57,9 @@ class Texture {
   @param texture_sampling: Defines how to interpolate texture data.
   **/
   void create(int32_t w, int32_t h, 
-    PixelFormat texture_format = PixelFormat::pixel_format_BGRA8888,
-    TextureSampling texture_sampling = TextureSampling::texture_sampling_point);
+    PixelFormat texture_format, 
+    SamplingMode texture_sampling,
+    TextureUsage texture_usage);
   /**
   Destroy texture.
   **/
@@ -94,7 +107,7 @@ Texture load_texture(const std::string &file,
   Common interface for sampling a texture. Designed mainly for fragment shaders.
   @param texobj: The texture object to be sampled.
   @param uv: Normalized texture coordinate. Out of bound values will be clipped.
-  @returns: The sampled texture data returned as Vec4.
+  @returns: The sampled texture data returned as Vec4 (and will always returns Vec4).
 **/
 Vec4 texture(const Texture *texobj, const Vec2 &uv);
 

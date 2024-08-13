@@ -37,10 +37,7 @@ class Pipeline {
   @param clear_color: Color that will be filled to the color texture.
   @note: NULL value will be ignored.
   **/
-  void clear_render_targets(
-    Texture* color, 
-    Texture* depth,
-    const Vec4 &clear_color);
+  void clear_render_targets(const Vec4 &clear_color);
   /**
   Set vertex & fragment shaders.
   @note: NULL value will be ignored.
@@ -52,14 +49,11 @@ class Pipeline {
     if (FS!=NULL) shaders.FS=FS;
   }
   /**
-  Set render targets (color & depth textures).
-  @note: NULL value will be ignored.
+  Set render targets.
+  8 output texture slots.
   **/
-  void set_render_targets(
-      Texture* color, 
-      Texture* depth) {
-    if (color!=NULL) targets.color=color;
-    if (depth!=NULL) targets.depth=depth;
+  void set_render_target(const int& slot, Texture* texobj) {
+    this->targets.out_comps[slot] = texobj;
   }
   /**
   Enable/disable backface culling.
@@ -226,7 +220,7 @@ class Pipeline {
   @param color: A Vec4 color (r,g,b,a), map value range [0.0, 1.0] to [0, 255],
   out of bound values will be clamped to 0 or 1 before conversion.
   **/
-  void unpack_color_to_unsigned_RGBA(
+  void unpack_Vec4_color_to_unsigned_RGBA(
     const Vec4 &color, uint8_t &R, uint8_t &G, uint8_t &B, uint8_t &A) {
     R = uint8_t(min(max(int(color.r * 255.0), 0), 255));
     G = uint8_t(min(max(int(color.g * 255.0), 0), 255));
@@ -253,13 +247,11 @@ class Pipeline {
   @param color: Output color from the fragment shader.
   @param z: Depth value in window space [0, +1], 0/1: near/far.
   **/
-  void write_render_targets(const Vec2 &p, const Vec4 &color, const double &z);
+  void write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const double &z);
 
  protected:
-
   struct {
-    Texture *color; /* not owned */
-    Texture *depth; /* not owned */
+    Texture* out_comps[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
   } targets; /* render targets */
   struct {
     std::vector<Vertex_gl> Vertices; /* vertices after vertex processing */
@@ -267,6 +259,11 @@ class Pipeline {
     int num_threads; /* number of cpu cores used when running the pipeline */
     bool backface_culling; /* enable/disable backface culling when rendering */
     bool do_depth_test; /* enable/disable depth test when rendering */
+    int cur_render_width;
+    int cur_render_height;
+    int depth_texture_slot; /* which slot stores the depth texture,
+                            must be in range [0, MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS)
+                            */
   } ppl; /* pipeline internal states and variables */
   struct {
     std::vector<VertexBuffer_t> VertexBuffers;
@@ -284,44 +281,5 @@ class Pipeline {
   Pipeline(VS_func_t VS, FS_func_t FS);
   ~Pipeline();
 };
-
-class WireframePipeline : public Pipeline {
-public:
-  void set_wireframe_color(const Vec3& color) { wppl.wire_color = color; }
-  /* wireframe pipeline only support single-threaded rendering but default draw()
-  implementation is multi-threaded, so we need to rewrite it. */
-  virtual void draw(
-    const std::vector<Vertex>& vertices,
-    const std::vector<int32_t>& indices,
-    const Uniforms& uniforms);
-  virtual void draw(
-    const int32_t& vbo,
-    const int32_t& ibo,
-    const Uniforms& uniforms
-  );
-
-public:
-  WireframePipeline() {};
-  virtual ~WireframePipeline() {};
-
-protected:
-  void fragment_processing(const Uniforms &uniforms);
-
-protected:
-  void _inner_interpolate(
-    int x, int y, double q,
-    const Vertex_gl& v1, const Vertex_gl& v2,
-    const Vec2& iz);
-  void _bresenham_traversal(
-    int x1, int y1, int x2, int y2,
-    const Vertex_gl& v1, const Vertex_gl& v2,
-    const Vec2& iz, const Uniforms& uniforms);
-
-protected:
-  struct {
-    Vec3 wire_color;
-  } wppl;
-};
-
 
 }; /* namespace sgl */

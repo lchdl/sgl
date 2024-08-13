@@ -91,9 +91,10 @@ BasicAnimPass::run(bool clear) {
   if (this->model == NULL) return;
 
   this->pipeline->set_shaders(this->VS, this->FS);
-  this->pipeline->set_render_targets(this->color_texture, this->depth_texture);
+  this->pipeline->set_render_target(0, this->color_texture);
+  this->pipeline->set_render_target(1, this->depth_texture);
   if (clear)
-    this->pipeline->clear_render_targets(this->color_texture, this->depth_texture, Vec4(0.5, 0.5, 0.5, 1.0));
+    this->pipeline->clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
 
   /* setup internal variables (gl_*) */
   if (this->eye.perspective.enabled) {

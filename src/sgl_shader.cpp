@@ -30,13 +30,45 @@ void
 default_FS(
   const Uniforms &uniforms,
   const Fragment_gl &fragment_in,
-  Vec4 &color_out,
+  FS_Outputs &fs_outs,
   bool& is_discarded,
   double& gl_FragDepth
 ) {
   Vec2 uv = fragment_in.t;
   Vec3 textured = texture(uniforms.in_textures[0], uv).rgb();
-  color_out = Vec4(textured, 1.0);
+  fs_outs.set(0, Vec4(textured, 1.0));
+}
+
+void FS_Outputs::reset()
+{
+  /* lazy reset */
+  memset(this->set_flags, 0, sizeof(uint8_t)*MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS);
+}
+
+void FS_Outputs::set(const int & slot, const Vec4 & value)
+{
+  set_flags[slot]=1;
+  out_comps[slot] = value;
+}
+
+Vec4 FS_Outputs::get(const int & slot) const
+{
+  return out_comps[slot];
+}
+
+uint8_t FS_Outputs::query(const int & slot) const
+{
+  return set_flags[slot];
+}
+
+void FS_Outputs::invalidate(const int & slot)
+{
+  set_flags[slot]=0;
+}
+
+FS_Outputs::FS_Outputs()
+{
+  reset();
 }
 
 }; /* namespace sgl */

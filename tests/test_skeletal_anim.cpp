@@ -4,7 +4,8 @@
 
 using namespace sgl;
 
-int w = 800, h = 600;
+int w = 320, h = 240;
+int num_threads = -1;
 bool keystate[SDL_NUM_SCANCODES];
 int render_mode = 0; /* 0=normal, 1=wireframe, 2=normal+wireframe */
 
@@ -14,7 +15,6 @@ SDL_Surface* pWindowSurface;
 Model boblamp_model;
 BasicAnimPass render_pass;
 Pipeline pipeline;
-WireframePipeline wireframe_pipeline;
 Texture color_texture, depth_texture;
 
 void
@@ -81,10 +81,12 @@ init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h,
     PixelFormat::pixel_format_BGRA8888,
-    TextureSampling::texture_sampling_point);
+    SamplingMode::texture_sampling_point,
+    TextureUsage::color_components);
   depth_texture.create(w, h,
     PixelFormat::pixel_format_float64,
-    TextureSampling::texture_sampling_point);
+    SamplingMode::texture_sampling_point,
+    TextureUsage::depth_buffer);
   boblamp_model.load("models/boblamp.zip");
   boblamp_model.dump();
 
@@ -111,7 +113,9 @@ init_render() {
   render_pass.model = &boblamp_model;
 
   render_pass.pipeline = &pipeline;
-  wireframe_pipeline.set_wireframe_color(Vec3(1.0, 1.0, 1.0));
+  if (num_threads > 0) {
+    pipeline.set_num_threads(num_threads);
+  }
   render_mode = 0;
   printf("\n");
   printf("Press space bar to switch between perspective/orthographic modes.\n");
@@ -125,22 +129,7 @@ render_frame(double T) {
   render_pass.anim_name = ""; /* play the animation "" */
   render_pass.eye.position = Vec3(10 * sin(T / 3), 6, 10 * cos(T / 3));
   render_pass.eye.look_at = Vec3(0, 3.5, 0);
-  if (render_mode == 0) {
-    render_pass.pipeline = &pipeline;
-    render_pass.run();
-  }
-  else if (render_mode == 1) {
-    render_pass.pipeline = &wireframe_pipeline;
-    render_pass.run();
-  }
-  else {
-    render_pass.pipeline = &pipeline;
-    render_pass.run();
-    render_pass.pipeline = &wireframe_pipeline;
-    render_pass.run(false); /* don't clear frame buffers as we want to draw 
-                               wireframe directly onto previous render. */
-
-  }
+  render_pass.run();
 }
 
 int 

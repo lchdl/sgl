@@ -657,7 +657,7 @@ void
 model_FS(
   const Uniforms& uniforms,
   const Fragment_gl& fragment_in,
-  Vec4& color_out,
+  FS_Outputs& fs_outs,
   bool& is_discarded,
   double& gl_FragDepth
 ) {
@@ -671,7 +671,7 @@ model_FS(
 
   double falloff = dot(wn, Vec3(0, 1, 0));
   if (falloff < 0) falloff = 0;
-  color_out = Vec4(textured * falloff, 1.0);
+  fs_outs.set(0, Vec4(textured * falloff, 1.0));
 }
 
 }; /* namespace sgl */
