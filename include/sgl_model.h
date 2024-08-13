@@ -232,7 +232,7 @@ void model_VS(
 void model_FS(
   const Uniforms& uniforms,
   const Fragment_gl& fragment_in,
-  Vec4& color_out,
+  FS_Outputs& fs_outs,
   bool& is_discarded,
   double& gl_FragDepth
 );

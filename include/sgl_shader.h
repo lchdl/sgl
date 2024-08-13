@@ -6,13 +6,15 @@
 
 namespace sgl {
 
-/* A vertex shader can only accept 8 input textures at maximum. */
+/* A vertex/fragment shader can only accept 8 input textures at maximum. */
 const int MAX_TEXTURES_PER_SHADING_UNIT = 8;
 /* A vertex can only be affected by no more than 4 bones.
  * NOTE: this value cannot be changed. */
 const int MAX_BONES_INFLUENCE_PER_VERTEX = 4; 
 /* A mesh model can only have less than 128 nodes. */
 const int MAX_NODES_PER_MODEL = 128;
+/* Maximum fragment shader output color components */
+const int MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS = 8;
 
 struct Vertex {
   Vec3 p; /* vertex position (in model local space) */
@@ -124,7 +126,31 @@ This will enable users to design their own vertex and fragment shaders
 and link them to the pipeline.
 **/
 typedef void(*VS_func_t)(const Uniforms&, const Vertex&, Vertex_gl&);
-typedef void(*FS_func_t)(const Uniforms&, const Fragment_gl&, Vec4&, bool&, double&);
+
+class FS_Outputs {
+  Vec4 out_comps[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
+  /* 
+  0 = not used / invalid
+  1 = set
+  */
+  uint8_t set_flags[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS]; 
+public:
+  /* reset: all color components are invalidated */
+  void reset();
+  /* set a specific color components with customized value */
+  void set(const int& slot, const Vec4& value);
+  /* get color components in a specific slot, if the slot is not set (flag=0),
+  then result is undefined. */
+  Vec4 get(const int& slot) const;
+  /* check if a color slot is used */
+  uint8_t query(const int& slot) const;
+  /* invalidate a slot */
+  void invalidate(const int& slot);
+  /* ctor */
+  FS_Outputs();
+  /* pure data struct/class like this does not need dtor */
+};
+typedef void(*FS_func_t)(const Uniforms&, const Fragment_gl&, FS_Outputs&, bool&, double&);
 
 /**
 Defines default vertex shader (VS), which transforms vertices from model local 
@@ -154,7 +180,7 @@ This function can also be used as a template.
   @param color_out: The calculated output color (in normalized range [0, 1]).
   @param discard: Whether this pixel is discarded or not.
 **/
-void default_FS(const Uniforms &uniforms, const Fragment_gl &fragment_in, Vec4 &color_out,
+void default_FS(const Uniforms &uniforms, const Fragment_gl &fragment_in, FS_Outputs &fs_outs,
   bool& is_discarded, double& gl_FragDepth);
 
 }; /* namespace sgl */

@@ -6,8 +6,9 @@ namespace sgl {
 
 void Pipeline::_zero_init()
 {
-  targets.color = NULL;
-  targets.depth = NULL;
+  for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
+    targets.out_comps[i] = NULL;
+  }
   shaders.VS = NULL;
   shaders.FS = NULL;
   ppl.num_threads = max(get_cpu_cores(), 1);
@@ -88,6 +89,35 @@ void Pipeline::draw(
   ppl.Vertices.clear();
   ppl.Triangles.clear();
 
+  /* 
+  initialize internal variables and check if frame buffer is complete 
+  a complete frame buffer must include:
+  1) at least one texture with usage set to color_components
+  2) one and only one depth buffer
+  */
+  int num_depth_buffers = 0;
+  int num_color_components_textures = 0;
+  ppl.cur_render_width = ppl.cur_render_height = 0;
+  ppl.depth_texture_slot = -1;
+  for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
+    if (targets.out_comps[i] == NULL) continue;
+    /* set current render height and width parameters */
+    ppl.cur_render_width = targets.out_comps[i]->w;
+    ppl.cur_render_height = targets.out_comps[i]->h;
+    if (targets.out_comps[i]->usage == TextureUsage::depth_buffer) {
+      num_depth_buffers++;
+      ppl.depth_texture_slot = i;
+    }
+    else if (targets.out_comps[i]->usage == TextureUsage::color_components) {
+      num_color_components_textures++;
+    }
+  }
+  if (num_depth_buffers != 1 || num_color_components_textures < 1 || 
+    ppl.cur_render_width == 0 || ppl.cur_render_height == 0 || ppl.depth_texture_slot<0) {
+    printf("frame buffer incomplete.\n");
+    return;
+  }
+
   /* Stage I: Vertex processing. */
   vertex_processing(vertices, uniforms);
 
@@ -161,8 +191,8 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
     @note: The window space origin is at the lower-left corner of the screen,
     with +x axis pointing to the right and +y axis pointing to the top.
     **/
-    const double render_width = double(this->targets.color->w);
-    const double render_height = double(this->targets.color->h);
+    const double render_width = ppl.cur_render_width;
+    const double render_height = ppl.cur_render_height;
     const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
     const Vec4 p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
     const Vec4 p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
@@ -209,13 +239,12 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
         */
         double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
         fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
-        Vec4 color_out;
+        FS_Outputs fs_outs;
         bool is_discarded = false;
-        shaders.FS(uniforms, fragment, color_out, is_discarded, gl_FragDepth);
+        shaders.FS(uniforms, fragment, fs_outs, is_discarded, gl_FragDepth);
         /* Step 3.5: Fragment processing */
         if (!is_discarded) {
-          write_render_targets(fragment.gl_FragCoord.xy(), color_out,
-            gl_FragDepth);
+          write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
         }
       }
     }
@@ -257,8 +286,8 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
       @note: The window space origin is at the lower-left corner of the screen,
       with +x axis pointing to the right and +y axis pointing to the top.
       **/
-      const double render_width = double(this->targets.color->w);
-      const double render_height = double(this->targets.color->h);
+      const double render_width = ppl.cur_render_width;
+      const double render_height = ppl.cur_render_height;
       const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
       const Vec4 p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
       const Vec4 p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
@@ -306,13 +335,12 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
           */
           double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
           fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
-          Vec4 color_out;
+          FS_Outputs fs_outs;
           bool is_discarded = false;
-          shaders.FS(uniforms, fragment, color_out, is_discarded, gl_FragDepth);
+          shaders.FS(uniforms, fragment, fs_outs, is_discarded, gl_FragDepth);
           /* Step 3.5: Fragment processing */
           if (!is_discarded) {
-            write_render_targets(fragment.gl_FragCoord.xy(), color_out,
-              gl_FragDepth);
+            write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
           }
         }
       }
@@ -321,9 +349,9 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
 }
 
 void
-Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z) {
-  int w = this->targets.color->w;
-  int h = this->targets.color->h;
+Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const double &z) {
+  int w = ppl.cur_render_width;
+  int h = ppl.cur_render_height;
   int ix = int(p.x);
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
@@ -332,19 +360,40 @@ Pipeline::write_render_targets(const Vec2 &p, const Vec4 &color, const double &z
   (origin is at the top-left corner of the screen). */
   int pixel_id = iy * w + ix;
   /* depth test */
-  double *depths = (double *) this->targets.depth->pixels;
+  double *depths = (double *) this->targets.out_comps[ppl.depth_texture_slot]->pixels;
   double z_new = min(max(z, 0.0), 1.0);
   double z_orig = depths[pixel_id];
   if (z_new > z_orig && ppl.do_depth_test)
     return;
   if (ppl.do_depth_test)
     depths[pixel_id] = z_new;
-  uint8_t R, G, B, A;
-  uint32_t packed_32bit;
-  unpack_color_to_unsigned_RGBA(color, R, G, B, A);
-  pack_RGBA8888_to_uint32(R, G, B, A, this->targets.color->format, packed_32bit);
-  uint32_t *pixels = (uint32_t *) this->targets.color->pixels;
-  pixels[pixel_id] = packed_32bit;
+  /* write each color component to their corresponding texture slot */
+  for (int i_slot=0; i_slot < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i_slot++) {
+    if (fs_outs.query(i_slot) == 0) continue; /* skip empty/invalid slot */
+    if (i_slot == ppl.depth_texture_slot) continue; /* skip depth buffer since we already processed it in above */
+    if (targets.out_comps[i_slot] == NULL) continue; /* this slot does not link to any texture, skip */
+    Vec4 color = fs_outs.get(i_slot);
+    /* 
+    write this color component to the corresponding texture slot, but 
+    be aware that different texture formats will have different physical 
+    storage method
+    */
+    if (targets.out_comps[i_slot]->format == PixelFormat::pixel_format_BGRA8888 ||
+      targets.out_comps[i_slot]->format == PixelFormat::pixel_format_RGBA8888) {
+      uint8_t R, G, B, A;
+      uint32_t packed_32bit;
+      unpack_Vec4_color_to_unsigned_RGBA(color, R, G, B, A);
+      pack_RGBA8888_to_uint32(R, G, B, A, targets.out_comps[i_slot]->format, packed_32bit);
+      uint32_t *pixels = (uint32_t *)targets.out_comps[i_slot]->pixels;
+      pixels[pixel_id] = packed_32bit;
+    }
+    else if (targets.out_comps[i_slot]->format == PixelFormat::pixel_format_float64) {
+      /* we only select the first component of the Vec4 color (color.i[0]), other components are ignored */
+      double data = color.i[0];
+      double *pixels = (double *)targets.out_comps[i_slot]->pixels;
+      pixels[pixel_id] = data;
+    }
+  }
 }
 
 void
@@ -489,150 +538,33 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
   }
 }
 void
-Pipeline::clear_render_targets(
-  Texture* color, 
-  Texture* depth,
-  const Vec4 &clear_color)
-{ 
-  uint8_t R, G, B, A;
-  uint32_t packed_32bit;
-  unpack_color_to_unsigned_RGBA(clear_color, R, G, B, A);
-  pack_RGBA8888_to_uint32(R, G, B, A, this->targets.color->format, packed_32bit);
-
-  if (color != NULL) {
-    int n_pixels = color->w * color->h;
-    uint32_t *pixels = (uint32_t *) color->pixels;
-    for (int i = 0; i < n_pixels; i++) 
-      pixels[i] = packed_32bit;
-  }
-  if (depth != NULL) {
-    int n_pixels = depth->w * depth->h;
-    double *pixels = (double *) depth->pixels;
-    for (int i = 0; i < n_pixels; i++)
-      pixels[i] = 1.0;
-  }
-}
-
-void WireframePipeline::draw(
-  const std::vector<Vertex>& vertices,
-  const std::vector<int32_t>& indices,
-  const Uniforms & uniforms)
+Pipeline::clear_render_targets(const Vec4 &clear_color)
 {
-  ppl.Vertices.clear();
-  ppl.Triangles.clear();
-
-  vertex_processing(vertices, uniforms);
-  vertex_post_processing(indices);
-  fragment_processing(uniforms);
-}
-void WireframePipeline::draw(
-  const int32_t & vbo,
-  const int32_t & ibo,
-  const Uniforms & uniforms)
-{
-  this->draw(
-    buffers.VertexBuffers[vbo],
-    buffers.IndexBuffers[ibo],
-    uniforms
-  );
-}
-
-void WireframePipeline::fragment_processing(const Uniforms & uniforms)
-{
-  for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
-    /* Step 3.1: Convert clip space to NDC space (perspective divide) */
-    Triangle_gl tri_gl = ppl.Triangles[i_tri];
-    Vertex_gl &v0 = tri_gl.v[0];
-    Vertex_gl &v1 = tri_gl.v[1];
-    Vertex_gl &v2 = tri_gl.v[2];
-    const Vec3 iz = Vec3(1.0 / v0.gl_Position.w, 1.0 / v1.gl_Position.w, 1.0 / v2.gl_Position.w);
-    Vec3 p0_NDC = v0.gl_Position.xyz() * iz.i[0];
-    Vec3 p1_NDC = v1.gl_Position.xyz() * iz.i[1];
-    Vec3 p2_NDC = v2.gl_Position.xyz() * iz.i[2];
-    /* Step 3.2: Convert NDC space to window space */
-    const double render_width = double(this->targets.color->w);
-    const double render_height = double(this->targets.color->h);
-    const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
-    const Vec4 p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
-    const Vec4 p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
-    const Vec4 p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
-    double area = edge(p0, p1, p2);
-    if (isnan(area) || isinf(area)) continue; /* Ignore invalid triangles. */
-    if (area < 0.0 && ppl.backface_culling) continue; /* Backface culling. */
-    /** @note: p0, p1, p2 are actually gl_FragCoord. **/
-    /* Step 3.3: Rasterization. */
-    /* precomupte: divide by real z */
-    v0 *= iz.i[0];
-    v1 *= iz.i[1];
-    v2 *= iz.i[2];
-    IVec2 ip0 = IVec2(int(p0.x), int(p0.y));
-    IVec2 ip1 = IVec2(int(p1.x), int(p1.y));
-    IVec2 ip2 = IVec2(int(p2.x), int(p2.y));
-    _bresenham_traversal(ip0.x, ip0.y, ip1.x, ip1.y, v0, v1, Vec2(iz.x, iz.y), uniforms);
-    _bresenham_traversal(ip1.x, ip1.y, ip2.x, ip2.y, v1, v2, Vec2(iz.x, iz.y), uniforms);
-    _bresenham_traversal(ip2.x, ip2.y, ip0.x, ip0.y, v2, v0, Vec2(iz.x, iz.y), uniforms);
-  }
-}
-
-inline void
-WireframePipeline::_inner_interpolate(
-  int x, int y, double q,
-  const Vertex_gl & v1, const Vertex_gl & v2,
-  const Vec2 & iz)
-{
-  Vec2 w = Vec2(q, 1.0 - q);
-  Vertex_gl v_lerp = v1 * w.i[0] + v2 * w.i[1];
-  double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1]);
-  v_lerp *= z_real;
-  Fragment_gl fragment;
-  assemble_fragment(v_lerp, fragment);
-  double gl_FragDepth = (v_lerp.gl_Position.z / v_lerp.gl_Position.w + 1.0) * 0.5;
-  /* gl_FragDepth *= 0.999; */
-  fragment.gl_FragCoord = Vec4(x, y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
-  write_render_targets(fragment.gl_FragCoord.xy(), Vec4(wppl.wire_color, 1.0), gl_FragDepth);
-}
-
-inline void
-WireframePipeline::_bresenham_traversal(
-  int x1, int y1, int x2, int y2,
-  const Vertex_gl & v1, const Vertex_gl & v2,
-  const Vec2 & iz, const Uniforms & uniforms)
-{
-  /* NOTE: internal drawing function, do not call it directly. */
-  int dx, dy;
-  int x, y;
-  int epsilon = 0;
-  int Dx = x2 - x1;
-  int Dy = y1 - y2;
-  Dx > 0 ? dx = +1 : dx = -1;
-  Dy > 0 ? dy = -1 : dy = +1;
-  Dx = abs(Dx), Dy = abs(Dy);
-  if (Dx > Dy) {
-    y = y1;
-    for (x = x1; x != x2; x += dx) {
-      /* process (x, y) here */
-      double q = double(x2 - x) / double(Dx);
-      _inner_interpolate(x, y, q, v1, v2, iz);
-      /* prepare for next iteration */
-      epsilon += Dy;
-      if ((epsilon << 1) > Dx) {
-        y += dy;
-        epsilon -= Dx;
-      }
+  for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
+    Texture* texture = targets.out_comps[i];
+    if (texture == NULL) continue;
+    if (texture->usage == TextureUsage::depth_buffer) {
+      int n_pixels = texture->w * texture->h;
+      double *pixels = (double *)texture->pixels;
+      for (int i = 0; i < n_pixels; i++)
+        pixels[i] = 1.0;
     }
-  }
-  else {
-    x = x1;
-    for (y = y1; y != y2; y += dy) {
-      /* process (x, y) here */
-      double q = double(y2 - y) / double(Dy);
-      _inner_interpolate(x, y, q, v1, v2, iz);
-      /* prepare for next iteration */
-      epsilon += Dx;
-      if ((epsilon << 1) > Dy) {
-        epsilon -= Dy;
-        x += dx;
-      }
+    else if (texture->format == PixelFormat::pixel_format_float64) {
+      int n_pixels = texture->w * texture->h;
+      double *pixels = (double *)texture->pixels;
+      for (int i = 0; i < n_pixels; i++)
+        pixels[i] = clear_color.i[0];
+    }
+    else if (texture->format == PixelFormat::pixel_format_BGRA8888 ||
+      texture->format == PixelFormat::pixel_format_RGBA8888) {
+      uint8_t R, G, B, A;
+      uint32_t packed_32bit;
+      unpack_Vec4_color_to_unsigned_RGBA(clear_color, R, G, B, A);
+      pack_RGBA8888_to_uint32(R, G, B, A, texture->format, packed_32bit);
+      int n_pixels = texture->w * texture->h;
+      uint32_t *pixels = (uint32_t *)texture->pixels;
+      for (int i = 0; i < n_pixels; i++)
+        pixels[i] = packed_32bit;
     }
   }
 }
