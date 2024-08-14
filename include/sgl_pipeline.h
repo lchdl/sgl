@@ -28,6 +28,11 @@ public:
   }
 };
 
+enum DrawMode {
+  wireframe_draw_mode,
+  triangle_draw_mode,
+};
+
 class Pipeline {
  public:
   /**
@@ -82,6 +87,12 @@ class Pipeline {
   void fill_vertex_buffer(const int32_t& vbo, const VertexBuffer_t& buffer_data);
   void delete_index_buffer(const int32_t& ibo);
   void delete_vertex_buffer(const int32_t& vbo);
+  /**
+  Set draw mode.
+  **/
+  void set_draw_mode(DrawMode draw_mode) {
+    ppl.draw_mode = draw_mode;
+  }
   /** 
   Render triangles onto target textures.
   @param vertices: Vertex buffer object.
@@ -89,15 +100,8 @@ class Pipeline {
   @param uniforms: Uniform variables used by vertex and
     fragment shaders.
   **/
-  virtual void draw(
-    const VertexBuffer_t& vertices,
-    const IndexBuffer_t& indices,
-    const Uniforms& uniforms);
-  virtual void draw(
-    const int32_t& vbo,
-    const int32_t& ibo,
-    const Uniforms& uniforms
-  );
+  virtual void draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const Uniforms& uniforms);
+  virtual void draw(const int32_t& vbo, const int32_t& ibo, const Uniforms& uniforms);
 
  public:
   /**
@@ -137,6 +141,7 @@ class Pipeline {
   **/
   void fragment_processing(const Uniforms &uniforms);
   void fragment_processing_MT(const Uniforms &uniforms, const int &num_threads);
+  void fragment_processing_wireframe(const Uniforms &uniforms);
 
  protected:
   /**
@@ -249,6 +254,68 @@ class Pipeline {
   **/
   void write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const double &z);
 
+  /**
+  For wireframe rendering.
+  **/
+  void _inner_interpolate(int x, int y, double q, const Vertex_gl & v1, const Vertex_gl & v2, const Vec2 & iz, const Uniforms & uniforms) {
+    Vec2 w = Vec2(q, 1.0 - q);
+    Vertex_gl v_lerp = v1 * w.i[0] + v2 * w.i[1];
+    double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1]);
+    v_lerp *= z_real;
+    Fragment_gl fragment;
+    assemble_fragment(v_lerp, fragment);
+
+    double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
+    fragment.gl_FragCoord = Vec4(x, y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
+    FS_Outputs fs_outs;
+    bool is_discarded = false;
+    shaders.FS(uniforms, fragment, fs_outs, is_discarded, gl_FragDepth);
+    /* Step 3.5: Fragment processing */
+    if (!is_discarded) {
+      write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
+    }
+  }
+  void _bresenham_traversal(int x1, int y1, int x2, int y2,
+      const Vertex_gl & v1, const Vertex_gl & v2, const Vec2 & iz, const Uniforms & uniforms) {
+    /* NOTE: internal drawing function, do not call it directly. */
+    int dx, dy;
+    int x, y;
+    int epsilon = 0;
+    int Dx = x2 - x1;
+    int Dy = y1 - y2;
+    Dx > 0 ? dx = +1 : dx = -1;
+    Dy > 0 ? dy = -1 : dy = +1;
+    Dx = ::abs(Dx), Dy = ::abs(Dy);
+    if (Dx > Dy) {
+      y = y1;
+      for (x = x1; x != x2; x += dx) {
+        /* process (x, y) here */
+        double q = double(x2 - x) / double(Dx);
+        _inner_interpolate(x, y, q, v1, v2, iz, uniforms);
+        /* prepare for next iteration */
+        epsilon += Dy;
+        if ((epsilon << 1) > Dx) {
+          y += dy;
+          epsilon -= Dx;
+        }
+      }
+    }
+    else {
+      x = x1;
+      for (y = y1; y != y2; y += dy) {
+        /* process (x, y) here */
+        double q = double(y2 - y) / double(Dy);
+        _inner_interpolate(x, y, q, v1, v2, iz, uniforms);
+        /* prepare for next iteration */
+        epsilon += Dx;
+        if ((epsilon << 1) > Dy) {
+          epsilon -= Dy;
+          x += dx;
+        }
+      }
+    }
+  }
+
  protected:
   struct {
     Texture* out_comps[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
@@ -264,6 +331,7 @@ class Pipeline {
     int depth_texture_slot; /* which slot stores the depth texture,
                             must be in range [0, MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS)
                             */
+    DrawMode draw_mode; /* different draw modes will invoke different fragment processing implementations */
   } ppl; /* pipeline internal states and variables */
   struct {
     std::vector<VertexBuffer_t> VertexBuffers;

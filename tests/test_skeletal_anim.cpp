@@ -4,10 +4,10 @@
 
 using namespace sgl;
 
-int w = 320, h = 240;
+int w = 1024, h = 768;
 int num_threads = -1;
+DrawMode draw_mode = DrawMode::triangle_draw_mode;
 bool keystate[SDL_NUM_SCANCODES];
-int render_mode = 0; /* 0=normal, 1=wireframe, 2=normal+wireframe */
 
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
@@ -71,8 +71,15 @@ process_key(SDL_KeyboardEvent *key) {
     }
   }
   if (keycode == SDLK_RETURN && is_press) {
-    render_mode = (render_mode + 1) % 3;
-    printf("Now uses render mode %d.\n", render_mode);
+    if (draw_mode == DrawMode::triangle_draw_mode) {
+      draw_mode = DrawMode::wireframe_draw_mode;
+      printf("Now uses DrawMode::wireframe_draw_mode.\n");
+    }
+    else if (draw_mode == DrawMode::wireframe_draw_mode) {
+      draw_mode = DrawMode::triangle_draw_mode;
+      printf("Now uses DrawMode::triangle_draw_mode.\n");
+    }
+    pipeline.set_draw_mode(draw_mode);
   }
 }
 
@@ -113,13 +120,15 @@ init_render() {
   render_pass.model = &boblamp_model;
 
   render_pass.pipeline = &pipeline;
+  pipeline.set_draw_mode(DrawMode::wireframe_draw_mode);
+  
   if (num_threads > 0) {
     pipeline.set_num_threads(num_threads);
   }
-  render_mode = 0;
   printf("\n");
   printf("Press space bar to switch between perspective/orthographic modes.\n");
   printf("Press enter/return to switch between normal/wireframe render modes.\n");
+  printf("Press Esc to quit this demo.\n");
   printf("\n");
 }
 

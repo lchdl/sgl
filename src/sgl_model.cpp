@@ -665,12 +665,8 @@ model_FS(
   Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
   Vec3 wn = fragment_in.wn;
   Vec3 wp = fragment_in.wp;
-  //color_out = Vec4(wn, 1.0);
-  //color_out = Vec4((wn+1)/2, 1.0);
-  //color_out = Vec4(wp, 1.0);
-
   double falloff = dot(wn, Vec3(0, 1, 0));
-  if (falloff < 0) falloff = 0;
+  falloff = (falloff + 1) * 0.5;
   fs_outs.set(0, Vec4(textured * falloff, 1.0));
 }
 
