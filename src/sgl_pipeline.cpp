@@ -94,24 +94,31 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
   2) one and only one depth buffer
   */
   int num_depth_buffers = 0;
-  int num_color_components_textures = 0;
-  ppl.cur_render_width = ppl.cur_render_height = 0;
+  ppl.cur_render_width = ppl.cur_render_height = -1;
   ppl.depth_texture_slot = -1;
   for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
     if (targets.out_comps[i] == NULL) continue;
     /* set current render height and width parameters */
-    ppl.cur_render_width = targets.out_comps[i]->w;
-    ppl.cur_render_height = targets.out_comps[i]->h;
+    if (ppl.cur_render_width < 0 || ppl.cur_render_height < 0) {
+      ppl.cur_render_width = targets.out_comps[i]->w;
+      ppl.cur_render_height = targets.out_comps[i]->h;
+    }
+    else {
+      if (ppl.cur_render_width != targets.out_comps[i]->w ||
+        ppl.cur_render_height != targets.out_comps[i]->h) {
+        printf("Invalid frame buffer: different texture sizes detected! "
+          "expected %dx%d, got %dx%d.\n", ppl.cur_render_width, ppl.cur_render_height,
+          targets.out_comps[i]->w, targets.out_comps[i]->h);
+        return;
+      }
+    }
     if (targets.out_comps[i]->usage == TextureUsage::depth_buffer) {
       num_depth_buffers++;
       ppl.depth_texture_slot = i;
     }
-    else if (targets.out_comps[i]->usage == TextureUsage::color_components) {
-      num_color_components_textures++;
-    }
   }
-  if (num_depth_buffers != 1 || num_color_components_textures < 1 || 
-    ppl.cur_render_width == 0 || ppl.cur_render_height == 0 || ppl.depth_texture_slot<0) {
+  if (num_depth_buffers != 1 || ppl.cur_render_width == 0 || 
+    ppl.cur_render_height == 0 || ppl.depth_texture_slot<0) {
     printf("frame buffer incomplete.\n");
     return;
   }
@@ -135,6 +142,7 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
     /* wireframe rendering only have single threaded implementation */
     fragment_processing_wireframe(uniforms);
   }
+
 }
 
 void Pipeline::draw(

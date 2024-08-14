@@ -108,9 +108,7 @@ class Pipeline {
   Set number of threads for rasterization.
   @param num_threads: Number of concurrent threads.
   **/
-  void set_num_threads(const int& num_threads) {
-    ppl.num_threads = num_threads;
-  }
+  void set_num_threads(const int& num_threads) { ppl.num_threads = num_threads; }
 
  protected:
   /**

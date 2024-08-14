@@ -58,8 +58,8 @@ Simply draw a model (probably with animation) onto screen.
   only renders a single mesh.
 **/
 class BasicAnimPass : public Pass {
-
 public:
+  Texture* normal_texture;
   /* uniform variables */
   Uniforms uniforms;
   /* vertex & fragment shaders */
@@ -73,7 +73,7 @@ public:
   double           time; /* time value for controlling the skeletal animation (in sec.) */
 
 public:
-  void run(bool clear = true);
+  double run(bool clear = true);
 
   BasicAnimPass();
   virtual ~BasicAnimPass() {}

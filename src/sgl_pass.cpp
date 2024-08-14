@@ -86,13 +86,14 @@ BasicAnimPass::BasicAnimPass() {
   pipeline = NULL;
 }
 
-void
+double
 BasicAnimPass::run(bool clear) {
-  if (this->model == NULL) return;
+  if (this->model == NULL) return 0.0;
 
   this->pipeline->set_shaders(this->VS, this->FS);
   this->pipeline->set_render_target(0, this->color_texture);
   this->pipeline->set_render_target(1, this->depth_texture);
+  this->pipeline->set_render_target(2, this->normal_texture);
   if (clear)
     this->pipeline->clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
 
@@ -115,6 +116,9 @@ BasicAnimPass::run(bool clear) {
   const std::vector<Mesh>& mesh_data = model->get_meshes();
   const std::vector<Material>& materials = model->get_materials();
 
+  Timer timer;
+  timer.tick();
+
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
     const VertexBuffer_t& vertices = mesh_data[i_mesh].vertices;
     const IndexBuffer_t& indices = mesh_data[i_mesh].indices;
@@ -128,6 +132,8 @@ BasicAnimPass::run(bool clear) {
     /* Launch the pipeline to render all the triangles in this mesh */
     this->pipeline->draw(vertices, indices, uniforms);
   }
+
+  return timer.tick();
 }
 
 

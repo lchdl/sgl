@@ -668,6 +668,7 @@ model_FS(
   double falloff = dot(wn, Vec3(0, 1, 0));
   falloff = (falloff + 1) * 0.5;
   fs_outs.set(0, Vec4(textured * falloff, 1.0));
+  fs_outs.set(2, Vec4((wn+1)*0.5, 1.0));
 }
 
 }; /* namespace sgl */
