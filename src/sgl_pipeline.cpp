@@ -14,6 +14,7 @@ void Pipeline::_zero_init()
   ppl.num_threads = max(get_cpu_cores(), 1);
   ppl.backface_culling = true;
   ppl.do_depth_test = true;
+  ppl.draw_mode = DrawMode::triangle_draw_mode;
 }
 
 Pipeline::Pipeline() {
@@ -77,10 +78,7 @@ void Pipeline::delete_vertex_buffer(const int32_t & vbo)
   buffers.IndexBuffers[vbo].shrink_to_fit();
 }
 
-void Pipeline::draw(
-  const VertexBuffer_t& vertices,
-  const IndexBuffer_t& indices,
-  const Uniforms& uniforms) 
+void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const Uniforms& uniforms) 
 {
   if (shaders.VS == NULL || shaders.FS == NULL)
     return;
@@ -96,24 +94,31 @@ void Pipeline::draw(
   2) one and only one depth buffer
   */
   int num_depth_buffers = 0;
-  int num_color_components_textures = 0;
-  ppl.cur_render_width = ppl.cur_render_height = 0;
+  ppl.cur_render_width = ppl.cur_render_height = -1;
   ppl.depth_texture_slot = -1;
   for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
     if (targets.out_comps[i] == NULL) continue;
     /* set current render height and width parameters */
-    ppl.cur_render_width = targets.out_comps[i]->w;
-    ppl.cur_render_height = targets.out_comps[i]->h;
+    if (ppl.cur_render_width < 0 || ppl.cur_render_height < 0) {
+      ppl.cur_render_width = targets.out_comps[i]->w;
+      ppl.cur_render_height = targets.out_comps[i]->h;
+    }
+    else {
+      if (ppl.cur_render_width != targets.out_comps[i]->w ||
+        ppl.cur_render_height != targets.out_comps[i]->h) {
+        printf("Invalid frame buffer: different texture sizes detected! "
+          "expected %dx%d, got %dx%d.\n", ppl.cur_render_width, ppl.cur_render_height,
+          targets.out_comps[i]->w, targets.out_comps[i]->h);
+        return;
+      }
+    }
     if (targets.out_comps[i]->usage == TextureUsage::depth_buffer) {
       num_depth_buffers++;
       ppl.depth_texture_slot = i;
     }
-    else if (targets.out_comps[i]->usage == TextureUsage::color_components) {
-      num_color_components_textures++;
-    }
   }
-  if (num_depth_buffers != 1 || num_color_components_textures < 1 || 
-    ppl.cur_render_width == 0 || ppl.cur_render_height == 0 || ppl.depth_texture_slot<0) {
+  if (num_depth_buffers != 1 || ppl.cur_render_width == 0 || 
+    ppl.cur_render_height == 0 || ppl.depth_texture_slot<0) {
     printf("frame buffer incomplete.\n");
     return;
   }
@@ -125,7 +130,19 @@ void Pipeline::draw(
   vertex_post_processing(indices);
 
   /* Step III: Rasterization & fragment processing */
-  fragment_processing_MT(uniforms, ppl.num_threads);
+  if (ppl.draw_mode == DrawMode::triangle_draw_mode) {
+    if (ppl.num_threads > 1) {
+      fragment_processing_MT(uniforms, ppl.num_threads);
+    }
+    else {
+      fragment_processing(uniforms);
+    }
+  }
+  else if (ppl.draw_mode == DrawMode::wireframe_draw_mode) {
+    /* wireframe rendering only have single threaded implementation */
+    fragment_processing_wireframe(uniforms);
+  }
+
 }
 
 void Pipeline::draw(
@@ -138,6 +155,14 @@ void Pipeline::draw(
     buffers.IndexBuffers[ibo], 
     uniforms
   );
+}
+
+void Pipeline::clear_cache()
+{
+  ppl.Triangles.clear();
+  ppl.Triangles.shrink_to_fit();
+  ppl.Vertices.clear();
+  ppl.Vertices.shrink_to_fit();
 }
 
 void
@@ -347,6 +372,45 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
     }
   }
 }
+
+void 
+Pipeline::fragment_processing_wireframe(const Uniforms & uniforms)
+{
+  for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
+    /* Step 3.1: Convert clip space to NDC space (perspective divide) */
+    Triangle_gl tri_gl = ppl.Triangles[i_tri];
+    Vertex_gl &v0 = tri_gl.v[0];
+    Vertex_gl &v1 = tri_gl.v[1];
+    Vertex_gl &v2 = tri_gl.v[2];
+    const Vec3 iz = Vec3(1.0 / v0.gl_Position.w, 1.0 / v1.gl_Position.w, 1.0 / v2.gl_Position.w);
+    Vec3 p0_NDC = v0.gl_Position.xyz() * iz.i[0];
+    Vec3 p1_NDC = v1.gl_Position.xyz() * iz.i[1];
+    Vec3 p2_NDC = v2.gl_Position.xyz() * iz.i[2];
+    /* Step 3.2: Convert NDC space to window space */
+    const double render_width = ppl.cur_render_width;
+    const double render_height = ppl.cur_render_height;
+    const Vec3 scale_factor = Vec3(render_width, render_height, 1.0);
+    const Vec4 p0 = Vec4(0.5 * (p0_NDC + 1.0) * scale_factor, iz.i[0]);
+    const Vec4 p1 = Vec4(0.5 * (p1_NDC + 1.0) * scale_factor, iz.i[1]);
+    const Vec4 p2 = Vec4(0.5 * (p2_NDC + 1.0) * scale_factor, iz.i[2]);
+    double area = edge(p0, p1, p2);
+    if (isnan(area) || isinf(area)) continue; /* Ignore invalid triangles. */
+    if (area < 0.0 && ppl.backface_culling) continue; /* Backface culling. */
+    /** @note: p0, p1, p2 are actually gl_FragCoord. **/
+    /* Step 3.3: Rasterization. */
+    /* precomupte: divide by real z */
+    v0 *= iz.i[0];
+    v1 *= iz.i[1];
+    v2 *= iz.i[2];
+    IVec2 ip0 = IVec2(int(p0.x), int(p0.y));
+    IVec2 ip1 = IVec2(int(p1.x), int(p1.y));
+    IVec2 ip2 = IVec2(int(p2.x), int(p2.y));
+    _bresenham_traversal(ip0.x, ip0.y, ip1.x, ip1.y, v0, v1, Vec2(iz.x, iz.y), uniforms);
+    _bresenham_traversal(ip1.x, ip1.y, ip2.x, ip2.y, v1, v2, Vec2(iz.x, iz.y), uniforms);
+    _bresenham_traversal(ip2.x, ip2.y, ip0.x, ip0.y, v2, v0, Vec2(iz.x, iz.y), uniforms);
+  }
+}
+
 
 void
 Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const double &z) {
