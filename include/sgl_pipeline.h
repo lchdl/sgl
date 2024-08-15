@@ -141,6 +141,7 @@ class Pipeline {
   void fragment_processing(const Uniforms &uniforms);
   void fragment_processing_MT(const Uniforms &uniforms, const int &num_threads);
   void fragment_processing_wireframe(const Uniforms &uniforms);
+  void fragment_processing_wireframe_MT(const Uniforms &uniforms, const int &num_threads);
 
  protected:
   /**
