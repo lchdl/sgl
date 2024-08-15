@@ -4,6 +4,10 @@
 
 namespace sgl {
 
+Mat4x4 get_view_matrix(Vec3 eye, Vec3 look_at, Vec3 up);
+Mat4x4 get_perspective_matrix(double aspect_ratio, double near, double far, double field_of_view);
+Mat4x4 get_orthographic_matrix(double near, double far, double width, double height);
+
 /**
 
 A `pass` is an object that describes a complete render operation
@@ -25,9 +29,6 @@ convenient when drawing something complex onto the screen.
 
 class Pass {
 public:
-  /* output texture buffers (write only) */
-  Texture* color_texture;
-  Texture* depth_texture;
   /* camera/eye settings */
   struct {
     Vec3 position; /* eye position */
@@ -45,7 +46,7 @@ public:
 public:
   /* utility functions */
   Mat4x4 get_view_matrix() const;
-  Mat4x4 get_projection_matrix() const;
+  Mat4x4 get_projection_matrix(int w, int h) const;
   /* default ctor & dtor */
   Pass();
   virtual ~Pass() {}
@@ -57,26 +58,30 @@ Simply draw a model (probably with animation) onto screen.
   wraps up multiple draw calls to fully render a model, each draw call
   only renders a single mesh.
 **/
-class BasicAnimPass : public Pass {
+class BaseAnimator : public Pass {
 public:
-  Texture* normal_texture;
-  /* uniform variables */
+  struct {
+    Texture* color;
+    Texture* depth;
+    Texture* normal;
+  } out_texs;
+  struct {
+    VS_func_t VS;
+    FS_func_t FS;
+  } shaders;
   Uniforms uniforms;
-  /* vertex & fragment shaders */
-  VS_func_t VS;
-  FS_func_t FS;
 
 public:
   Pipeline*    pipeline; /* the pipeline that is used to render to model */
   Model*          model; /* a pointer to model object that is being drawn */
   std::string anim_name; /* name of the current animation being played */
-  double           time; /* time value for controlling the skeletal animation (in sec.) */
+  double      play_time; /* time value for controlling the skeletal animation (in sec.) */
 
 public:
   double run(bool clear = true);
 
-  BasicAnimPass();
-  virtual ~BasicAnimPass() {}
+  BaseAnimator();
+  virtual ~BaseAnimator() {}
 };
 
 }; /* namespace sgl */

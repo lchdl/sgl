@@ -109,6 +109,7 @@ class Pipeline {
   @param num_threads: Number of concurrent threads.
   **/
   void set_num_threads(const int& num_threads) { ppl.num_threads = num_threads; }
+  void clear_cache();
 
  protected:
   /**

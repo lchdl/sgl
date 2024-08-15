@@ -157,6 +157,14 @@ void Pipeline::draw(
   );
 }
 
+void Pipeline::clear_cache()
+{
+  ppl.Triangles.clear();
+  ppl.Triangles.shrink_to_fit();
+  ppl.Vertices.clear();
+  ppl.Vertices.shrink_to_fit();
+}
+
 void
 Pipeline::vertex_processing(const VertexBuffer_t &vertex_buffer,
                             const Uniforms &uniforms) {
