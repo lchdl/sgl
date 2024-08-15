@@ -146,7 +146,7 @@ init_render() {
 
 void
 render_frame() {
-  pipeline.draw(vbo, ibo, uniforms);
+  pipeline.draw(vbo, ibo, &uniforms);
 }
 
 int

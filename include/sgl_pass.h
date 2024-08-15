@@ -60,6 +60,7 @@ Simply draw a model (probably with animation) onto screen.
 **/
 class BaseAnimator : public Pass {
 public:
+  /* note: not owned */
   struct {
     Texture* color;
     Texture* depth;
@@ -72,16 +73,29 @@ public:
   Uniforms uniforms;
 
 public:
+  /* note: class instances not owned */
   Pipeline*    pipeline; /* the pipeline that is used to render to model */
   Model*          model; /* a pointer to model object that is being drawn */
   std::string anim_name; /* name of the current animation being played */
   double      play_time; /* time value for controlling the skeletal animation (in sec.) */
 
 public:
-  double run(bool clear = true);
+  /* performance statistics */
+  double last_draw_time; /* draw time (sec) of the last frame */
+
+public:
+  bool validate() const;
+  void run(bool clear=true);
 
   BaseAnimator();
   virtual ~BaseAnimator() {}
 };
+void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out);
+void BaseAnimator_FS(const Uniforms* uniforms, const Fragment_gl& fragment_in, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
+
+class BaseSpriteRenderer : public Pass {
+  /* TODO: add implementations for rendering sprites here */
+};
+
 
 }; /* namespace sgl */

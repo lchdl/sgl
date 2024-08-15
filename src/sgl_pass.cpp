@@ -85,8 +85,8 @@ Pass::Pass()
 }
 
 BaseAnimator::BaseAnimator() { 
-  shaders.VS = NULL;
-  shaders.FS = NULL;
+  shaders.VS = BaseAnimator_VS;
+  shaders.FS = BaseAnimator_FS;
   model = NULL; 
   play_time = 0.0; 
   pipeline = NULL;
@@ -95,10 +95,21 @@ BaseAnimator::BaseAnimator() {
   out_texs.normal = NULL;
 }
 
-double
-BaseAnimator::run(bool clear) {
-  if (this->model == NULL) return 0.0;
+bool BaseAnimator::validate() const
+{
+  if (out_texs.color == NULL || out_texs.depth == NULL ||
+    out_texs.normal == NULL) return false;
+  if (shaders.VS == NULL || shaders.FS == NULL) return false;
+  if (pipeline == NULL || model == NULL) return false;
+  /* buffer sizes must be equal */
+  if (out_texs.color->w != out_texs.depth->w || out_texs.depth->w != out_texs.normal->w)
+    return false;
+  if (out_texs.color->h != out_texs.depth->h || out_texs.depth->h != out_texs.normal->h)
+    return false;
+  return true;
+}
 
+void BaseAnimator::run(bool clear) {
   this->pipeline->set_shaders(shaders.VS, shaders.FS);
   this->pipeline->set_render_target(0, out_texs.color);
   this->pipeline->set_render_target(1, out_texs.depth);
@@ -106,20 +117,20 @@ BaseAnimator::run(bool clear) {
   if (clear)
     this->pipeline->clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
 
-  /* setup internal variables (gl_*) */
+  /* setup uniforms and internal variables (gl_*) */
   if (this->eye.perspective.enabled) {
-    uniforms.gl_DepthRange.x = this->eye.perspective.near;
-    uniforms.gl_DepthRange.y = this->eye.perspective.far;
-    uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
+    this->uniforms.gl_DepthRange.x = this->eye.perspective.near;
+    this->uniforms.gl_DepthRange.y = this->eye.perspective.far;
+    this->uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
   }
   else {
-    uniforms.gl_DepthRange.x = this->eye.orthographic.near;
-    uniforms.gl_DepthRange.y = this->eye.orthographic.far;
-    uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
+    this->uniforms.gl_DepthRange.x = this->eye.orthographic.near;
+    this->uniforms.gl_DepthRange.y = this->eye.orthographic.far;
+    this->uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
   }
-  uniforms.model = this->model->get_model_transform();
-  uniforms.view = this->get_view_matrix();
-  uniforms.projection = this->get_projection_matrix(out_texs.color->w, out_texs.color->h);
+  this->uniforms.model = this->model->get_model_transform();
+  this->uniforms.view = this->get_view_matrix();
+  this->uniforms.projection = this->get_projection_matrix(out_texs.color->w, out_texs.color->h);
 
   /* Rendering all the mesh parts in model */
   const std::vector<Mesh>& mesh_data = model->get_meshes();
@@ -133,17 +144,81 @@ BaseAnimator::run(bool clear) {
     const IndexBuffer_t& indices = mesh_data[i_mesh].indices;
     const int32_t mat_id = mesh_data[i_mesh].mat_id;
     const Mesh& mesh = mesh_data[i_mesh];
-
     /* calculate bone tranformation matrices and update uniform variables */
     this->model->update_skeletal_animation_for_mesh(mesh, anim_name, play_time, uniforms);
     /* Setting up mesh materials. */
-    uniforms.in_textures[0] = &materials[mat_id].diffuse_texture; /* diffuse texture */
+    this->uniforms.in_textures[0] = &materials[mat_id].diffuse_texture; /* diffuse texture */
     /* Launch the pipeline to render all the triangles in this mesh */
-    this->pipeline->draw(vertices, indices, uniforms);
+    this->pipeline->draw(vertices, indices, &uniforms);
   }
 
-  return timer.tick();
+  this->last_draw_time = timer.tick();
 }
 
+void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out)
+{
+  /* uniforms:
+   * in_textures[0]: diffuse texture.
+   * */
+  const Mat4x4 &model = uniforms->model;
+  const Mat4x4 &view = uniforms->view;
+  const Mat4x4 &projection = uniforms->projection;
+  Mat4x4 transform_WVP = mul(projection, mul(view, model));
+
+  if (vertex_in.bone_IDs.i[0] < 0) {
+    /* vertex does not belong to any bone */
+    Vec4 gl_Position = mul(transform_WVP, Vec4(vertex_in.p, 1.0));
+    vertex_out.gl_Position = gl_Position;
+    vertex_out.t = vertex_in.t;
+    vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
+    vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
+  }
+  else {
+    /* vertex is controlled by at least one bone */
+    /* calculate:
+     * p_final = sum( w[i]*m[i]*p, for i in [0,1,2,3] ), where
+     * p is the vertex position in local model space (T-pose),
+     * m[i] is the i-th final bone transformation matrix,
+     * w[i] is the i-th bone influence weight to the vertex.
+     * to make computation a little bit faster, we calculate
+     * w[i]*m[i] for i in [0,1,2,3], then multiply it with p. */
+    Mat4x4 bone_transform;
+    for (uint32_t i_bone=0;
+      i_bone < MAX_BONES_INFLUENCE_PER_VERTEX;
+      i_bone++)
+    {
+      int32_t bone_id = vertex_in.bone_IDs.i[i_bone];
+      /* bone_id can be negative, which indicates that the
+       * corresponding slot is unused. */
+      if (bone_id < 0) break;
+      double bone_weight = vertex_in.bone_weights.i[i_bone];
+      const Mat4x4& bone_matrix = uniforms->bone_matrices[bone_id];
+      bone_transform += bone_weight * bone_matrix;
+    }
+    Vec4 p0 = mul(bone_transform, Vec4(vertex_in.p, 1.0));
+    Vec4 n0 = mul(bone_transform, Vec4(vertex_in.n, 0.0));
+    /* apply final matrix to vertex position */
+    vertex_out.gl_Position = mul(transform_WVP, p0);
+    /* copy texture coordinate */
+    vertex_out.t = vertex_in.t;
+    /* calculate world normal and position */
+    vertex_out.wn = mul(model, n0).xyz();
+    vertex_out.wn = normalize(vertex_out.wn);
+    vertex_out.wp = mul(model, p0).xyz();
+  }
+}
+
+void BaseAnimator_FS(const Uniforms* uniforms, const Fragment_gl& fragment_in,
+  FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth)
+{
+  Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);
+  Vec3 textured = texture(uniforms->in_textures[0], uv).xyz();
+  Vec3 wn = fragment_in.wn;
+  Vec3 wp = fragment_in.wp;
+  double falloff = dot(wn, Vec3(0, 1, 0));
+  falloff = (falloff + 1) * 0.5;
+  fs_outs.set(0, Vec4(textured * falloff, 1.0));
+  fs_outs.set(2, Vec4((wn + 1)*0.5, 1.0));
+}
 
 }; /* namespace sgl */

@@ -4,14 +4,14 @@ namespace sgl {
 
 void
 default_VS(
-  const Uniforms &uniforms,
+  const Uniforms *uniforms,
   const Vertex &vertex_in,
   Vertex_gl &vertex_out
 ) {
   /* Implement default vertex shader. */
-  const Mat4x4 &model = uniforms.model;
-  const Mat4x4 &view = uniforms.view;
-  const Mat4x4 &projection = uniforms.projection;
+  const Mat4x4 &model = uniforms->model;
+  const Mat4x4 &view = uniforms->view;
+  const Mat4x4 &projection = uniforms->projection;
   /* Model & View & Projection matrix */
   Mat4x4 transform = mul(mul(projection, view), model);
   Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
@@ -28,14 +28,14 @@ assemble_fragment(const Vertex_gl &vertex_in, Fragment_gl &fragment_out) {
 }
 void
 default_FS(
-  const Uniforms &uniforms,
+  const Uniforms *uniforms,
   const Fragment_gl &fragment_in,
   FS_Outputs &fs_outs,
   bool& is_discarded,
   double& gl_FragDepth
 ) {
   Vec2 uv = fragment_in.t;
-  Vec3 textured = texture(uniforms.in_textures[0], uv).rgb();
+  Vec3 textured = texture(uniforms->in_textures[0], uv).rgb();
   fs_outs.set(0, Vec4(textured, 1.0));
 }
 
