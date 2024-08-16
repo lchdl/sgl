@@ -72,6 +72,7 @@ class Texture {
   **/
   Vec4 texture_RGBA8888_point(const Vec2 &p) const;
   Vec4 texture_BGRA8888_point(const Vec2 &p) const;
+  Vec4 texture_float64_point(const Vec2 &p) const;
   /**
   Convert texture to another format.
   **/

@@ -127,6 +127,22 @@ Vec4 Texture::texture_BGRA8888_point(const Vec2 & p) const
   return Vec4(R, G, B, A) / 255.0;
 }
 
+Vec4 Texture::texture_float64_point(const Vec2 & p) const
+{
+  /* point (nearest) sampling */
+  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+
+  p0.x = max(min(p0.x, 1.0), 0.0);
+  p0.y = max(min(p0.y, 1.0), 0.0);
+  int x = min(int(p0.x * w), w - 1);
+  int y = min(int(p0.y * h), h - 1);
+
+  int pixel_id = y * w + x;
+  double *data = (double *)pixels;
+
+  return Vec4(data[pixel_id], 0.0, 0.0, 0.0);
+}
+
 Texture Texture::to_format(const PixelFormat & target_format) const
 {
   if (this->format == target_format) {
@@ -223,6 +239,11 @@ texture(const Texture *texobj, const Vec2 &uv) {
   else if (texobj->format == PixelFormat::PixelFormat_BGRA8888) {
     if (texobj->sampling == TextureSampling::TextureSampling_Nearest) {
       return texobj->texture_BGRA8888_point(uv);
+    }
+  }
+  else if (texobj->format == PixelFormat::PixelFormat_Float64) {
+    if (texobj->sampling == TextureSampling::TextureSampling_Nearest) {
+      return texobj->texture_float64_point(uv);
     }
   }
   return Vec4(0, 0, 0, 0);
