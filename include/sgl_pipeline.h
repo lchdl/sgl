@@ -28,9 +28,9 @@ public:
   }
 };
 
-enum DrawMode {
-  wireframe_draw_mode,
-  triangle_draw_mode,
+enum PipelineDrawMode {
+  PipelineDrawMode_Wireframe,
+  PipelineDrawMode_Triangle,
 };
 
 class Pipeline {
@@ -87,7 +87,7 @@ class Pipeline {
   /**
   Set draw mode.
   **/
-  void set_draw_mode(DrawMode draw_mode) {
+  void set_draw_mode(PipelineDrawMode draw_mode) {
     ppl.draw_mode = draw_mode;
   }
   /** 
@@ -236,9 +236,9 @@ class Pipeline {
     note that here we default to little endian, 
     the order of all color components should be reversed when packing
     */
-    if (target_format == PixelFormat::pixel_format_RGBA8888)
+    if (target_format == PixelFormat::PixelFormat_RGBA8888)
       out_result = ((A << 24) | (B << 16) | (G << 8) | R);
-    else if (target_format == PixelFormat::pixel_format_BGRA8888)
+    else if (target_format == PixelFormat::PixelFormat_BGRA8888)
       out_result = ((A << 24) | (R << 16) | (G << 8) | B);
     else
       printf("Invalid texture format.\n");
@@ -328,7 +328,7 @@ class Pipeline {
     int depth_texture_slot; /* which slot stores the depth texture,
                             must be in range [0, MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS)
                             */
-    DrawMode draw_mode; /* different draw modes will invoke different fragment processing implementations */
+    PipelineDrawMode draw_mode; /* different draw modes will invoke different fragment processing implementations */
   } ppl; /* pipeline internal states and variables */
   struct {
     std::vector<VertexBuffer_t> VertexBuffers;

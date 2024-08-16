@@ -325,7 +325,7 @@ Model::_register_vertex_weight(
 void
 Model::_update_mesh_skeletal_animation_from_node(
   const Node* node, const Mat4x4& parent_transform, const Mesh& mesh,
-  const uint32_t& anim_id, double time, Mat4x4* bone_matrices)
+  const uint32_t& anim_id, double play_time, Mat4x4* bone_matrices)
 {
   /* retrieve some info about this node. 
   NOTE: in Assimp, if a node is actually a bone, then the node name will be 
@@ -341,7 +341,7 @@ Model::_update_mesh_skeletal_animation_from_node(
   Mat4x4 node_transform;
   if (has_anim) {
     const Animation& anim = node->animations[anim_id];
-    double anim_tick = time * anim.ticks_per_second;
+    double anim_tick = play_time * anim.ticks_per_second;
     node_transform = _interpolate_skeletal_animation(anim, anim_tick, this->keyframe_interp_mode);
   }
   else {
@@ -375,7 +375,7 @@ Model::_update_mesh_skeletal_animation_from_node(
   for (uint32_t i_node = 0; i_node < node->childs.size(); i_node++) {
     _update_mesh_skeletal_animation_from_node(
       node->childs[i_node], accumulated_transform, mesh,
-      anim_id, time, bone_matrices);
+      anim_id, play_time, bone_matrices);
   }
 }
 
@@ -581,7 +581,7 @@ Model::_find_node_animation_by_name(Node& node, const std::string & anim_name)
 
 void 
 Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
-  const std::string& anim_name, double time, Mat4x4* bone_matrices)
+  const std::string& anim_name, double play_time, Mat4x4* bone_matrices)
 {
   /* traverse from root node to calculate all the bone transformations
   for a single mesh and save the calculated results into bone_matrices */
@@ -595,7 +595,7 @@ Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
   uint32_t anim_id = item->second;
   this->_update_mesh_skeletal_animation_from_node(
     root_node, Mat4x4::identity(), mesh, 
-    anim_id, time, bone_matrices);
+    anim_id, play_time, bone_matrices);
 }
 
 }; /* namespace sgl */

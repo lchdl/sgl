@@ -117,18 +117,8 @@ void BaseAnimator::run(bool clear) {
   if (clear)
     this->pipeline->clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
 
-  /* setup uniforms and internal variables (gl_*) */
-  if (this->eye.perspective.enabled) {
-    this->uniforms.gl_DepthRange.x = this->eye.perspective.near;
-    this->uniforms.gl_DepthRange.y = this->eye.perspective.far;
-    this->uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
-  }
-  else {
-    this->uniforms.gl_DepthRange.x = this->eye.orthographic.near;
-    this->uniforms.gl_DepthRange.y = this->eye.orthographic.far;
-    this->uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
-  }
-  this->uniforms.model = this->model->get_model_transform();
+  /* setup uniforms */
+  this->uniforms.world = this->model->get_model_transform();
   this->uniforms.view = this->get_view_matrix();
   this->uniforms.projection = this->get_projection_matrix(out_texs.color->w, out_texs.color->h);
 
@@ -161,18 +151,18 @@ void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_
   /* uniforms:
    * in_textures[0]: diffuse texture.
    * */
-  const Mat4x4 &model = uniforms->model;
+  const Mat4x4 &world = uniforms->world;
   const Mat4x4 &view = uniforms->view;
   const Mat4x4 &projection = uniforms->projection;
-  Mat4x4 transform_WVP = mul(projection, mul(view, model));
+  Mat4x4 transform_WVP = mul(projection, mul(view, world));
 
   if (vertex_in.bone_IDs.i[0] < 0) {
     /* vertex does not belong to any bone */
     Vec4 gl_Position = mul(transform_WVP, Vec4(vertex_in.p, 1.0));
     vertex_out.gl_Position = gl_Position;
     vertex_out.t = vertex_in.t;
-    vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
-    vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
+    vertex_out.wn = mul(world, Vec4(vertex_in.n, 1.0)).xyz();
+    vertex_out.wp = mul(world, Vec4(vertex_in.p, 1.0)).xyz();
   }
   else {
     /* vertex is controlled by at least one bone */
@@ -201,9 +191,9 @@ void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_
     /* copy texture coordinate */
     vertex_out.t = vertex_in.t;
     /* calculate world normal and position */
-    vertex_out.wn = mul(model, n0).xyz();
+    vertex_out.wn = mul(world, n0).xyz();
     vertex_out.wn = normalize(vertex_out.wn);
-    vertex_out.wp = mul(model, p0).xyz();
+    vertex_out.wp = mul(world, p0).xyz();
   }
 }
 

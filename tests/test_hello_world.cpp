@@ -120,13 +120,13 @@ void
 init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h,
-    PixelFormat::pixel_format_BGRA8888,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::color_components);
+    PixelFormat::PixelFormat_BGRA8888,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_ColorComponents);
   depth_texture.create(w, h,
-    PixelFormat::pixel_format_float64,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::depth_buffer);
+    PixelFormat::PixelFormat_Float64,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_DepthBuffer);
 
   /* rotate model along x axis by -55 degrees */
   Mat4x4 model(quat_to_mat3x3(Quat::rot_x(degrees_to_radians(-55.0))));
@@ -141,7 +141,7 @@ init_render() {
   Mat4x4 projection = compute_projection_matrix(w, h, 0.1, 10.0, degrees_to_radians(45));
   
   /* initialize resources and render pipeline */
-  image_texture = sgl::load_texture("textures/checker_256.png", PixelFormat::pixel_format_BGRA8888);
+  image_texture = sgl::load_texture("textures/checker_256.png", PixelFormat::PixelFormat_BGRA8888);
   uniforms.model = model;
   uniforms.view = view;
   uniforms.projection = projection;

@@ -20,20 +20,20 @@ enum PixelFormat {
       to avoid swizzling."
 
   */
-  pixel_format_unknown,
-  pixel_format_RGBA8888,
-  pixel_format_BGRA8888, /* NVIDIA graphics card native format */
-  pixel_format_float64, /* such as depth buffer, a single pixel stores a float64 */
+  PixelFormat_Unknown,
+  PixelFormat_RGBA8888,
+  PixelFormat_BGRA8888, /* NVIDIA graphics card native format */
+  PixelFormat_Float64, /* such as depth buffer, a single pixel stores a float64 */
 };
 
-enum SamplingMode {
-  texture_sampling_point, /* point (nearest) sampling */
+enum TextureSampling {
+  TextureSampling_Nearest, /* point (nearest) sampling */
 };
 
 enum TextureUsage {
-  unknown_usage,
-  color_components, 
-  depth_buffer,
+  TextureUsage_Unknown,
+  TextureUsage_ColorComponents, 
+  TextureUsage_DepthBuffer,
 };
 
 class Texture {
@@ -45,7 +45,7 @@ class Texture {
   /* pixel format, must be one of the types enumerated in `PixelFormat`. */
   PixelFormat format; 
   /* texture sampling method (such as nearest, linear, ...) */
-  SamplingMode sampling; 
+  TextureSampling sampling; 
   /* some special textures have their own usage (such as depth buffers..) */
   TextureUsage usage;
 
@@ -58,7 +58,7 @@ class Texture {
   **/
   void create(int32_t w, int32_t h, 
     PixelFormat texture_format, 
-    SamplingMode texture_sampling,
+    TextureSampling texture_sampling,
     TextureUsage texture_usage);
   /**
   Destroy texture.
@@ -101,7 +101,7 @@ class Texture {
 will be returned (pixels=NULL).
 **/
 Texture load_texture(const std::string &file, 
-  const PixelFormat& target_format = PixelFormat::pixel_format_BGRA8888);
+  const PixelFormat& target_format = PixelFormat::PixelFormat_BGRA8888);
 
 /**
   Common interface for sampling a texture. Designed mainly for fragment shaders.

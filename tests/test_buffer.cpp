@@ -118,13 +118,13 @@ void
 init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h,
-    PixelFormat::pixel_format_RGBA8888,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::color_components);
+    PixelFormat::PixelFormat_RGBA8888,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_ColorComponents);
   depth_texture.create(w, h,
-    PixelFormat::pixel_format_float64,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::depth_buffer);
+    PixelFormat::PixelFormat_Float64,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_DepthBuffer);
 
   /* rotate model along x axis by -55 degrees */
   Mat4x4 model(quat_to_mat3x3(Quat::rot_x(degrees_to_radians(-55.0))));

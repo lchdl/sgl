@@ -98,7 +98,7 @@ public:
   const Mat4x4 get_model_transform() const { return this->model_transform; }
 
   /**
-  update_skeletal_animation():
+  update_skeletal_animation_for_mesh():
   * Calculate bone final transformations and update the result to 
     uniform variables.
 
@@ -153,7 +153,7 @@ public:
   void update_skeletal_animation_for_mesh(
     const Mesh& mesh,             /* the mesh being drawn */
     const std::string& anim_name, /* name of the animation being played */
-    double time,                  /* animation timeline (in sec.) */
+    double play_time,             /* animation timeline (in sec.) */
     Mat4x4* bone_matrices         /* where results will be saved */
     /* NOTE: a single draw call only renders a single mesh onto screen,
     so if a model contains N meshes, it will need N draw calls to fully
@@ -197,7 +197,7 @@ private:
     const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
     const Mesh& mesh,               /* mesh that contains all the bones */
     const uint32_t& anim_id,        /* id of the animation currently being played */
-    double time,                    /* elapsed time since the start of the animation (sec.) */
+    double play_time,               /* elapsed time since the start of the animation (sec.) */
     Mat4x4* bone_matrices           /* uniform variables that will be written to */
   );
   Mat4x4 _interpolate_skeletal_animation(

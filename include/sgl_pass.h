@@ -62,10 +62,8 @@ Simply draw a model (probably with animation) onto screen.
 **/
 
 struct BaseAnimator_Uniforms {
-  /* internal variables */
-  Vec3 gl_DepthRange; /* (x=near, y=far, z=diff=far-near) */
   /* transforming vertex from local model space to world space. */
-  Mat4x4 model;
+  Mat4x4 world;
   /* transforming vertex from world space to local view space. */
   Mat4x4 view;
   /* transforming vertex from local view space to homogeneous clip space. */
@@ -75,6 +73,8 @@ struct BaseAnimator_Uniforms {
   /* final bone transformations */
   Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
 };
+void BaseAnimator_VS(const void* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out);
+void BaseAnimator_FS(const void* uniforms, const Fragment_gl& fragment_in, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
 
 class BaseAnimator : public Pass {
 public:
@@ -108,9 +108,12 @@ public:
   BaseAnimator();
   virtual ~BaseAnimator() {}
 };
-void BaseAnimator_VS(const void* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out);
-void BaseAnimator_FS(const void* uniforms, const Fragment_gl& fragment_in, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
 
+/**
+BaseSpriteRenderer:
+
+Simply render a 2D sprite onto frame buffer.
+**/
 class BaseSpriteRenderer : public Pass {
   /* TODO: add implementations for rendering sprites here */
 };
