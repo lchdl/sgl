@@ -6,7 +6,7 @@ using namespace sgl;
 
 int w = 320, h = 240;
 int num_threads = -1;
-DrawMode draw_mode = DrawMode::triangle_draw_mode;
+PipelineDrawMode draw_mode = PipelineDrawMode::PipelineDrawMode_Triangle;
 bool keystate[SDL_NUM_SCANCODES];
 int show_texture = 1;
 bool backface_culling = true;
@@ -73,12 +73,12 @@ process_key(SDL_KeyboardEvent *key) {
     }
   }
   if (keycode == SDLK_RETURN && is_press) {
-    if (draw_mode == DrawMode::triangle_draw_mode) {
-      draw_mode = DrawMode::wireframe_draw_mode;
+    if (draw_mode == PipelineDrawMode::PipelineDrawMode_Triangle) {
+      draw_mode = PipelineDrawMode::PipelineDrawMode_Wireframe;
       printf("Now uses DrawMode::wireframe_draw_mode.\n");
     }
-    else if (draw_mode == DrawMode::wireframe_draw_mode) {
-      draw_mode = DrawMode::triangle_draw_mode;
+    else if (draw_mode == PipelineDrawMode::PipelineDrawMode_Wireframe) {
+      draw_mode = PipelineDrawMode::PipelineDrawMode_Triangle;
       printf("Now uses DrawMode::triangle_draw_mode.\n");
     }
     pipeline.set_draw_mode(draw_mode);
@@ -112,17 +112,17 @@ void
 init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h,
-    PixelFormat::pixel_format_BGRA8888,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::color_components);
+    PixelFormat::PixelFormat_BGRA8888,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_ColorComponents);
   depth_texture.create(w, h,
-    PixelFormat::pixel_format_float64,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::depth_buffer);
+    PixelFormat::PixelFormat_Float64,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_DepthBuffer);
   normal_texture.create(w, h,
-    PixelFormat::pixel_format_BGRA8888,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::color_components);
+    PixelFormat::PixelFormat_BGRA8888,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_ColorComponents);
   boblamp_model.load("models/boblamp.zip");
   boblamp_model.dump();
 
@@ -147,7 +147,7 @@ init_render() {
   /* setup model to be rendered */
   animator.model = &boblamp_model;
   animator.pipeline = &pipeline;
-  pipeline.set_draw_mode(DrawMode::triangle_draw_mode);
+  pipeline.set_draw_mode(PipelineDrawMode::PipelineDrawMode_Triangle);
   
   if (num_threads > 0) {
     pipeline.set_num_threads(num_threads);

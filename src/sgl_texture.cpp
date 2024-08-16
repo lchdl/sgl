@@ -12,9 +12,9 @@ namespace sgl {
 Texture::Texture() {
   w = h = 0;
   pixels = NULL;
-  format = PixelFormat::pixel_format_unknown;
-  sampling = SamplingMode::texture_sampling_point;
-  usage = TextureUsage::unknown_usage;
+  format = PixelFormat::PixelFormat_Unknown;
+  sampling = TextureSampling::TextureSampling_Nearest;
+  usage = TextureUsage::TextureUsage_Unknown;
 }
 
 void
@@ -24,15 +24,15 @@ Texture::destroy() {
   if (this->pixels)
     free(this->pixels);
   this->pixels = NULL;
-  this->format = PixelFormat::pixel_format_unknown;
-  this->sampling = SamplingMode::texture_sampling_point;
-  this->usage = TextureUsage::unknown_usage;
+  this->format = PixelFormat::PixelFormat_Unknown;
+  this->sampling = TextureSampling::TextureSampling_Nearest;
+  this->usage = TextureUsage::TextureUsage_Unknown;
 }
 
 void
 Texture::create(int32_t w, int32_t h, 
   PixelFormat texture_format,
-  SamplingMode texture_sampling,
+  TextureSampling texture_sampling,
   TextureUsage texture_usage) {
   this->destroy();
   if (w <= 0 || h <= 0)
@@ -43,11 +43,11 @@ Texture::create(int32_t w, int32_t h,
   this->sampling = texture_sampling;
   this->usage = texture_usage;
   this->bypp = 0; /* set a default value here */
-  if (texture_format == PixelFormat::pixel_format_RGBA8888 ||
-    texture_format == PixelFormat::pixel_format_BGRA8888) {
+  if (texture_format == PixelFormat::PixelFormat_RGBA8888 ||
+    texture_format == PixelFormat::PixelFormat_BGRA8888) {
     this->bypp = 4;
   }
-  else if (texture_format == PixelFormat::pixel_format_float64) {
+  else if (texture_format == PixelFormat::PixelFormat_Float64) {
     this->bypp = 8;
   }
   else {
@@ -55,8 +55,8 @@ Texture::create(int32_t w, int32_t h,
       "unimplemented texture format.\n");
   }
 
-  if (this->usage == TextureUsage::depth_buffer) {
-    if (this->format != PixelFormat::pixel_format_float64) {
+  if (this->usage == TextureUsage::TextureUsage_DepthBuffer) {
+    if (this->format != PixelFormat::PixelFormat_Float64) {
       printf("Texture create failed: depth buffer must have format float64.");
     }
   }
@@ -136,8 +136,8 @@ Texture Texture::to_format(const PixelFormat & target_format) const
   converted_texture.create(this->w, this->h, target_format, this->sampling, this->usage);
   uint8_t* dst = (uint8_t*)converted_texture.pixels;
   uint8_t* src = (uint8_t*)this->pixels;
-  if (this->format == PixelFormat::pixel_format_RGBA8888 &&
-    target_format == PixelFormat::pixel_format_BGRA8888) {
+  if (this->format == PixelFormat::PixelFormat_RGBA8888 &&
+    target_format == PixelFormat::PixelFormat_BGRA8888) {
     for (int y = 0; y < this->h; y++) {
       for (int x = 0; x < this->w; x++) {
         int pid = y * this->w + x;
@@ -148,8 +148,8 @@ Texture Texture::to_format(const PixelFormat & target_format) const
       }
     }
   }
-  else if (this->format == PixelFormat::pixel_format_BGRA8888 &&
-    target_format == PixelFormat::pixel_format_RGBA8888) {
+  else if (this->format == PixelFormat::PixelFormat_BGRA8888 &&
+    target_format == PixelFormat::PixelFormat_RGBA8888) {
     for (int y = 0; y < this->h; y++) {
       for (int x = 0; x < this->w; x++) {
         int pid = y * this->w + x;
@@ -174,14 +174,14 @@ bool Texture::save_png(const std::string & path) const
     printf("Cannot save texture, texture object is invalid.\n");
     return false;
   }
-  if (this->bypp != 4 || this->format == PixelFormat::pixel_format_float64 || 
-    this->format == PixelFormat::pixel_format_unknown) {
+  if (this->bypp != 4 || this->format == PixelFormat::PixelFormat_Float64 || 
+    this->format == PixelFormat::PixelFormat_Unknown) {
     printf("Cannot save texture, unsupported pixel format.\n");
     return false;
   }
   /* stb image default to RGBA format */
-  if (this->format != PixelFormat::pixel_format_RGBA8888) {
-    Texture texobj = this->to_format(PixelFormat::pixel_format_RGBA8888);
+  if (this->format != PixelFormat::PixelFormat_RGBA8888) {
+    Texture texobj = this->to_format(PixelFormat::PixelFormat_RGBA8888);
     return texobj.save_png(path);
   }
   else {
@@ -206,7 +206,7 @@ load_texture(const std::string &file, const PixelFormat& target_format) {
     printf("* note: current working directory is: \"%s\".\n", get_cwd().c_str());
     return texture;
   }
-  texture.create(x, y, PixelFormat::pixel_format_RGBA8888, SamplingMode::texture_sampling_point, TextureUsage::color_components);
+  texture.create(x, y, PixelFormat::PixelFormat_RGBA8888, TextureSampling::TextureSampling_Nearest, TextureUsage::TextureUsage_ColorComponents);
   uint8_t *pixels = (uint8_t *) texture.pixels;
   memcpy(pixels, data, x * y * 4);
   stbi_image_free(data);
@@ -215,13 +215,13 @@ load_texture(const std::string &file, const PixelFormat& target_format) {
 
 Vec4
 texture(const Texture *texobj, const Vec2 &uv) {
-  if (texobj->format == PixelFormat::pixel_format_RGBA8888) {
-    if (texobj->sampling == SamplingMode::texture_sampling_point) {
+  if (texobj->format == PixelFormat::PixelFormat_RGBA8888) {
+    if (texobj->sampling == TextureSampling::TextureSampling_Nearest) {
       return texobj->texture_RGBA8888_point(uv);
     }
   }
-  else if (texobj->format == PixelFormat::pixel_format_BGRA8888) {
-    if (texobj->sampling == SamplingMode::texture_sampling_point) {
+  else if (texobj->format == PixelFormat::PixelFormat_BGRA8888) {
+    if (texobj->sampling == TextureSampling::TextureSampling_Nearest) {
       return texobj->texture_BGRA8888_point(uv);
     }
   }

@@ -18,6 +18,12 @@
 
 namespace sgl {
 
+/* A vertex can only be affected by no more than 4 bones.
+  * NOTE: this value cannot be changed. */
+const int MAX_BONES_INFLUENCE_PER_VERTEX = 4;
+/* A mesh model can only have less than 128 nodes. */
+const int MAX_NODES_PER_MODEL = 128;
+
 template <typename T> 
 struct KeyFrame {
   double tick; 
@@ -92,7 +98,7 @@ public:
   const Mat4x4 get_model_transform() const { return this->model_transform; }
 
   /**
-  update_skeletal_animation():
+  update_skeletal_animation_for_mesh():
   * Calculate bone final transformations and update the result to 
     uniform variables.
 
@@ -147,8 +153,8 @@ public:
   void update_skeletal_animation_for_mesh(
     const Mesh& mesh,             /* the mesh being drawn */
     const std::string& anim_name, /* name of the animation being played */
-    double time,                  /* animation timeline (in sec.) */
-    Uniforms& uniforms            /* where results will be saved */
+    double play_time,             /* animation timeline (in sec.) */
+    Mat4x4* bone_matrices         /* where results will be saved */
     /* NOTE: a single draw call only renders a single mesh onto screen,
     so if a model contains N meshes, it will need N draw calls to fully
     render the whole model, with i-th draw call renders the i-th mesh. */
@@ -191,8 +197,8 @@ private:
     const Mat4x4& parent_transform, /* accumulated parent node transformation matrix */
     const Mesh& mesh,               /* mesh that contains all the bones */
     const uint32_t& anim_id,        /* id of the animation currently being played */
-    double time,                    /* elapsed time since the start of the animation (sec.) */
-    Uniforms& uniforms              /* uniform variables that will be written to */
+    double play_time,               /* elapsed time since the start of the animation (sec.) */
+    Mat4x4* bone_matrices           /* uniform variables that will be written to */
   );
   Mat4x4 _interpolate_skeletal_animation(
     const Animation& anim, const double tick, const KeyframeInterp_t interp

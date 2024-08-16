@@ -11,12 +11,53 @@ SDL_Surface* pWindowSurface;
 bool keystate[SDL_NUM_SCANCODES];
 
 Pipeline pipeline;
-Uniforms uniforms;
 VertexBuffer_t vertices;
 IndexBuffer_t indices;
 
 Texture color_texture, depth_texture;
 Texture image_texture;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * Vertex and Fragment Shaders * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+struct MyUniforms {
+  /* transforming vertex from local model space to world space. */
+  Mat4x4 model;
+  /* transforming vertex from world space to local view space. */
+  Mat4x4 view;
+  /* transforming vertex from local view space to homogeneous clip space. */
+  Mat4x4 projection;
+  /* texture objects */
+  const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
+} uniforms;
+
+void vertex_shader(const void *uniforms_data, const Vertex &vertex_in, Vertex_gl &vertex_out)
+{
+  const MyUniforms* uniforms = (const MyUniforms*)uniforms_data;
+
+  /* Implement default vertex shader. */
+  const Mat4x4 &model = uniforms->model;
+  const Mat4x4 &view = uniforms->view;
+  const Mat4x4 &projection = uniforms->projection;
+  /* Model & View & Projection matrix */
+  Mat4x4 transform = mul(mul(projection, view), model);
+  Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
+  vertex_out.gl_Position = gl_Position;
+  vertex_out.t = vertex_in.t;
+  vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
+  vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
+}
+
+void fragment_shader(const void *data, const Fragment_gl &fragment_in, FS_Outputs &fs_outs,
+  bool& is_discarded, double& gl_FragDepth)
+{
+  const MyUniforms* uniforms = (const MyUniforms*)data;
+
+  Vec2 uv = fragment_in.t;
+  Vec3 textured = texture(uniforms->in_textures[0], uv).rgb();
+  fs_outs.set(0, Vec4(textured, 1.0));
+}
 
 void
 init_env(int argc, char* argv[]) {
@@ -79,13 +120,13 @@ void
 init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h,
-    PixelFormat::pixel_format_BGRA8888,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::color_components);
+    PixelFormat::PixelFormat_BGRA8888,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_ColorComponents);
   depth_texture.create(w, h,
-    PixelFormat::pixel_format_float64,
-    SamplingMode::texture_sampling_point,
-    TextureUsage::depth_buffer);
+    PixelFormat::PixelFormat_Float64,
+    TextureSampling::TextureSampling_Nearest,
+    TextureUsage::TextureUsage_DepthBuffer);
 
   /* rotate model along x axis by -55 degrees */
   Mat4x4 model(quat_to_mat3x3(Quat::rot_x(degrees_to_radians(-55.0))));
@@ -100,7 +141,7 @@ init_render() {
   Mat4x4 projection = compute_projection_matrix(w, h, 0.1, 10.0, degrees_to_radians(45));
   
   /* initialize resources and render pipeline */
-  image_texture = sgl::load_texture("textures/checker_256.png", PixelFormat::pixel_format_BGRA8888);
+  image_texture = sgl::load_texture("textures/checker_256.png", PixelFormat::PixelFormat_BGRA8888);
   uniforms.model = model;
   uniforms.view = view;
   uniforms.projection = projection;
@@ -108,7 +149,7 @@ init_render() {
   pipeline.set_render_target(0, &color_texture);
   pipeline.set_render_target(1, &depth_texture);
   pipeline.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
-  pipeline.set_shaders(default_VS, default_FS);
+  pipeline.set_shaders(vertex_shader, fragment_shader);
   pipeline.disable_backface_culling();
 
   Vertex v;

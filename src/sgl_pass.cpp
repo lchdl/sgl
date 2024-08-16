@@ -117,18 +117,8 @@ void BaseAnimator::run(bool clear) {
   if (clear)
     this->pipeline->clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
 
-  /* setup uniforms and internal variables (gl_*) */
-  if (this->eye.perspective.enabled) {
-    this->uniforms.gl_DepthRange.x = this->eye.perspective.near;
-    this->uniforms.gl_DepthRange.y = this->eye.perspective.far;
-    this->uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
-  }
-  else {
-    this->uniforms.gl_DepthRange.x = this->eye.orthographic.near;
-    this->uniforms.gl_DepthRange.y = this->eye.orthographic.far;
-    this->uniforms.gl_DepthRange.z = uniforms.gl_DepthRange.y - uniforms.gl_DepthRange.x;
-  }
-  this->uniforms.model = this->model->get_model_transform();
+  /* setup uniforms */
+  this->uniforms.world = this->model->get_model_transform();
   this->uniforms.view = this->get_view_matrix();
   this->uniforms.projection = this->get_projection_matrix(out_texs.color->w, out_texs.color->h);
 
@@ -145,7 +135,7 @@ void BaseAnimator::run(bool clear) {
     const int32_t mat_id = mesh_data[i_mesh].mat_id;
     const Mesh& mesh = mesh_data[i_mesh];
     /* calculate bone tranformation matrices and update uniform variables */
-    this->model->update_skeletal_animation_for_mesh(mesh, anim_name, play_time, uniforms);
+    this->model->update_skeletal_animation_for_mesh(mesh, anim_name, play_time, uniforms.bone_matrices);
     /* Setting up mesh materials. */
     this->uniforms.in_textures[0] = &materials[mat_id].diffuse_texture; /* diffuse texture */
     /* Launch the pipeline to render all the triangles in this mesh */
@@ -155,23 +145,24 @@ void BaseAnimator::run(bool clear) {
   this->last_draw_time = timer.tick();
 }
 
-void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out)
+void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_gl& vertex_out)
 {
+  const BaseAnimator_Uniforms* uniforms = (const BaseAnimator_Uniforms*)uniforms_data;
   /* uniforms:
    * in_textures[0]: diffuse texture.
    * */
-  const Mat4x4 &model = uniforms->model;
+  const Mat4x4 &world = uniforms->world;
   const Mat4x4 &view = uniforms->view;
   const Mat4x4 &projection = uniforms->projection;
-  Mat4x4 transform_WVP = mul(projection, mul(view, model));
+  Mat4x4 transform_WVP = mul(projection, mul(view, world));
 
   if (vertex_in.bone_IDs.i[0] < 0) {
     /* vertex does not belong to any bone */
     Vec4 gl_Position = mul(transform_WVP, Vec4(vertex_in.p, 1.0));
     vertex_out.gl_Position = gl_Position;
     vertex_out.t = vertex_in.t;
-    vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
-    vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
+    vertex_out.wn = mul(world, Vec4(vertex_in.n, 1.0)).xyz();
+    vertex_out.wp = mul(world, Vec4(vertex_in.p, 1.0)).xyz();
   }
   else {
     /* vertex is controlled by at least one bone */
@@ -183,9 +174,7 @@ void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_g
      * to make computation a little bit faster, we calculate
      * w[i]*m[i] for i in [0,1,2,3], then multiply it with p. */
     Mat4x4 bone_transform;
-    for (uint32_t i_bone=0;
-      i_bone < MAX_BONES_INFLUENCE_PER_VERTEX;
-      i_bone++)
+    for (uint32_t i_bone=0; i_bone < MAX_BONES_INFLUENCE_PER_VERTEX; i_bone++)
     {
       int32_t bone_id = vertex_in.bone_IDs.i[i_bone];
       /* bone_id can be negative, which indicates that the
@@ -202,15 +191,17 @@ void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_g
     /* copy texture coordinate */
     vertex_out.t = vertex_in.t;
     /* calculate world normal and position */
-    vertex_out.wn = mul(model, n0).xyz();
+    vertex_out.wn = mul(world, n0).xyz();
     vertex_out.wn = normalize(vertex_out.wn);
-    vertex_out.wp = mul(model, p0).xyz();
+    vertex_out.wp = mul(world, p0).xyz();
   }
 }
 
-void BaseAnimator_FS(const Uniforms* uniforms, const Fragment_gl& fragment_in,
+void BaseAnimator_FS(const void* uniforms_data, const Fragment_gl& fragment_in,
   FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth)
 {
+  const BaseAnimator_Uniforms* uniforms = (const BaseAnimator_Uniforms*)uniforms_data;
+
   Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);
   Vec3 textured = texture(uniforms->in_textures[0], uv).xyz();
   Vec3 wn = fragment_in.wn;

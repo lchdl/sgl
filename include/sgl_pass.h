@@ -53,11 +53,29 @@ public:
 };
 
 /**
+BaseAnimator:
+
 Simply draw a model (probably with animation) onto screen.
 * Note that a model can consists of multiple meshes, so this class also 
   wraps up multiple draw calls to fully render a model, each draw call
   only renders a single mesh.
 **/
+
+struct BaseAnimator_Uniforms {
+  /* transforming vertex from local model space to world space. */
+  Mat4x4 world;
+  /* transforming vertex from world space to local view space. */
+  Mat4x4 view;
+  /* transforming vertex from local view space to homogeneous clip space. */
+  Mat4x4 projection;
+  /* texture objects */
+  const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
+  /* final bone transformations */
+  Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
+};
+void BaseAnimator_VS(const void* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out);
+void BaseAnimator_FS(const void* uniforms, const Fragment_gl& fragment_in, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
+
 class BaseAnimator : public Pass {
 public:
   /* note: not owned */
@@ -70,7 +88,7 @@ public:
     VS_func_t VS;
     FS_func_t FS;
   } shaders;
-  Uniforms uniforms;
+  BaseAnimator_Uniforms uniforms;
 
 public:
   /* note: class instances not owned */
@@ -90,9 +108,12 @@ public:
   BaseAnimator();
   virtual ~BaseAnimator() {}
 };
-void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out);
-void BaseAnimator_FS(const Uniforms* uniforms, const Fragment_gl& fragment_in, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
 
+/**
+BaseSpriteRenderer:
+
+Simply render a 2D sprite onto frame buffer.
+**/
 class BaseSpriteRenderer : public Pass {
   /* TODO: add implementations for rendering sprites here */
 };

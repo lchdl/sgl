@@ -14,7 +14,7 @@ void Pipeline::_zero_init()
   ppl.num_threads = max(get_cpu_cores(), 1);
   ppl.backface_culling = true;
   ppl.do_depth_test = true;
-  ppl.draw_mode = DrawMode::triangle_draw_mode;
+  ppl.draw_mode = PipelineDrawMode::PipelineDrawMode_Triangle;
 }
 
 Pipeline::Pipeline() {
@@ -78,7 +78,7 @@ void Pipeline::delete_vertex_buffer(const int32_t & vbo)
   buffers.IndexBuffers[vbo].shrink_to_fit();
 }
 
-void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const Uniforms* uniforms) 
+void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const void* uniforms_data)
 {
   if (shaders.VS == NULL || shaders.FS == NULL)
     return;
@@ -112,7 +112,7 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
         return;
       }
     }
-    if (targets.out_comps[i]->usage == TextureUsage::depth_buffer) {
+    if (targets.out_comps[i]->usage == TextureUsage::TextureUsage_DepthBuffer) {
       num_depth_buffers++;
       ppl.depth_texture_slot = i;
     }
@@ -124,34 +124,34 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
   }
 
   /* Stage I: Vertex processing. */
-  vertex_processing(vertices, uniforms);
+  vertex_processing(vertices, uniforms_data);
 
   /* Stage II: Vertex post-processing. */
   vertex_post_processing(indices);
 
   /* Step III: Rasterization & fragment processing */
-  if (ppl.draw_mode == DrawMode::triangle_draw_mode) {
+  if (ppl.draw_mode == PipelineDrawMode::PipelineDrawMode_Triangle) {
     if (ppl.num_threads > 1) {
-      fragment_processing_MT(uniforms, ppl.num_threads);
+      fragment_processing_MT(uniforms_data, ppl.num_threads);
     }
     else {
-      fragment_processing(uniforms);
+      fragment_processing(uniforms_data);
     }
   }
-  else if (ppl.draw_mode == DrawMode::wireframe_draw_mode) {
+  else if (ppl.draw_mode == PipelineDrawMode::PipelineDrawMode_Wireframe) {
     if (ppl.num_threads > 1) {
-      fragment_processing_wireframe_MT(uniforms, ppl.num_threads);
+      fragment_processing_wireframe_MT(uniforms_data, ppl.num_threads);
     }
     else {
-      fragment_processing_wireframe(uniforms);
+      fragment_processing_wireframe(uniforms_data);
     }
   }
 
 }
 
-void Pipeline::draw(const int32_t & vbo, const int32_t & ibo, const Uniforms* uniforms)
+void Pipeline::draw(const int32_t & vbo, const int32_t & ibo, const void* uniforms_data)
 {
-  this->draw(buffers.VertexBuffers[vbo], buffers.IndexBuffers[ibo], uniforms);
+  this->draw(buffers.VertexBuffers[vbo], buffers.IndexBuffers[ibo], uniforms_data);
 }
 
 void Pipeline::clear_cache()
@@ -164,12 +164,12 @@ void Pipeline::clear_cache()
 
 void
 Pipeline::vertex_processing(const VertexBuffer_t &vertex_buffer,
-                            const Uniforms *uniforms) {
+                            const void *uniforms_data) {
   for (uint32_t i_vert = 0; i_vert < vertex_buffer.size(); i_vert++) {
     Vertex_gl vertex_out;
     /* Map vertex from model local space to homogeneous clip space and stores to
     "gl_Position". */
-    shaders.VS(uniforms, vertex_buffer[i_vert], vertex_out);
+    shaders.VS(uniforms_data, vertex_buffer[i_vert], vertex_out);
     ppl.Vertices.push_back(vertex_out);
   }
 }
@@ -191,7 +191,7 @@ Pipeline::vertex_post_processing(const std::vector<int> &index_buffer) {
 }
 
 void
-Pipeline::fragment_processing(const Uniforms *uniforms) {
+Pipeline::fragment_processing(const void *uniforms_data) {
   for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
     /* Step 3.1: Convert clip space to NDC space (perspective divide) */
     Triangle_gl tri_gl = ppl.Triangles[i_tri];
@@ -263,7 +263,7 @@ Pipeline::fragment_processing(const Uniforms *uniforms) {
         fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
         FS_Outputs fs_outs;
         bool is_discarded = false;
-        shaders.FS(uniforms, fragment, fs_outs, is_discarded, gl_FragDepth);
+        shaders.FS(uniforms_data, fragment, fs_outs, is_discarded, gl_FragDepth);
         /* Step 3.5: Fragment processing */
         if (!is_discarded) {
           write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
@@ -273,7 +273,7 @@ Pipeline::fragment_processing(const Uniforms *uniforms) {
   }
 }
 
-void Pipeline::fragment_processing_MT(const Uniforms *uniforms, const int &num_threads) {
+void Pipeline::fragment_processing_MT(const void *uniforms_data, const int &num_threads) {
 #pragma omp parallel for num_threads(num_threads)
   for (int thread_id = 0; thread_id < num_threads; thread_id++) {
     /**
@@ -357,7 +357,7 @@ void Pipeline::fragment_processing_MT(const Uniforms *uniforms, const int &num_t
           fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
           FS_Outputs fs_outs;
           bool is_discarded = false;
-          shaders.FS(uniforms, fragment, fs_outs, is_discarded, gl_FragDepth);
+          shaders.FS(uniforms_data, fragment, fs_outs, is_discarded, gl_FragDepth);
           /* Step 3.5: Fragment processing */
           if (!is_discarded) {
             write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
@@ -368,7 +368,7 @@ void Pipeline::fragment_processing_MT(const Uniforms *uniforms, const int &num_t
   }
 }
 
-void Pipeline::fragment_processing_wireframe(const Uniforms* uniforms)
+void Pipeline::fragment_processing_wireframe(const void *uniforms_data)
 {
   for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
     /* Step 3.1: Convert clip space to NDC space (perspective divide) */
@@ -399,13 +399,13 @@ void Pipeline::fragment_processing_wireframe(const Uniforms* uniforms)
     IVec2 ip0 = IVec2(int(p0.x), int(p0.y));
     IVec2 ip1 = IVec2(int(p1.x), int(p1.y));
     IVec2 ip2 = IVec2(int(p2.x), int(p2.y));
-    _bresenham_traversal(ip0.x, ip0.y, ip1.x, ip1.y, v0, v1, Vec2(iz.x, iz.y), uniforms);
-    _bresenham_traversal(ip1.x, ip1.y, ip2.x, ip2.y, v1, v2, Vec2(iz.x, iz.y), uniforms);
-    _bresenham_traversal(ip2.x, ip2.y, ip0.x, ip0.y, v2, v0, Vec2(iz.x, iz.y), uniforms);
+    _bresenham_traversal(ip0.x, ip0.y, ip1.x, ip1.y, v0, v1, Vec2(iz.x, iz.y), uniforms_data);
+    _bresenham_traversal(ip1.x, ip1.y, ip2.x, ip2.y, v1, v2, Vec2(iz.x, iz.y), uniforms_data);
+    _bresenham_traversal(ip2.x, ip2.y, ip0.x, ip0.y, v2, v0, Vec2(iz.x, iz.y), uniforms_data);
   }
 }
 
-void Pipeline::fragment_processing_wireframe_MT(const Uniforms* uniforms, const int & num_threads)
+void Pipeline::fragment_processing_wireframe_MT(const void *uniforms_data, const int & num_threads)
 {
 #pragma omp parallel for num_threads(num_threads)
   for (int thread_id = 0; thread_id < num_threads; thread_id++) {
@@ -438,9 +438,9 @@ void Pipeline::fragment_processing_wireframe_MT(const Uniforms* uniforms, const 
       IVec2 ip0 = IVec2(int(p0.x), int(p0.y));
       IVec2 ip1 = IVec2(int(p1.x), int(p1.y));
       IVec2 ip2 = IVec2(int(p2.x), int(p2.y));
-      _bresenham_traversal(ip0.x, ip0.y, ip1.x, ip1.y, v0, v1, Vec2(iz.x, iz.y), uniforms);
-      _bresenham_traversal(ip1.x, ip1.y, ip2.x, ip2.y, v1, v2, Vec2(iz.x, iz.y), uniforms);
-      _bresenham_traversal(ip2.x, ip2.y, ip0.x, ip0.y, v2, v0, Vec2(iz.x, iz.y), uniforms);
+      _bresenham_traversal(ip0.x, ip0.y, ip1.x, ip1.y, v0, v1, Vec2(iz.x, iz.y), uniforms_data);
+      _bresenham_traversal(ip1.x, ip1.y, ip2.x, ip2.y, v1, v2, Vec2(iz.x, iz.y), uniforms_data);
+      _bresenham_traversal(ip2.x, ip2.y, ip0.x, ip0.y, v2, v0, Vec2(iz.x, iz.y), uniforms_data);
     }
   }
 }
@@ -475,8 +475,8 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
     be aware that different texture formats will have different physical 
     storage method
     */
-    if (targets.out_comps[i_slot]->format == PixelFormat::pixel_format_BGRA8888 ||
-      targets.out_comps[i_slot]->format == PixelFormat::pixel_format_RGBA8888) {
+    if (targets.out_comps[i_slot]->format == PixelFormat::PixelFormat_BGRA8888 ||
+      targets.out_comps[i_slot]->format == PixelFormat::PixelFormat_RGBA8888) {
       uint8_t R, G, B, A;
       uint32_t packed_32bit;
       unpack_Vec4_color_to_unsigned_RGBA(color, R, G, B, A);
@@ -484,7 +484,7 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
       uint32_t *pixels = (uint32_t *)targets.out_comps[i_slot]->pixels;
       pixels[pixel_id] = packed_32bit;
     }
-    else if (targets.out_comps[i_slot]->format == PixelFormat::pixel_format_float64) {
+    else if (targets.out_comps[i_slot]->format == PixelFormat::PixelFormat_Float64) {
       /* we only select the first component of the Vec4 color (color.i[0]), other components are ignored */
       double data = color.i[0];
       double *pixels = (double *)targets.out_comps[i_slot]->pixels;
@@ -638,7 +638,7 @@ void Pipeline::clear_render_target(const int & slot, const Vec4 & clear_color)
 {
   Texture* texture = targets.out_comps[slot];
   if (texture == NULL) return;
-  if (texture->usage == TextureUsage::depth_buffer) {
+  if (texture->usage == TextureUsage::TextureUsage_DepthBuffer) {
     /* depth buffer is special, when it needs to be cleared,
     it should be set to 1.0, clear_color will be ignored. */
     int n_pixels = texture->w * texture->h;
@@ -646,7 +646,7 @@ void Pipeline::clear_render_target(const int & slot, const Vec4 & clear_color)
     for (int i = 0; i < n_pixels; i++)
       pixels[i] = 1.0;
   }
-  else if (texture->format == PixelFormat::pixel_format_float64) {
+  else if (texture->format == PixelFormat::PixelFormat_Float64) {
     /* if the texture format is float64 and it is not used as
     a depth buffer, we take the first component of clear_color
     and set all the pixels in the texture to this value. */
@@ -655,8 +655,8 @@ void Pipeline::clear_render_target(const int & slot, const Vec4 & clear_color)
     for (int i = 0; i < n_pixels; i++)
       pixels[i] = clear_color.i[0];
   }
-  else if (texture->format == PixelFormat::pixel_format_BGRA8888 ||
-    texture->format == PixelFormat::pixel_format_RGBA8888) {
+  else if (texture->format == PixelFormat::PixelFormat_BGRA8888 ||
+    texture->format == PixelFormat::PixelFormat_RGBA8888) {
     uint8_t R, G, B, A;
     uint32_t packed_32bit;
     unpack_Vec4_color_to_unsigned_RGBA(clear_color, R, G, B, A);
