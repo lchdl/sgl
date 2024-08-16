@@ -141,7 +141,7 @@ init_render() {
 
 void
 render_frame() {
-  pipeline.draw(vertices, indices, uniforms);
+  pipeline.draw(vertices, indices, &uniforms);
   /* save first frame to disk */
   static bool saved = false;
   if (!saved) {

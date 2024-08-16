@@ -94,9 +94,9 @@ public:
 struct Fragment_gl {
   /* fs_in */
   Vec4 gl_FragCoord;
-  Vec3 wp;
-  Vec3 wn;
-  Vec2 t;
+  Vec3 wp; /* world position */
+  Vec3 wn; /* world normal */
+  Vec2 t;  /* texture coordinates */
 };
 
 /* Uniform variables that are used by both vertex and fragment shaders. */
@@ -125,7 +125,7 @@ Defines vertex and fragment shader function pointer types.
 This will enable users to design their own vertex and fragment shaders
 and link them to the pipeline.
 **/
-typedef void(*VS_func_t)(const Uniforms&, const Vertex&, Vertex_gl&);
+typedef void(*VS_func_t)(const Uniforms*, const Vertex&, Vertex_gl&);
 
 class FS_Outputs {
   Vec4 out_comps[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
@@ -150,7 +150,7 @@ public:
   FS_Outputs();
   /* pure data struct/class like this does not need dtor */
 };
-typedef void(*FS_func_t)(const Uniforms&, const Fragment_gl&, FS_Outputs&, bool&, double&);
+typedef void(*FS_func_t)(const Uniforms*, const Fragment_gl&, FS_Outputs&, bool&, double&);
 
 /**
 Defines default vertex shader (VS), which transforms vertices from model local 
@@ -160,7 +160,7 @@ space to homogeneous clip space. This function can also be used as a template.
   @param vertex_out: The output vertex.
   @note: `gl_Position` of the @param vertex_out must be properly set.
 **/
-void default_VS(const Uniforms &uniforms, const Vertex &vertex_in, Vertex_gl &vertex_out);
+void default_VS(const Uniforms *uniforms, const Vertex &vertex_in, Vertex_gl &vertex_out);
 /**
 Assemble fragment from interpolated vertex. The assembled fragment will be sent
 to fragment shader immediately.
@@ -180,7 +180,7 @@ This function can also be used as a template.
   @param color_out: The calculated output color (in normalized range [0, 1]).
   @param discard: Whether this pixel is discarded or not.
 **/
-void default_FS(const Uniforms &uniforms, const Fragment_gl &fragment_in, FS_Outputs &fs_outs,
+void default_FS(const Uniforms *uniforms, const Fragment_gl &fragment_in, FS_Outputs &fs_outs,
   bool& is_discarded, double& gl_FragDepth);
 
 }; /* namespace sgl */

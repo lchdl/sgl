@@ -20,3 +20,15 @@ adjust the number of CPU cores used for rendering.
 #include "sgl_model.h"
 #include "sgl_pipeline.h"
 #include "sgl_pass.h"
+
+/*
+namespaces:
+
+sgl
++--base      base software rendering functionalities
+|            note: `sgl::base` does not rely on any external libraries
++--SDL2      implement communications between sgl and SDL2
+|            such as texture conversion
++--OpenGL    
+
+*/

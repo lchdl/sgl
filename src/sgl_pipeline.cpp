@@ -78,7 +78,7 @@ void Pipeline::delete_vertex_buffer(const int32_t & vbo)
   buffers.IndexBuffers[vbo].shrink_to_fit();
 }
 
-void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const Uniforms& uniforms) 
+void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const Uniforms* uniforms) 
 {
   if (shaders.VS == NULL || shaders.FS == NULL)
     return;
@@ -149,16 +149,9 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
 
 }
 
-void Pipeline::draw(
-  const int32_t & vbo, 
-  const int32_t & ibo, 
-  const Uniforms& uniforms)
+void Pipeline::draw(const int32_t & vbo, const int32_t & ibo, const Uniforms* uniforms)
 {
-  this->draw(
-    buffers.VertexBuffers[vbo], 
-    buffers.IndexBuffers[ibo], 
-    uniforms
-  );
+  this->draw(buffers.VertexBuffers[vbo], buffers.IndexBuffers[ibo], uniforms);
 }
 
 void Pipeline::clear_cache()
@@ -171,7 +164,7 @@ void Pipeline::clear_cache()
 
 void
 Pipeline::vertex_processing(const VertexBuffer_t &vertex_buffer,
-                            const Uniforms &uniforms) {
+                            const Uniforms *uniforms) {
   for (uint32_t i_vert = 0; i_vert < vertex_buffer.size(); i_vert++) {
     Vertex_gl vertex_out;
     /* Map vertex from model local space to homogeneous clip space and stores to
@@ -198,7 +191,7 @@ Pipeline::vertex_post_processing(const std::vector<int> &index_buffer) {
 }
 
 void
-Pipeline::fragment_processing(const Uniforms &uniforms) {
+Pipeline::fragment_processing(const Uniforms *uniforms) {
   for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
     /* Step 3.1: Convert clip space to NDC space (perspective divide) */
     Triangle_gl tri_gl = ppl.Triangles[i_tri];
@@ -280,9 +273,7 @@ Pipeline::fragment_processing(const Uniforms &uniforms) {
   }
 }
 
-void
-Pipeline::fragment_processing_MT(const Uniforms &uniforms,
-                                 const int &num_threads) {
+void Pipeline::fragment_processing_MT(const Uniforms *uniforms, const int &num_threads) {
 #pragma omp parallel for num_threads(num_threads)
   for (int thread_id = 0; thread_id < num_threads; thread_id++) {
     /**
@@ -377,8 +368,7 @@ Pipeline::fragment_processing_MT(const Uniforms &uniforms,
   }
 }
 
-void 
-Pipeline::fragment_processing_wireframe(const Uniforms & uniforms)
+void Pipeline::fragment_processing_wireframe(const Uniforms* uniforms)
 {
   for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
     /* Step 3.1: Convert clip space to NDC space (perspective divide) */
@@ -415,7 +405,7 @@ Pipeline::fragment_processing_wireframe(const Uniforms & uniforms)
   }
 }
 
-void Pipeline::fragment_processing_wireframe_MT(const Uniforms & uniforms, const int & num_threads)
+void Pipeline::fragment_processing_wireframe_MT(const Uniforms* uniforms, const int & num_threads)
 {
 #pragma omp parallel for num_threads(num_threads)
   for (int thread_id = 0; thread_id < num_threads; thread_id++) {
@@ -644,36 +634,44 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
     /* for the case when n_tri==0, the triangle is automatically discarded. */
   }
 }
+void Pipeline::clear_render_target(const int & slot, const Vec4 & clear_color)
+{
+  Texture* texture = targets.out_comps[slot];
+  if (texture == NULL) return;
+  if (texture->usage == TextureUsage::depth_buffer) {
+    /* depth buffer is special, when it needs to be cleared,
+    it should be set to 1.0, clear_color will be ignored. */
+    int n_pixels = texture->w * texture->h;
+    double *pixels = (double *)texture->pixels;
+    for (int i = 0; i < n_pixels; i++)
+      pixels[i] = 1.0;
+  }
+  else if (texture->format == PixelFormat::pixel_format_float64) {
+    /* if the texture format is float64 and it is not used as
+    a depth buffer, we take the first component of clear_color
+    and set all the pixels in the texture to this value. */
+    int n_pixels = texture->w * texture->h;
+    double *pixels = (double *)texture->pixels;
+    for (int i = 0; i < n_pixels; i++)
+      pixels[i] = clear_color.i[0];
+  }
+  else if (texture->format == PixelFormat::pixel_format_BGRA8888 ||
+    texture->format == PixelFormat::pixel_format_RGBA8888) {
+    uint8_t R, G, B, A;
+    uint32_t packed_32bit;
+    unpack_Vec4_color_to_unsigned_RGBA(clear_color, R, G, B, A);
+    pack_RGBA8888_to_uint32(R, G, B, A, texture->format, packed_32bit);
+    int n_pixels = texture->w * texture->h;
+    uint32_t *pixels = (uint32_t *)texture->pixels;
+    for (int i = 0; i < n_pixels; i++)
+      pixels[i] = packed_32bit;
+  }
+}
 void
 Pipeline::clear_render_targets(const Vec4 &clear_color)
 {
-  for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
-    Texture* texture = targets.out_comps[i];
-    if (texture == NULL) continue;
-    if (texture->usage == TextureUsage::depth_buffer) {
-      int n_pixels = texture->w * texture->h;
-      double *pixels = (double *)texture->pixels;
-      for (int i = 0; i < n_pixels; i++)
-        pixels[i] = 1.0;
-    }
-    else if (texture->format == PixelFormat::pixel_format_float64) {
-      int n_pixels = texture->w * texture->h;
-      double *pixels = (double *)texture->pixels;
-      for (int i = 0; i < n_pixels; i++)
-        pixels[i] = clear_color.i[0];
-    }
-    else if (texture->format == PixelFormat::pixel_format_BGRA8888 ||
-      texture->format == PixelFormat::pixel_format_RGBA8888) {
-      uint8_t R, G, B, A;
-      uint32_t packed_32bit;
-      unpack_Vec4_color_to_unsigned_RGBA(clear_color, R, G, B, A);
-      pack_RGBA8888_to_uint32(R, G, B, A, texture->format, packed_32bit);
-      int n_pixels = texture->w * texture->h;
-      uint32_t *pixels = (uint32_t *)texture->pixels;
-      for (int i = 0; i < n_pixels; i++)
-        pixels[i] = packed_32bit;
-    }
-  }
+  for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++)
+    clear_render_target(i, clear_color);
 }
 
 

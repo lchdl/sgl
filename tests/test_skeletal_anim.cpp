@@ -127,8 +127,6 @@ init_render() {
   boblamp_model.dump();
 
   /* Step 2: Setup render pass. */
-  animator.shaders.VS = model_VS;
-  animator.shaders.FS = model_FS;
   animator.out_texs.color = &color_texture;
   animator.out_texs.depth = &depth_texture;
   animator.out_texs.normal = &normal_texture;
@@ -163,18 +161,17 @@ init_render() {
   printf("\n");
 }
 
-double 
-render_frame(double T) {
+double render_frame(double T) {
   const double radius = 8.0;
   animator.play_time = fmod(T, 6.0); /* 6 seconds per loop */
   animator.anim_name = ""; /* play the animation "" */
   animator.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
   animator.eye.look_at = Vec3(0, 3.5, 0);
-  return animator.run();
+  animator.run();
+  return animator.last_draw_time;
 }
 
-int 
-main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
 
   /* initialization */
   init_env(argc, argv);

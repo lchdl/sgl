@@ -223,18 +223,4 @@ convert_assimp_quat(const aiQuaternion& q) {
   return Quat(q.w, q.x, q.y, q.z);
 }
 
-/* specialized VS and FS for mesh rendering. */
-void model_VS(
-  const Uniforms& uniforms,
-  const Vertex& vertex_in,
-  Vertex_gl& vertex_out
-);
-void model_FS(
-  const Uniforms& uniforms,
-  const Fragment_gl& fragment_in,
-  FS_Outputs& fs_outs,
-  bool& is_discarded,
-  double& gl_FragDepth
-);
-
 }; /* namespace sgl */
