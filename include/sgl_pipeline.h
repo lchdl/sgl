@@ -97,8 +97,8 @@ class Pipeline {
   @param uniforms: Uniform variables used by vertex and
     fragment shaders.
   **/
-  virtual void draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const Uniforms* uniforms);
-  virtual void draw(const int32_t& vbo, const int32_t& ibo, const Uniforms* uniforms);
+  virtual void draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const void* uniforms_data);
+  virtual void draw(const int32_t& vbo, const int32_t& ibo, const void* uniforms_data);
 
  public:
   /**
@@ -117,7 +117,7 @@ class Pipeline {
   will be stored into this->ppl.Vertices for further use.
   **/
   void vertex_processing(const VertexBuffer_t &vertex_buffer,
-                         const Uniforms *uniforms);
+                         const void *uniforms_data);
 
   /**
   Stage II: Vertex Post-processing.
@@ -135,10 +135,10 @@ class Pipeline {
   @note: "MT" stands for "multi-threaded" version. 
          * If running in MT mode, OpenMP must be enabled.
   **/
-  void fragment_processing(const Uniforms *uniforms);
-  void fragment_processing_MT(const Uniforms *uniforms, const int &num_threads);
-  void fragment_processing_wireframe(const Uniforms *uniforms);
-  void fragment_processing_wireframe_MT(const Uniforms *uniforms, const int &num_threads);
+  void fragment_processing(const void *uniforms_data);
+  void fragment_processing_MT(const void *uniforms_data, const int &num_threads);
+  void fragment_processing_wireframe(const void *uniforms_data);
+  void fragment_processing_wireframe_MT(const void *uniforms_data, const int &num_threads);
 
  protected:
   /**
@@ -254,7 +254,7 @@ class Pipeline {
   /**
   For wireframe rendering.
   **/
-  void _inner_interpolate(int x, int y, double q, const Vertex_gl & v1, const Vertex_gl & v2, const Vec2 & iz, const Uniforms* uniforms) {
+  void _inner_interpolate(int x, int y, double q, const Vertex_gl & v1, const Vertex_gl & v2, const Vec2 & iz, const void *uniforms_data) {
     Vec2 w = Vec2(q, 1.0 - q);
     Vertex_gl v_lerp = v1 * w.i[0] + v2 * w.i[1];
     double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1]);
@@ -266,14 +266,14 @@ class Pipeline {
     fragment.gl_FragCoord = Vec4(x, y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
     FS_Outputs fs_outs;
     bool is_discarded = false;
-    shaders.FS(uniforms, fragment, fs_outs, is_discarded, gl_FragDepth);
+    shaders.FS(uniforms_data, fragment, fs_outs, is_discarded, gl_FragDepth);
     /* Step 3.5: Fragment processing */
     if (!is_discarded) {
       write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
     }
   }
   void _bresenham_traversal(int x1, int y1, int x2, int y2,
-      const Vertex_gl & v1, const Vertex_gl & v2, const Vec2 & iz, const Uniforms* uniforms) {
+      const Vertex_gl & v1, const Vertex_gl & v2, const Vec2 & iz, const void *uniforms_data) {
     /* NOTE: internal drawing function, do not call it directly. */
     int dx, dy;
     int x, y;
@@ -288,7 +288,7 @@ class Pipeline {
       for (x = x1; x != x2; x += dx) {
         /* process (x, y) here */
         double q = double(x2 - x) / double(Dx);
-        _inner_interpolate(x, y, q, v1, v2, iz, uniforms);
+        _inner_interpolate(x, y, q, v1, v2, iz, uniforms_data);
         /* prepare for next iteration */
         epsilon += Dy;
         if ((epsilon << 1) > Dx) {
@@ -302,7 +302,7 @@ class Pipeline {
       for (y = y1; y != y2; y += dy) {
         /* process (x, y) here */
         double q = double(y2 - y) / double(Dy);
-        _inner_interpolate(x, y, q, v1, v2, iz, uniforms);
+        _inner_interpolate(x, y, q, v1, v2, iz, uniforms_data);
         /* prepare for next iteration */
         epsilon += Dx;
         if ((epsilon << 1) > Dy) {

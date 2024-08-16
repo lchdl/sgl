@@ -11,12 +11,53 @@ SDL_Surface* pWindowSurface;
 bool keystate[SDL_NUM_SCANCODES];
 
 Pipeline pipeline;
-Uniforms uniforms;
 VertexBuffer_t vertices;
 IndexBuffer_t indices;
 
 Texture color_texture, depth_texture;
 Texture image_texture;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * Vertex and Fragment Shaders * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+struct MyUniforms {
+  /* transforming vertex from local model space to world space. */
+  Mat4x4 model;
+  /* transforming vertex from world space to local view space. */
+  Mat4x4 view;
+  /* transforming vertex from local view space to homogeneous clip space. */
+  Mat4x4 projection;
+  /* texture objects */
+  const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
+} uniforms;
+
+void vertex_shader(const void *uniforms_data, const Vertex &vertex_in, Vertex_gl &vertex_out)
+{
+  const MyUniforms* uniforms = (const MyUniforms*)uniforms_data;
+
+  /* Implement default vertex shader. */
+  const Mat4x4 &model = uniforms->model;
+  const Mat4x4 &view = uniforms->view;
+  const Mat4x4 &projection = uniforms->projection;
+  /* Model & View & Projection matrix */
+  Mat4x4 transform = mul(mul(projection, view), model);
+  Vec4 gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
+  vertex_out.gl_Position = gl_Position;
+  vertex_out.t = vertex_in.t;
+  vertex_out.wn = mul(model, Vec4(vertex_in.n, 1.0)).xyz();
+  vertex_out.wp = mul(model, Vec4(vertex_in.p, 1.0)).xyz();
+}
+
+void fragment_shader(const void *data, const Fragment_gl &fragment_in, FS_Outputs &fs_outs,
+  bool& is_discarded, double& gl_FragDepth)
+{
+  const MyUniforms* uniforms = (const MyUniforms*)data;
+
+  Vec2 uv = fragment_in.t;
+  Vec3 textured = texture(uniforms->in_textures[0], uv).rgb();
+  fs_outs.set(0, Vec4(textured, 1.0));
+}
 
 void
 init_env(int argc, char* argv[]) {
@@ -108,7 +149,7 @@ init_render() {
   pipeline.set_render_target(0, &color_texture);
   pipeline.set_render_target(1, &depth_texture);
   pipeline.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
-  pipeline.set_shaders(default_VS, default_FS);
+  pipeline.set_shaders(vertex_shader, fragment_shader);
   pipeline.disable_backface_culling();
 
   Vertex v;

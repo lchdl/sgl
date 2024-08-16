@@ -145,7 +145,7 @@ void BaseAnimator::run(bool clear) {
     const int32_t mat_id = mesh_data[i_mesh].mat_id;
     const Mesh& mesh = mesh_data[i_mesh];
     /* calculate bone tranformation matrices and update uniform variables */
-    this->model->update_skeletal_animation_for_mesh(mesh, anim_name, play_time, uniforms);
+    this->model->update_skeletal_animation_for_mesh(mesh, anim_name, play_time, uniforms.bone_matrices);
     /* Setting up mesh materials. */
     this->uniforms.in_textures[0] = &materials[mat_id].diffuse_texture; /* diffuse texture */
     /* Launch the pipeline to render all the triangles in this mesh */
@@ -155,8 +155,9 @@ void BaseAnimator::run(bool clear) {
   this->last_draw_time = timer.tick();
 }
 
-void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out)
+void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_gl& vertex_out)
 {
+  const BaseAnimator_Uniforms* uniforms = (const BaseAnimator_Uniforms*)uniforms_data;
   /* uniforms:
    * in_textures[0]: diffuse texture.
    * */
@@ -183,9 +184,7 @@ void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_g
      * to make computation a little bit faster, we calculate
      * w[i]*m[i] for i in [0,1,2,3], then multiply it with p. */
     Mat4x4 bone_transform;
-    for (uint32_t i_bone=0;
-      i_bone < MAX_BONES_INFLUENCE_PER_VERTEX;
-      i_bone++)
+    for (uint32_t i_bone=0; i_bone < MAX_BONES_INFLUENCE_PER_VERTEX; i_bone++)
     {
       int32_t bone_id = vertex_in.bone_IDs.i[i_bone];
       /* bone_id can be negative, which indicates that the
@@ -208,9 +207,11 @@ void BaseAnimator_VS(const Uniforms* uniforms, const Vertex& vertex_in, Vertex_g
   }
 }
 
-void BaseAnimator_FS(const Uniforms* uniforms, const Fragment_gl& fragment_in,
+void BaseAnimator_FS(const void* uniforms_data, const Fragment_gl& fragment_in,
   FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth)
 {
+  const BaseAnimator_Uniforms* uniforms = (const BaseAnimator_Uniforms*)uniforms_data;
+
   Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);
   Vec3 textured = texture(uniforms->in_textures[0], uv).xyz();
   Vec3 wn = fragment_in.wn;

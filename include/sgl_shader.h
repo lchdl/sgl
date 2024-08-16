@@ -8,11 +8,6 @@ namespace sgl {
 
 /* A vertex/fragment shader can only accept 8 input textures at maximum. */
 const int MAX_TEXTURES_PER_SHADING_UNIT = 8;
-/* A vertex can only be affected by no more than 4 bones.
- * NOTE: this value cannot be changed. */
-const int MAX_BONES_INFLUENCE_PER_VERTEX = 4; 
-/* A mesh model can only have less than 128 nodes. */
-const int MAX_NODES_PER_MODEL = 128;
 /* Maximum fragment shader output color components */
 const int MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS = 8;
 
@@ -51,8 +46,7 @@ public:
   @note: `gl_Position` should be lerped but `gl_FragCoord` does not need to, it
   will be automatically assembled in rasterization stage.
   **/
-  static Vertex_gl lerp(const Vertex_gl &v0, const Vertex_gl &v1,
-    const double &w) {
+  static Vertex_gl lerp(const Vertex_gl &v0, const Vertex_gl &v1, const double &w) {
     return v0 * (1.0 - w) + v1 * w;
   }
   /**
@@ -98,41 +92,35 @@ struct Fragment_gl {
   Vec3 wn; /* world normal */
   Vec2 t;  /* texture coordinates */
 };
+/**
+Assemble fragment from interpolated vertex. The assembled fragment will be sent
+to fragment shader immediately.
+  @param vertex_in: The interpolated vertex generated in rasterization stage.
+  @param fragment_out: The assembled output fragment. After assembling this
+fragment will be sent into fragment_shader( @param fragment_in, ... ).
+  @note: `gl_FragCoord` of the @param fragment_in does not need to be set by
+users, as this member will be properly set by the rasterization pipeline.
+**/
+void assemble_fragment(const Vertex_gl &vertex_in, Fragment_gl &fragment_out);
 
-/* Uniform variables that are used by both vertex and fragment shaders. */
-struct Uniforms {
-  /* internal variables */
-  Vec3 gl_DepthRange; /* (x=near, y=far, z=diff=far-near) */
-  /* transforming vertex from local model space to world space. */
-  Mat4x4 model;
-  /* transforming vertex from world space to local view space. */
-  Mat4x4 view;
-  /* transforming vertex from local view space to homogeneous clip space. */
-  Mat4x4 projection;
-  /* texture objects */
-  const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
-  /* final bone transformations */
-  Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
-
-};
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* * * * * * * * * * * * Default shader implementations  * * * * * * * * * * */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * Vertex and Fragment Shaders * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /** 
 Defines vertex and fragment shader function pointer types.
 This will enable users to design their own vertex and fragment shaders
 and link them to the pipeline.
 **/
-typedef void(*VS_func_t)(const Uniforms*, const Vertex&, Vertex_gl&);
+typedef void(*VS_func_t)(const void*, const Vertex&, Vertex_gl&);
 
+/**
+A fragment shader can have multiple output components, and each 
+component will write to its corresponding bound texture.
+**/
 class FS_Outputs {
   Vec4 out_comps[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
-  /* 
-  0 = not used / invalid
-  1 = set
-  */
+  /* set_flags: 0 = not used / invalid, 1 = set */
   uint8_t set_flags[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS]; 
 public:
   /* reset: all color components are invalidated */
@@ -150,37 +138,6 @@ public:
   FS_Outputs();
   /* pure data struct/class like this does not need dtor */
 };
-typedef void(*FS_func_t)(const Uniforms*, const Fragment_gl&, FS_Outputs&, bool&, double&);
-
-/**
-Defines default vertex shader (VS), which transforms vertices from model local 
-space to homogeneous clip space. This function can also be used as a template.
-  @param vertex_in: The input vertex.
-  @param uniforms: Uniform variables used in vertex shader.
-  @param vertex_out: The output vertex.
-  @note: `gl_Position` of the @param vertex_out must be properly set.
-**/
-void default_VS(const Uniforms *uniforms, const Vertex &vertex_in, Vertex_gl &vertex_out);
-/**
-Assemble fragment from interpolated vertex. The assembled fragment will be sent
-to fragment shader immediately.
-  @param vertex_in: The interpolated vertex generated in rasterization stage.
-  @param fragment_out: The assembled output fragment. After assembling this
-fragment will be sent into fragment_shader( @param fragment_in, ... ).
-  @note: `gl_FragCoord` of the @param fragment_in does not need to be set by
-users, as this member will be properly set by the rasterization pipeline.
-**/
-void assemble_fragment(const Vertex_gl &vertex_in, Fragment_gl &fragment_out);
-
-/**
-Defines default fragment shader (FS), shades each fragment into color output. 
-This function can also be used as a template.
-  @param fragment_in: The input fragment.
-  @param uniforms: The input uniform variables.
-  @param color_out: The calculated output color (in normalized range [0, 1]).
-  @param discard: Whether this pixel is discarded or not.
-**/
-void default_FS(const Uniforms *uniforms, const Fragment_gl &fragment_in, FS_Outputs &fs_outs,
-  bool& is_discarded, double& gl_FragDepth);
+typedef void(*FS_func_t)(const void*, const Fragment_gl&, FS_Outputs&, bool&, double&);
 
 }; /* namespace sgl */
