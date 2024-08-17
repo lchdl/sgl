@@ -1,26 +1,30 @@
 #include <stdio.h>
-
+#include <sstream>
 #include "sgl.h"
 
 using namespace sgl;
 
-int w = 320, h = 240;
-int num_threads = 2;
-PipelineDrawMode draw_mode = PipelineDrawMode_Triangle;
 bool keystate[SDL_NUM_SCANCODES];
-int show_texture = 1;
-bool backface_culling = true;
-
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
 
-Model boblamp_model;
+int w = 320, h = 240;
+int num_threads = 2;
+int show_which_texture = 1;
+struct {
+  Texture color;
+  Texture depth;
+  Texture normal;
+} frame_buffer;
 BaseAnimator animator;
-Pipeline pipeline;
-Texture color_texture, depth_texture, normal_texture;
 
-void
-init_env(int argc, char* argv[]) {
+std::string dtos(double v, int precision) {
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(precision) << v;
+  return stream.str();
+}
+
+void init_env(int argc, char* argv[]) {
   SDL_SetMainReady();
 
   /* Initialize SDL */
@@ -41,14 +45,12 @@ init_env(int argc, char* argv[]) {
   set_cwd(gd(argv[0]));
 }
 
-void 
-destroy_env() {
+void destroy_env() {
   SDL_DestroyWindow(pWindow);
   SDL_Quit();
 }
 
-void
-process_key(SDL_KeyboardEvent *key) {
+void process_key(SDL_KeyboardEvent *key) {
   bool is_press = (key->type == SDL_KEYDOWN);
   /* scancode is based on QWERTY layout,
    * while keycode generated from the same key position
@@ -73,6 +75,7 @@ process_key(SDL_KeyboardEvent *key) {
     }
   }
   if (keycode == SDLK_RETURN && is_press) {
+    PipelineDrawMode draw_mode = animator.get_draw_mode();
     if (draw_mode == PipelineDrawMode_Triangle) {
       draw_mode = PipelineDrawMode_Wireframe;
       printf("Now uses DrawMode::wireframe_draw_mode.\n");
@@ -81,21 +84,22 @@ process_key(SDL_KeyboardEvent *key) {
       draw_mode = PipelineDrawMode_Triangle;
       printf("Now uses DrawMode::triangle_draw_mode.\n");
     }
-    pipeline.set_draw_mode(draw_mode);
+    animator.set_draw_mode(draw_mode);
   }
   if (keycode == SDLK_1 && is_press) {
-    show_texture = 1;
+    show_which_texture = 1;
     printf("Now display color components.\n");
   }
   else if (keycode == SDLK_2 && is_press) {
-    show_texture = 2;
+    show_which_texture = 2;
     printf("Now display depth components.\n");
   }
   else if (keycode == SDLK_3 && is_press) {
-    show_texture = 3;
+    show_which_texture = 3;
     printf("Now display normal maps.\n");
   }
   if (keycode == SDLK_b && is_press) {
+    bool backface_culling = animator.get_backface_culling_state();
     if (backface_culling == false) {
       backface_culling = true;
       printf("Backface culling: ON\n");
@@ -104,23 +108,18 @@ process_key(SDL_KeyboardEvent *key) {
       backface_culling = false;
       printf("Backface culling: OFF\n");
     }
-    pipeline.enable_backface_culling(backface_culling);
+    animator.set_backface_culling_state(backface_culling);
   }
 }
 
-void
-init_render() {
-  /* Step 1: Setup resources. */
-  color_texture.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  depth_texture.create(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
-  normal_texture.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  boblamp_model.load("models/boblamp.zip");
-  boblamp_model.dump();
+void init_render() {
+  /* setup resources */
+  frame_buffer.color = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  frame_buffer.depth = sgl::create_texture(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
+  frame_buffer.normal = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
 
-  /* Step 2: Setup render pass. */
-  animator.out_texs.color = &color_texture;
-  animator.out_texs.depth = &depth_texture;
-  animator.out_texs.normal = &normal_texture;
+  /* setup render pass */
+  animator.set_render_targets(&frame_buffer.color, &frame_buffer.depth, &frame_buffer.normal);
   animator.eye.position = Vec3(0, 6, 10);
   animator.eye.look_at = Vec3(0, 3.5, 0);
   animator.eye.up_dir = Vec3(0, 1, 0);
@@ -135,13 +134,13 @@ init_render() {
   animator.eye.orthographic.far = 50.0;
   animator.eye.orthographic.width = 12.0;
   animator.eye.orthographic.height = 9.0;
+
   /* setup model to be rendered */
-  animator.model = &boblamp_model;
-  animator.pipeline = &pipeline;
-  pipeline.set_draw_mode(PipelineDrawMode_Triangle);
+  animator.load_model("models/boblamp.zip");
+  animator.set_draw_mode(PipelineDrawMode_Triangle);
   
   if (num_threads > 0) {
-    pipeline.set_num_threads(num_threads);
+    animator.set_num_threads(num_threads);
   }
   printf("\n");
   printf("Press SPACE to switch between perspective/orthographic modes.\n");
@@ -154,12 +153,11 @@ init_render() {
 
 double render_frame(double T) {
   const double radius = 8.0;
-  animator.play_time = fmod(T, 6.0); /* 6 seconds per loop */
-  animator.anim_name = ""; /* play the animation "" */
+  animator.play_animation("", fmod(T, 6.0)); /* 6 seconds per loop */
   animator.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
   animator.eye.look_at = Vec3(0, 3.5, 0);
   animator.run();
-  return animator.last_draw_time;
+  return animator.query_last_draw_time();
 }
 
 int main(int argc, char* argv[]) {
@@ -170,7 +168,7 @@ int main(int argc, char* argv[]) {
 
   /* Start main loop */
   SDL_Event e;
-  Timer global_timer, frame_timer;
+  Timer global_timer;
   double T_global = 0.0, T_frame = 0.0;
   int frameid = 0;
 
@@ -182,30 +180,20 @@ int main(int argc, char* argv[]) {
     else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
       process_key(&e.key);
 
-    /* timing */
-    frameid++;
-    frame_timer.tick();
+    /* render & timing */
     T_global += global_timer.tick();
-    
-    /* render the whole frame */
-    double draw_time = render_frame(T_global);
-        
+    T_frame += render_frame(T_global);
+    frameid++;
+
     /* logging */
-    double frame_time = frame_timer.tick();
-    T_frame += draw_time;
-    if (show_texture == 1) {
-      sgl::SDL2::sgl_texture_to_SDL2_surface(animator.out_texs.color, pWindowSurface);
-    }
-    else if (show_texture == 2) {
-      sgl::SDL2::sgl_texture_to_SDL2_surface(animator.out_texs.depth, pWindowSurface);
-    }
-    else if (show_texture == 3) {
-      sgl::SDL2::sgl_texture_to_SDL2_surface(animator.out_texs.normal, pWindowSurface);
-    }
+    if (show_which_texture == 1)
+      sgl::SDL2::sgl_texture_to_SDL2_surface(&frame_buffer.color, pWindowSurface);
+    else if (show_which_texture == 2)
+      sgl::SDL2::sgl_texture_to_SDL2_surface(&frame_buffer.depth, pWindowSurface);
+    else if (show_which_texture == 3)
+      sgl::SDL2::sgl_texture_to_SDL2_surface(&frame_buffer.normal, pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
-    char buf[64];
-    sprintf(buf, "%.2lfms, T=%.2lfs", T_frame / frameid * 1000.0, T_global);
-    std::string title = std::string("SGL | ") + buf + " | FPS=" + std::to_string(int(1.0 / frame_time));
+    std::string title = std::string("SGL | ") + dtos(T_frame / frameid * 1000.0, 2) + "ms | FPS=" + std::to_string(int(frameid / T_frame));
     SDL_SetWindowTitle(pWindow, title.c_str());
   }
 

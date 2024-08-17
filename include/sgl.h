@@ -24,11 +24,10 @@ adjust the number of CPU cores used for rendering.
 /*
 namespaces:
 
-sgl
-+--base      base software rendering functionalities
-|            note: `sgl::base` does not rely on any external libraries
-+--SDL2      implement communications between sgl and SDL2
-|            such as texture conversion
+sgl         * Core software rasterization feature.
+|             (NOTE: this does not rely on any external libraries.)
++--SDL2     * Implement communications between sgl and SDL2.
+|             For example, texture to surface conversion
 +--OpenGL    
 
 */

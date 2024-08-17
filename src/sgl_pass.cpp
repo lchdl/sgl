@@ -2,56 +2,6 @@
 
 namespace sgl {
 
-Mat4x4 get_view_matrix(Vec3 eye, Vec3 look_at, Vec3 up)
-{
-  Vec3 front = normalize(eye - look_at);
-  Vec3 left = normalize(cross(up, front));
-  Vec3 up0 = normalize(cross(front, left));
-  Vec3 &F = front, &L = left, &U = up0;
-  const double &ex = eye.x, &ey = eye.y, &ez = eye.z;
-  Mat4x4 rotation(
-    L.x, L.y, L.z, 0.0,
-    U.x, U.y, U.z, 0.0,
-    F.x, F.y, F.z, 0.0,
-    0.0, 0.0, 0.0, 1.0);
-  Mat4x4 translation(
-    1.0, 0.0, 0.0, -ex,
-    0.0, 1.0, 0.0, -ey,
-    0.0, 0.0, 1.0, -ez,
-    0.0, 0.0, 0.0, 1.0);
-  return mul(rotation, translation);
-}
-Mat4x4 get_perspective_matrix(double aspect_ratio, double near, double far, double field_of_view) {
-  /* aspect_ratio = w/h */
-  double inv_aspect = double(1.0) / aspect_ratio;
-  double& n = near; /* near */
-  double& f = far; /* far */
-  double& fov = field_of_view;
-  double l = -tan(fov / double(2.0)) * n; /* left */
-  double r = -l; /* right */
-  double t = inv_aspect * r; /* top */
-  double b = -t; /* bottom */
-  return Mat4x4(
-    2 * n / (r - l), 0.0, (r + l) / (r - l), 0.0,
-    0.0, 2 * n / (t - b), (t + b) / (t - b), 0.0,
-    0.0, 0.0, -(f + n) / (f - n), -2 * f * n / (f - n),
-    0.0, 0.0, -1.0, 0.0);
-}
-Mat4x4 get_orthographic_matrix(double near, double far, double width, double height) {
-  double& n = near;
-  double& f = far;
-  double r = width * 0.5;
-  double l = -r;
-  double t = height * 0.5;
-  double b = -t;
-  return Mat4x4(
-    2.0 / (r - l), 0.0, 0.0, -(r + l) / (r - l),
-    0.0, 2.0 / (t - b), 0.0, -(t + b) / (t - b),
-    0.0, 0.0, -2.0 / (f - n), -(f + n) / (f - n),
-    0.0, 0.0, 0.0, 1.0
-  );
-}
-
 Mat4x4 Pass::get_view_matrix() const {
   return sgl::get_view_matrix(eye.position, eye.look_at, eye.up_dir);
 }
@@ -85,75 +35,117 @@ Pass::Pass()
 }
 
 BaseAnimator::BaseAnimator() { 
-  shaders.VS = BaseAnimator_VS;
-  shaders.FS = BaseAnimator_FS;
-  model = NULL; 
   play_time = 0.0; 
-  pipeline = NULL;
   out_texs.color = NULL;
   out_texs.depth = NULL;
   out_texs.normal = NULL;
 }
 
-bool BaseAnimator::validate() const
-{
-  if (out_texs.color == NULL || out_texs.depth == NULL ||
-    out_texs.normal == NULL) return false;
-  if (shaders.VS == NULL || shaders.FS == NULL) return false;
-  if (pipeline == NULL || model == NULL) return false;
-  /* buffer sizes must be equal */
-  if (out_texs.color->w != out_texs.depth->w || out_texs.depth->w != out_texs.normal->w)
-    return false;
-  if (out_texs.color->h != out_texs.depth->h || out_texs.depth->h != out_texs.normal->h)
-    return false;
-  return true;
-}
-
 void BaseAnimator::run(bool clear) {
-  this->pipeline->set_shaders(shaders.VS, shaders.FS);
-  this->pipeline->bind_render_target(0, out_texs.color);
-  this->pipeline->bind_render_target(1, out_texs.depth);
-  this->pipeline->bind_render_target(2, out_texs.normal);
+  this->pipeline.bind_render_target(0, out_texs.color);
+  this->pipeline.bind_render_target(1, out_texs.depth);
+  this->pipeline.bind_render_target(2, out_texs.normal);
   if (clear)
-    this->pipeline->clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
+    pipeline.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
 
   /* setup uniforms */
-  this->uniforms.world = this->model->get_model_transform();
+  this->uniforms.world = this->model.get_model_transform();
   this->uniforms.view = this->get_view_matrix();
   this->uniforms.projection = this->get_projection_matrix(out_texs.color->w, out_texs.color->h);
 
   /* Rendering all the mesh parts in model */
-  const std::vector<Mesh>& mesh_data = model->get_meshes();
-  const std::vector<Material>& materials = model->get_materials();
+  const std::vector<Mesh>& mesh_data = model.get_meshes();
+  const std::vector<Material>& materials = model.get_materials();
 
   Timer timer;
   timer.tick();
 
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
-    const VertexBuffer_t& vertices = mesh_data[i_mesh].vertices;
-    const IndexBuffer_t& indices = mesh_data[i_mesh].indices;
     const int32_t mat_id = mesh_data[i_mesh].mat_id;
     const Mesh& mesh = mesh_data[i_mesh];
     /* calculate bone tranformation matrices and update uniform variables */
-    this->model->update_skeletal_animation_for_mesh(mesh, anim_name, play_time, uniforms.bone_matrices);
+    this->model.update_skeletal_animation_for_mesh(mesh, anim_name, play_time, uniforms.bone_matrices);
     /* Setting up mesh materials. */
     this->uniforms.in_textures[0] = &materials[mat_id].diffuse_texture; /* diffuse texture */
     /* Launch the pipeline to render all the triangles in this mesh */
-    this->pipeline->draw(vertices, indices, &uniforms);
+    this->pipeline.draw(shader, vertices_map[i_mesh], indices_map[i_mesh], uniforms);
   }
 
   this->last_draw_time = timer.tick();
 }
 
-void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_gl& vertex_out, Vec4& gl_Position)
+void BaseAnimator::load_model(const std::string & file)
 {
-  const BaseAnimator_Uniforms* uniforms = (const BaseAnimator_Uniforms*)uniforms_data;
+  this->vertices_map.clear();
+  this->indices_map.clear();
+
+  this->model.load(file);
+
+  /* load mesh data */
+  const std::vector<Mesh>& mesh_data = model.get_meshes();
+  const std::vector<Material>& materials = model.get_materials();
+
+  for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
+    const std::vector<MeshVertex>& vertices = mesh_data[i_mesh].vertices;
+    const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
+    /* load vertices */
+    this->vertices_map.insert(std::pair<uint32_t, Pipeline_t::VertexBuffer_t>(i_mesh, Pipeline_t::VertexBuffer_t()));
+    for (uint32_t i_vert=0; i_vert < vertices.size(); i_vert++) {
+      Vertex v;
+      v.convert_from(vertices[i_vert]);
+      this->vertices_map[i_mesh].push_back(v);
+    }
+    /* load indices */
+    this->indices_map.insert(std::pair<uint32_t, Pipeline_t::IndexBuffer_t>(i_mesh, Pipeline_t::IndexBuffer_t()));
+    for (uint32_t i_ind=0; i_ind < indices.size(); i_ind++) {
+      this->indices_map[i_mesh].push_back(indices[i_ind]);
+    }
+  }
+}
+
+inline void BaseAnimator::Vertex::convert_from(const MeshVertex & v) {
+  /* simply just a copy */
+  this->p = v.p;
+  this->n = v.n;
+  this->t = v.t;
+  this->bone_IDs = v.bone_IDs;
+  this->bone_weights = v.bone_weights;
+}
+
+inline void BaseAnimator::Fragment::operator*=(const double& w)
+{
+  this->gl_Position *= w;
+  this->wp *= w;
+  this->wn *= w;
+  this->t *= w;
+}
+
+inline BaseAnimator::Fragment BaseAnimator::Fragment::operator*(const double& w) const {
+  Fragment result;
+  result.gl_Position = this->gl_Position * w;
+  result.wp = this->wp * w;
+  result.wn = this->wn * w;
+  result.t = this->t * w;
+  return result;
+}
+
+inline BaseAnimator::Fragment BaseAnimator::Fragment::operator+(const Fragment& frag) const {
+  Fragment result;
+  result.gl_Position = this->gl_Position + frag.gl_Position;
+  result.wp = this->wp + frag.wp;
+  result.wn = this->wn + frag.wn;
+  result.t = this->t + frag.t;
+  return result;
+}
+
+inline void BaseAnimator::Shader::VS(const Uniforms & uniforms, const Vertex & vertex_in, Fragment & vertex_out, Vec4 & gl_Position) const
+{
   /* uniforms:
-   * in_textures[0]: diffuse texture.
-   * */
-  const Mat4x4 &world = uniforms->world;
-  const Mat4x4 &view = uniforms->view;
-  const Mat4x4 &projection = uniforms->projection;
+  * in_textures[0]: diffuse texture.
+  * */
+  const Mat4x4 &world = uniforms.world;
+  const Mat4x4 &view = uniforms.view;
+  const Mat4x4 &projection = uniforms.projection;
   Mat4x4 transform_WVP = mul(projection, mul(view, world));
 
   if (vertex_in.bone_IDs.i[0] < 0) {
@@ -166,21 +158,21 @@ void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_
   else {
     /* vertex is controlled by at least one bone */
     /* calculate:
-     * p_final = sum( w[i]*m[i]*p, for i in [0,1,2,3] ), where
-     * p is the vertex position in local model space (T-pose),
-     * m[i] is the i-th final bone transformation matrix,
-     * w[i] is the i-th bone influence weight to the vertex.
-     * to make computation a little bit faster, we calculate
-     * w[i]*m[i] for i in [0,1,2,3], then multiply it with p. */
+    * p_final = sum( w[i]*m[i]*p, for i in [0,1,2,3] ), where
+    * p is the vertex position in local model space (T-pose),
+    * m[i] is the i-th final bone transformation matrix,
+    * w[i] is the i-th bone influence weight to the vertex.
+    * to make computation a little bit faster, we calculate
+    * w[i]*m[i] for i in [0,1,2,3], then multiply it with p. */
     Mat4x4 bone_transform;
-    for (uint32_t i_bone=0; i_bone < MAX_BONES_INFLUENCE_PER_VERTEX; i_bone++)
+    for (uint32_t i_bone = 0; i_bone < MAX_BONES_INFLUENCE_PER_VERTEX; i_bone++)
     {
       int32_t bone_id = vertex_in.bone_IDs.i[i_bone];
       /* bone_id can be negative, which indicates that the
-       * corresponding slot is unused. */
+      * corresponding slot is unused. */
       if (bone_id < 0) break;
       double bone_weight = vertex_in.bone_weights.i[i_bone];
-      const Mat4x4& bone_matrix = uniforms->bone_matrices[bone_id];
+      const Mat4x4& bone_matrix = uniforms.bone_matrices[bone_id];
       bone_transform += bone_weight * bone_matrix;
     }
     Vec4 p0 = mul(bone_transform, Vec4(vertex_in.p, 1.0));
@@ -196,13 +188,11 @@ void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_
   }
 }
 
-void BaseAnimator_FS(const void* uniforms_data, const Fragment_gl& fragment_in, const Vec4& gl_FragCoord,
-  FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth)
+inline void BaseAnimator::Shader::FS(const Uniforms & uniforms, const Fragment & fragment_in, 
+  const Vec4 & gl_FragCoord, FS_Outputs & fs_outs, bool & discard, double & gl_FragDepth) const
 {
-  const BaseAnimator_Uniforms* uniforms = (const BaseAnimator_Uniforms*)uniforms_data;
-
   Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);
-  Vec3 textured = texture(uniforms->in_textures[0], uv).xyz();
+  Vec3 textured = texture(uniforms.in_textures[0], uv).xyz();
   Vec3 wn = fragment_in.wn;
   Vec3 wp = fragment_in.wp;
   double falloff = dot(wn, Vec3(0, 1, 0));

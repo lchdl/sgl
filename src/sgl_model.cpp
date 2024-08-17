@@ -106,7 +106,7 @@ Model::load(const std::string& file) {
       const aiVector3D* position = &mesh->mVertices[i_vert];
       const aiVector3D* normal   = &mesh->mNormals[i_vert];
       const aiVector3D* texcoord = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
-      Vertex v;
+      MeshVertex v;
       v.p = Vec3(double(position->x), double(position->y), double(position->z));
       v.n = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
       v.t = Vec2(double(texcoord->x), double(texcoord->y));
@@ -139,7 +139,7 @@ Model::load(const std::string& file) {
         aiVertexWeight vw = mesh->mBones[i_bone]->mWeights[i_vert];
         /* write bone info into affected vertex (let the vertex know
          * there is a bone that influences itself). */
-        Vertex& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
+        MeshVertex& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
         uint32_t node_unique_id = this->node_name_to_unique_id[bone.name];
         _register_vertex_weight(affected_vert, node_unique_id, vw.mWeight);
       }
@@ -287,9 +287,7 @@ Model::_delete_node(Node * node)
 
 void
 Model::_register_vertex_weight(
-    Vertex& v, 
-    uint32_t bone_ID, 
-    double weight) 
+  MeshVertex& v, uint32_t bone_ID, double weight) 
 {
   /* insert & sort vertex weights in descent order,
    * in this way, only top-k bones will be kept for
@@ -327,9 +325,9 @@ Model::_update_mesh_skeletal_animation_from_node(
   const Node* node, const Mat4x4& parent_transform, const Mesh& mesh,
   const uint32_t& anim_id, double play_time, Mat4x4* bone_matrices)
 {
-  /* retrieve some info about this node. 
-  NOTE: in Assimp, if a node is actually a bone, then the node name will be 
-  set to be the same as the bone name. */
+  /* First we retrieve some info about this node. In Assimp, if a node 
+  is actually a bone, then the node name will be set to be the same as 
+  the bone name. */
   std::string node_name = node->name;
   std::map<std::string, uint32_t>::const_iterator 
     item = mesh.bone_name_to_local_id.find(node_name);
@@ -596,6 +594,52 @@ Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
   this->_update_mesh_skeletal_animation_from_node(
     root_node, Mat4x4::identity(), mesh, 
     anim_id, play_time, bone_matrices);
+}
+
+Vec3 calculate_tangent(
+  const Vec3 & p0, const Vec3 & p1, const Vec3 & p2, 
+  const Vec2 & t0, const Vec2 & t1, const Vec2 & t2)
+{
+  /* assume p0-p1-p2 is counter clock wised */
+  Vec3 e1 = p1 - p0, e2 = p2 - p0;
+  double dU0 = t1.x - t0.x, dU1 = t2.x - t0.x;
+  double dV0 = t1.y - t0.y, dV1 = t2.y - t0.y;
+  Mat2x2 Q = Mat2x2(
+    dU0, dV0,
+    dU1, dV1
+  );
+  Mat2x2 Q_inv = inverse(Q);
+  return Vec3(
+    Q_inv.i11 * e1.x + Q_inv.i12 * e2.x,
+    Q_inv.i11 * e1.y + Q_inv.i12 * e2.y,
+    Q_inv.i11 * e1.z + Q_inv.i12 * e2.z
+  );
+}
+
+void calculate_tangent_bitangent(
+  const Vec3 & p0, const Vec3 & p1, const Vec3 & p2, 
+  const Vec2 & t0, const Vec2 & t1, const Vec2 & t2, 
+  Vec3 & tangent, Vec3 & bitangent)
+{
+  /* assume p0-p1-p2 is counter clock wised */
+  Vec3 e1 = p1 - p0, e2 = p2 - p0;
+  double dU0 = t1.x - t0.x, dU1 = t2.x - t0.x;
+  double dV0 = t1.y - t0.y, dV1 = t2.y - t0.y;
+  Mat2x2 Q = Mat2x2(
+    dU0, dV0,
+    dU1, dV1
+  );
+  Mat2x2 Q_inv = inverse(Q);
+  tangent = Vec3(
+    Q_inv.i11 * e1.x + Q_inv.i12 * e2.x,
+    Q_inv.i11 * e1.y + Q_inv.i12 * e2.y,
+    Q_inv.i11 * e1.z + Q_inv.i12 * e2.z
+  );
+  bitangent = Vec3(
+    Q_inv.i21 * e1.x + Q_inv.i22 * e2.x,
+    Q_inv.i21 * e1.y + Q_inv.i22 * e2.y,
+    Q_inv.i21 * e1.z + Q_inv.i22 * e2.z
+  );
 }
 
 }; /* namespace sgl */

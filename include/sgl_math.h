@@ -602,6 +602,26 @@ normalize(Vec4 _a) {
   double invlen = double(1.0) / length(_a);
   return Vec4(_a.x * invlen, _a.y * invlen, _a.z * invlen, _a.w * invlen);
 }
+inline Vec4 mul(Vec4 _a, Vec4 _b) {
+  return Vec4(_a.x * _b.x, _a.y * _b.y, _a.z * _b.z, _a.w * _b.w);
+}
+inline Vec4 operator*(Vec4 _a, Vec4 _b) {
+  return mul(_a, _b);
+}
+
+inline Mat2x2 mul(Mat2x2 _a, Mat2x2 _b) {
+  return Mat2x2(
+    _a.i11*_b.i11 + _a.i12*_b.i21, _a.i11*_b.i12 + _a.i12*_b.i22,
+    _a.i21*_b.i11 + _a.i22*_b.i21, _a.i21*_b.i12 + _a.i22*_b.i22
+    );
+}
+inline Mat2x2 operator*(Mat2x2 _a, Mat2x2 _b) {
+  return mul(_a, _b);
+}
+inline Mat2x2 inverse(Mat2x2 _a) {
+  return _a.inverse();
+}
+
 inline Mat3x3
 transpose(Mat3x3 _a) {
   return Mat3x3(_a.i11, _a.i21, _a.i31, _a.i12, _a.i22, _a.i32, _a.i13, _a.i23,
@@ -631,6 +651,10 @@ mul(Mat3x3 _a, Mat3x3 _b) {
   }
   return c;
 }
+inline Mat3x3 inverse(Mat3x3 _a) {
+  return _a.inverse();
+}
+
 inline Vec3
 mul(Vec3 _a, Mat3x3 _b) {
   return Vec3(_a.x * _b.i[0] + _a.y * _b.i[3] + _a.z * _b.i[6],
@@ -686,21 +710,31 @@ mul(Mat4x4 _a, Mat4x4 _b) {
   }
   return c;
 }
-inline Vec4
-mul(Vec4 _a, Mat4x4 _b) {
+inline Mat4x4 operator*(Mat4x4 _a, Mat4x4 _b) {
+  return mul(_a, _b);
+}
+inline Mat4x4 inverse(Mat4x4 _a) {
+  return _a.inverse();
+}
+inline Vec4 mul(Vec4 _a, Mat4x4 _b) {
   return Vec4(
       _a.x * _b.i[0] + _a.y * _b.i[4] + _a.z * _b.i[8] + _a.w * _b.i[12],
       _a.x * _b.i[1] + _a.y * _b.i[5] + _a.z * _b.i[9] + _a.w * _b.i[13],
       _a.x * _b.i[2] + _a.y * _b.i[6] + _a.z * _b.i[10] + _a.w * _b.i[14],
       _a.x * _b.i[3] + _a.y * _b.i[7] + _a.z * _b.i[11] + _a.w * _b.i[15]);
 }
-inline Vec4
-mul(Mat4x4 _a, Vec4 _b) {
+inline Vec4 operator*(Vec4 _a, Mat4x4 _b) {
+  return mul(_a, _b);
+}
+inline Vec4 mul(Mat4x4 _a, Vec4 _b) {
   return Vec4(
       _b.x * _a.i[0] + _b.y * _a.i[1] + _b.z * _a.i[2] + _b.w * _a.i[3],
       _b.x * _a.i[4] + _b.y * _a.i[5] + _b.z * _a.i[6] + _b.w * _a.i[7],
       _b.x * _a.i[8] + _b.y * _a.i[9] + _b.z * _a.i[10] + _b.w * _a.i[11],
       _b.x * _a.i[12] + _b.y * _a.i[13] + _b.z * _a.i[14] + _b.w * _a.i[15]);
+}
+inline Vec4 operator*(Mat4x4 _a, Vec4 _b) {
+  return mul(_a, _b);
 }
 inline Mat4x4
 operator*(Mat4x4 _a, double _b) {

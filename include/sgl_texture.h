@@ -56,10 +56,11 @@ class Texture {
   @param texture_format: Format of the created texture.
   @param texture_sampling: Defines how to interpolate texture data.
   **/
-  void create(int32_t w, int32_t h, 
-    PixelFormat texture_format, 
-    TextureSampling texture_sampling,
-    TextureUsage texture_usage);
+  void create(int32_t w, int32_t h, PixelFormat format, TextureSampling sampling, TextureUsage usage);
+  /**
+  Load an image from disk.
+  **/
+  void load(const std::string &file, const PixelFormat& target_format = PixelFormat_BGRA8888);
   /**
   Destroy texture.
   **/
@@ -99,7 +100,7 @@ class Texture {
   Create an empty image.
   This is equivalent to Texture::create().
 **/
-Texture create_texture(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage);
+Texture create_texture(int32_t w, int32_t h, PixelFormat format, TextureSampling sampling, TextureUsage usage);
 
 /**
   Load an image from disk and return the loaded texture object.

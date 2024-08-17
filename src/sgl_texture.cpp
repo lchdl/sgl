@@ -46,17 +46,31 @@ void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSa
     this->bypp = 8;
   }
   else {
-    printf("Texture create failed: unsupported / "
-      "unimplemented texture format.\n");
+    printf("Texture create failed: unsupported / unimplemented texture format.\n");
   }
-
   if (this->usage == TextureUsage_DepthBuffer) {
     if (this->format != PixelFormat_Float64) {
       printf("Texture create failed: depth buffer must have format float64.");
     }
   }
-
   this->pixels = malloc(w * h * bypp);
+}
+
+void Texture::load(const std::string & file, const PixelFormat & target_format)
+{
+  int x, y, n;
+  unsigned char *data = stbi_load(file.c_str(), &x, &y, &n, 4);
+  if (data == NULL) {
+    const char *failure = stbi_failure_reason();
+    printf("Failed to load image \"%s\", %s.\n", file.c_str(), failure);
+    printf("* note: current working directory is: \"%s\".\n", get_cwd().c_str());
+    return;
+  }
+  this->create(x, y, PixelFormat_RGBA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  uint8_t *pixels = (uint8_t *)this->pixels;
+  memcpy(pixels, data, x * y * 4);
+  stbi_image_free(data);
+  this->to_format(target_format);
 }
 
 void Texture::copy(const Texture &texture) {
@@ -201,28 +215,17 @@ bool Texture::save_png(const std::string & path) const
   return false;
 }
 
-Texture create_texture(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage)
+Texture create_texture(int32_t w, int32_t h, PixelFormat format, TextureSampling sampling, TextureUsage usage)
 {
   Texture texture;
-  texture.create(w, h, texture_format, texture_sampling, texture_usage);
+  texture.create(w, h, format, sampling, usage);
   return texture;
 }
 
 Texture load_texture(const std::string &file, const PixelFormat& target_format) {
-  int x, y, n;
-  unsigned char *data = stbi_load(file.c_str(), &x, &y, &n, 4);
   Texture texture;
-  if (data == NULL) {
-    const char *failure = stbi_failure_reason();
-    printf("Failed to load image \"%s\", %s.\n", file.c_str(), failure);
-    printf("* note: current working directory is: \"%s\".\n", get_cwd().c_str());
-    return texture;
-  }
-  texture.create(x, y, PixelFormat_RGBA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  uint8_t *pixels = (uint8_t *) texture.pixels;
-  memcpy(pixels, data, x * y * 4);
-  stbi_image_free(data);
-  return texture.to_format(target_format);
+  texture.load(file, target_format);
+  return texture;
 }
 
 Vec4 texture(const Texture *texobj, const Vec2 &uv) {
