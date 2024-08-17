@@ -102,7 +102,7 @@ class Texture {
 will be returned (pixels=NULL).
 **/
 Texture load_texture(const std::string &file, 
-  const PixelFormat& target_format = PixelFormat::PixelFormat_BGRA8888);
+  const PixelFormat& target_format = PixelFormat_BGRA8888);
 
 /**
   Common interface for sampling a texture. Designed mainly for fragment shaders.

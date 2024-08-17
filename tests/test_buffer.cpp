@@ -116,14 +116,8 @@ compute_projection_matrix(double w, double h, double near, double far, double fi
 void
 init_render() {
   /* Step 1: Setup resources. */
-  color_texture.create(w, h,
-    PixelFormat::PixelFormat_RGBA8888,
-    TextureSampling::TextureSampling_Nearest,
-    TextureUsage::TextureUsage_ColorComponents);
-  depth_texture.create(w, h,
-    PixelFormat::PixelFormat_Float64,
-    TextureSampling::TextureSampling_Nearest,
-    TextureUsage::TextureUsage_DepthBuffer);
+  color_texture.create(w, h, PixelFormat_RGBA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  depth_texture.create(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
 
   /* rotate model along x axis by -55 degrees */
   Mat4x4 model(quat_to_mat3x3(Quat::rot_x(degrees_to_radians(-55.0))));
@@ -186,7 +180,7 @@ init_render() {
 }
 
 void
-render_frame() {
+render_frame_and_save_to_disk() {
   pipeline.draw(vbo, ibo, &uniforms);
 }
 
@@ -217,7 +211,7 @@ main(int argc, char* argv[]) {
     T_global += global_timer.tick();
 
     /* render the whole frame */
-    render_frame();
+    render_frame_and_save_to_disk();
 
     /* logging */
     double frame_time = frame_timer.tick();

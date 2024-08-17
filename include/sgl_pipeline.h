@@ -236,9 +236,9 @@ class Pipeline {
     note that here we default to little endian, 
     the order of all color components should be reversed when packing
     */
-    if (target_format == PixelFormat::PixelFormat_RGBA8888)
+    if (target_format == PixelFormat_RGBA8888)
       out_result = ((A << 24) | (B << 16) | (G << 8) | R);
-    else if (target_format == PixelFormat::PixelFormat_BGRA8888)
+    else if (target_format == PixelFormat_BGRA8888)
       out_result = ((A << 24) | (R << 16) | (G << 8) | B);
     else
       printf("Invalid texture format.\n");

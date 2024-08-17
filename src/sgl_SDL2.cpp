@@ -10,7 +10,7 @@ sgl_texture_to_SDL2_surface(const Texture * texture, SDL_Surface * surface) {
   Since SDL2 use Direct3D or OpenGL as its backend, it also follows the same native 
   surface format as Direct3D or OpenGL.
   */
-  if (texture->format == PixelFormat::PixelFormat_RGBA8888) {
+  if (texture->format == PixelFormat_RGBA8888) {
     uint8_t* src = (uint8_t*)texture->pixels;
     uint8_t* dst = (uint8_t*)surface->pixels;
     const uint32_t buffer_bytes = 4 * texture->w * texture->h;
@@ -24,13 +24,13 @@ sgl_texture_to_SDL2_surface(const Texture * texture, SDL_Surface * surface) {
       }
     }
   }
-  else if (texture->format == PixelFormat::PixelFormat_BGRA8888) {
+  else if (texture->format == PixelFormat_BGRA8888) {
     uint8_t* src = (uint8_t*)texture->pixels;
     uint8_t* dst = (uint8_t*)surface->pixels;
     const uint32_t buffer_bytes = 4 * texture->w * texture->h;
     memcpy(dst, src, buffer_bytes);
   }
-  else if (texture->format == PixelFormat::PixelFormat_Float64) {
+  else if (texture->format == PixelFormat_Float64) {
     /* this is usually for visualizing the depth buffer [0.0, 1.0] */
     double* src = (double*)texture->pixels;
     uint8_t* dst = (uint8_t*)surface->pixels;

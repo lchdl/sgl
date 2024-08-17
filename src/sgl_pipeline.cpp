@@ -14,7 +14,7 @@ void Pipeline::_zero_init()
   ppl.num_threads = max(get_cpu_cores(), 1);
   ppl.backface_culling = true;
   ppl.do_depth_test = true;
-  ppl.draw_mode = PipelineDrawMode::PipelineDrawMode_Triangle;
+  ppl.draw_mode = PipelineDrawMode_Triangle;
 }
 
 Pipeline::Pipeline() {
@@ -112,7 +112,7 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
         return;
       }
     }
-    if (targets.out_comps[i]->usage == TextureUsage::TextureUsage_DepthBuffer) {
+    if (targets.out_comps[i]->usage == TextureUsage_DepthBuffer) {
       num_depth_buffers++;
       ppl.depth_texture_slot = i;
     }
@@ -130,7 +130,7 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
   vertex_post_processing(indices);
 
   /* Step III: Rasterization & fragment processing */
-  if (ppl.draw_mode == PipelineDrawMode::PipelineDrawMode_Triangle) {
+  if (ppl.draw_mode == PipelineDrawMode_Triangle) {
     if (ppl.num_threads > 1) {
       fragment_processing_MT(uniforms_data, ppl.num_threads);
     }
@@ -138,7 +138,7 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
       fragment_processing(uniforms_data);
     }
   }
-  else if (ppl.draw_mode == PipelineDrawMode::PipelineDrawMode_Wireframe) {
+  else if (ppl.draw_mode == PipelineDrawMode_Wireframe) {
     if (ppl.num_threads > 1) {
       fragment_processing_wireframe_MT(uniforms_data, ppl.num_threads);
     }
@@ -474,8 +474,8 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
     be aware that different texture formats will have different physical 
     storage method
     */
-    if (targets.out_comps[i_slot]->format == PixelFormat::PixelFormat_BGRA8888 ||
-      targets.out_comps[i_slot]->format == PixelFormat::PixelFormat_RGBA8888) {
+    if (targets.out_comps[i_slot]->format == PixelFormat_BGRA8888 ||
+      targets.out_comps[i_slot]->format == PixelFormat_RGBA8888) {
       uint8_t R, G, B, A;
       uint32_t packed_32bit;
       unpack_Vec4_color_to_unsigned_RGBA(color, R, G, B, A);
@@ -483,7 +483,7 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
       uint32_t *pixels = (uint32_t *)targets.out_comps[i_slot]->pixels;
       pixels[pixel_id] = packed_32bit;
     }
-    else if (targets.out_comps[i_slot]->format == PixelFormat::PixelFormat_Float64) {
+    else if (targets.out_comps[i_slot]->format == PixelFormat_Float64) {
       /* we only select the first component of the Vec4 color (color.i[0]), other components are ignored */
       double data = color.i[0];
       double *pixels = (double *)targets.out_comps[i_slot]->pixels;
@@ -637,7 +637,7 @@ void Pipeline::clear_render_target(const int & slot, const Vec4 & clear_color)
 {
   Texture* texture = targets.out_comps[slot];
   if (texture == NULL) return;
-  if (texture->usage == TextureUsage::TextureUsage_DepthBuffer) {
+  if (texture->usage == TextureUsage_DepthBuffer) {
     /* depth buffer is special, when it needs to be cleared,
     it should be set to 1.0, clear_color will be ignored. */
     int n_pixels = texture->w * texture->h;
@@ -645,7 +645,7 @@ void Pipeline::clear_render_target(const int & slot, const Vec4 & clear_color)
     for (int i = 0; i < n_pixels; i++)
       pixels[i] = 1.0;
   }
-  else if (texture->format == PixelFormat::PixelFormat_Float64) {
+  else if (texture->format == PixelFormat_Float64) {
     /* if the texture format is float64 and it is not used as
     a depth buffer, we take the first component of clear_color
     and set all the pixels in the texture to this value. */
@@ -654,8 +654,8 @@ void Pipeline::clear_render_target(const int & slot, const Vec4 & clear_color)
     for (int i = 0; i < n_pixels; i++)
       pixels[i] = clear_color.i[0];
   }
-  else if (texture->format == PixelFormat::PixelFormat_BGRA8888 ||
-    texture->format == PixelFormat::PixelFormat_RGBA8888) {
+  else if (texture->format == PixelFormat_BGRA8888 ||
+    texture->format == PixelFormat_RGBA8888) {
     uint8_t R, G, B, A;
     uint32_t packed_32bit;
     unpack_Vec4_color_to_unsigned_RGBA(clear_color, R, G, B, A);
