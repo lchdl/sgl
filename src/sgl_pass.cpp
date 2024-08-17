@@ -145,7 +145,7 @@ void BaseAnimator::run(bool clear) {
   this->last_draw_time = timer.tick();
 }
 
-void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_gl& vertex_out)
+void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_gl& vertex_out, Vec4& gl_Position)
 {
   const BaseAnimator_Uniforms* uniforms = (const BaseAnimator_Uniforms*)uniforms_data;
   /* uniforms:
@@ -158,8 +158,7 @@ void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_
 
   if (vertex_in.bone_IDs.i[0] < 0) {
     /* vertex does not belong to any bone */
-    Vec4 gl_Position = mul(transform_WVP, Vec4(vertex_in.p, 1.0));
-    vertex_out.gl_Position = gl_Position;
+    gl_Position = mul(transform_WVP, Vec4(vertex_in.p, 1.0));
     vertex_out.t = vertex_in.t;
     vertex_out.wn = mul(world, Vec4(vertex_in.n, 1.0)).xyz();
     vertex_out.wp = mul(world, Vec4(vertex_in.p, 1.0)).xyz();
@@ -187,7 +186,7 @@ void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_
     Vec4 p0 = mul(bone_transform, Vec4(vertex_in.p, 1.0));
     Vec4 n0 = mul(bone_transform, Vec4(vertex_in.n, 0.0));
     /* apply final matrix to vertex position */
-    vertex_out.gl_Position = mul(transform_WVP, p0);
+    gl_Position = mul(transform_WVP, p0);
     /* copy texture coordinate */
     vertex_out.t = vertex_in.t;
     /* calculate world normal and position */
@@ -197,7 +196,7 @@ void BaseAnimator_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_
   }
 }
 
-void BaseAnimator_FS(const void* uniforms_data, const Fragment_gl& fragment_in,
+void BaseAnimator_FS(const void* uniforms_data, const Fragment_gl& fragment_in, const Vec4& gl_FragCoord,
   FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth)
 {
   const BaseAnimator_Uniforms* uniforms = (const BaseAnimator_Uniforms*)uniforms_data;
@@ -208,8 +207,8 @@ void BaseAnimator_FS(const void* uniforms_data, const Fragment_gl& fragment_in,
   Vec3 wp = fragment_in.wp;
   double falloff = dot(wn, Vec3(0, 1, 0));
   falloff = (falloff + 1) * 0.5;
-  fs_outs.set(0, Vec4(textured * falloff, 1.0));
-  fs_outs.set(2, Vec4((wn + 1)*0.5, 1.0));
+  fs_outs[0] = Vec4(textured * falloff, 1.0);
+  fs_outs[2] = Vec4((wn + 1.0)*0.5, 1.0);
 }
 
 }; /* namespace sgl */

@@ -6,11 +6,6 @@
 
 namespace sgl {
 
-/* A vertex/fragment shader can only accept 8 input textures at maximum. */
-const int MAX_TEXTURES_PER_SHADING_UNIT = 8;
-/* Maximum fragment shader output color components */
-const int MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS = 8;
-
 struct Vertex {
   Vec3 p; /* vertex position (in model local space) */
   Vec3 n; /* vertex normal (in model local space)*/
@@ -32,10 +27,16 @@ pipeline how to convert raw `Vertex` to `Vertex_gl`.
 properly, it will be used by the fragment shader in fragment 
 processing stage.
 **/
-class Vertex_gl {
-public:
-  /* vs_out */
+class Vertex_ppl {
+  friend class Pipeline;
+protected:
+  /* this variable can be only accessed by Pipeline object, it 
+  is not visible to the user */
   Vec4 gl_Position;
+};
+typedef class Vertex_gl : public Vertex_ppl {
+public:
+  /* vs_out & fs_in */
   Vec3 wp; /* world position */
   Vec3 wn; /* world normal */
   Vec2 t;  /* texture coordinates */
@@ -83,61 +84,58 @@ public:
     double t = 1.0 / w;
     return this->operator*=(t);
   }
-};
-
-struct Fragment_gl {
-  /* fs_in */
-  Vec4 gl_FragCoord;
-  Vec3 wp; /* world position */
-  Vec3 wn; /* world normal */
-  Vec2 t;  /* texture coordinates */
-};
-/**
-Assemble fragment from interpolated vertex. The assembled fragment will be sent
-to fragment shader immediately.
-  @param vertex_in: The interpolated vertex generated in rasterization stage.
-  @param fragment_out: The assembled output fragment. After assembling this
-fragment will be sent into fragment_shader( @param fragment_in, ... ).
-  @note: `gl_FragCoord` of the @param fragment_in does not need to be set by
-users, as this member will be properly set by the rasterization pipeline.
-**/
-void assemble_fragment(const Vertex_gl &vertex_in, Fragment_gl &fragment_out);
+} Fragment_gl;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * Vertex and Fragment Shaders * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* Maximum fragment shader output color components */
+const int MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS = 8;
 
 /** 
 Defines vertex and fragment shader function pointer types.
 This will enable users to design their own vertex and fragment shaders
 and link them to the pipeline.
 **/
-typedef void(*VS_func_t)(const void*, const Vertex&, Vertex_gl&);
+typedef void(*VS_func_t)(
+  /* IN: uniform variables raw data pointer (can be casted to any user-defined uniform structs in custom vertex shader) */
+  const void* uniforms_data,
+  /* IN: input vertex */
+  const Vertex& vertex_in,
+  /* OUT: output vertex */
+  Vertex_gl& vertex_out,
+  /* OUT: `gl_Position` (must be properly set in a vertex shader) */
+  Vec4& gl_Position
+);
 
 /**
 A fragment shader can have multiple output components, and each 
 component will write to its corresponding bound texture.
 **/
 class FS_Outputs {
+  friend class Pipeline;
+protected:
   Vec4 out_comps[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
-  /* set_flags: 0 = not used / invalid, 1 = set */
-  uint8_t set_flags[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS]; 
 public:
-  /* reset: all color components are invalidated */
-  void reset();
-  /* set a specific color components with customized value */
-  void set(const int& slot, const Vec4& value);
-  /* get color components in a specific slot, if the slot is not set (flag=0),
-  then result is undefined. */
-  Vec4 get(const int& slot) const;
-  /* check if a color slot is used */
-  uint8_t query(const int& slot) const;
-  /* invalidate a slot */
-  void invalidate(const int& slot);
-  /* ctor */
-  FS_Outputs();
-  /* pure data struct/class like this does not need dtor */
+  /* quick setter & getter */
+  Vec4& operator[](const int& slot) { return this->out_comps[slot]; }
+  const Vec4& operator[](const int& slot) const { return this->out_comps[slot]; };
+  FS_Outputs() {}
 };
-typedef void(*FS_func_t)(const void*, const Fragment_gl&, FS_Outputs&, bool&, double&);
+typedef void(*FS_func_t)(
+  /* IN: uniform variables raw data pointer (can be casted to any user-defined uniform structs in custom vertex shader) */
+  const void* uniforms_data,
+  /* IN: input fragment (which is also the output of the fragment shader, they are actually the same) */
+  const Fragment_gl& fragment_in,
+  /* IN: input fragment shader coordinates (`gl_FragCoord`) */
+  const Vec4& gl_FragCoord,
+  /* OUT: output fragment components (fragment shader can write to multiple target textures at the same time) */
+  FS_Outputs& fragment_outs, 
+  /* OUT: `discard`, if this fragment is discarded */
+  bool& discard,
+  /* OUT: `gl_FragDepth`, this value will be written to the z-buffer */
+  double& gl_FragDepth
+);
 
 }; /* namespace sgl */

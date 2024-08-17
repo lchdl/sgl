@@ -167,9 +167,11 @@ Pipeline::vertex_processing(const VertexBuffer_t &vertex_buffer,
                             const void *uniforms_data) {
   for (uint32_t i_vert = 0; i_vert < vertex_buffer.size(); i_vert++) {
     Vertex_gl vertex_out;
+    Vec4 gl_Position;
     /* Map vertex from model local space to homogeneous clip space and stores to
     "gl_Position". */
-    shaders.VS(uniforms_data, vertex_buffer[i_vert], vertex_out);
+    shaders.VS(uniforms_data, vertex_buffer[i_vert], vertex_out, gl_Position);
+    vertex_out.gl_Position = gl_Position;
     ppl.Vertices.push_back(vertex_out);
   }
 }
@@ -247,8 +249,7 @@ Pipeline::fragment_processing(const void *uniforms_data) {
         double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
         v_lerp *= z_real;
         /* Step 3.4: Assemble fragment and render pixel. */
-        Fragment_gl fragment;
-        assemble_fragment(v_lerp, fragment);
+        Fragment_gl& fragment = v_lerp;
         /*
         v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC 
         space, which is in range [-1, +1], then we need to map it to [0, +1]. 
@@ -260,13 +261,13 @@ Pipeline::fragment_processing(const void *uniforms_data) {
           programming. 
         */
         double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
-        fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
+        Vec4 gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
         FS_Outputs fs_outs;
         bool is_discarded = false;
-        shaders.FS(uniforms_data, fragment, fs_outs, is_discarded, gl_FragDepth);
+        shaders.FS(uniforms_data, fragment, gl_FragCoord, fs_outs, is_discarded, gl_FragDepth);
         /* Step 3.5: Fragment processing */
         if (!is_discarded) {
-          write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
+          write_render_targets(gl_FragCoord.xy(), fs_outs, gl_FragDepth);
         }
       }
     }
@@ -341,8 +342,7 @@ void Pipeline::fragment_processing_MT(const void *uniforms_data, const int &num_
           double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1] + iz.i[2] * w.i[2]);
           v_lerp *= z_real;
           /* Step 3.4: Assemble fragment and render pixel. */
-          Fragment_gl fragment;
-          assemble_fragment(v_lerp, fragment);
+          Fragment_gl& fragment = v_lerp;
           /*
           v_lerp.gl_Position.z / v_lerp.gl_Position.w is the depth value in NDC
           space, which is in range [-1, +1], then we need to map it to [0, +1].
@@ -354,13 +354,13 @@ void Pipeline::fragment_processing_MT(const void *uniforms_data, const int &num_
             programming.
           */
           double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
-          fragment.gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
+          Vec4 gl_FragCoord = Vec4(p.x, p.y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
           FS_Outputs fs_outs;
           bool is_discarded = false;
-          shaders.FS(uniforms_data, fragment, fs_outs, is_discarded, gl_FragDepth);
+          shaders.FS(uniforms_data, fragment, gl_FragCoord, fs_outs, is_discarded, gl_FragDepth);
           /* Step 3.5: Fragment processing */
           if (!is_discarded) {
-            write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
+            write_render_targets(gl_FragCoord.xy(), fs_outs, gl_FragDepth);
           }
         }
       }
@@ -466,10 +466,9 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
     depths[pixel_id] = z_new;
   /* write each color component to their corresponding texture slot */
   for (int i_slot=0; i_slot < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i_slot++) {
-    if (fs_outs.query(i_slot) == 0) continue; /* skip empty/invalid slot */
-    if (i_slot == ppl.depth_texture_slot) continue; /* skip depth buffer since we already processed it in above */
     if (targets.out_comps[i_slot] == NULL) continue; /* this slot does not link to any texture, skip */
-    Vec4 color = fs_outs.get(i_slot);
+    if (i_slot == ppl.depth_texture_slot) continue; /* skip depth buffer since we already processed it in above */
+    const Vec4& color = fs_outs[i_slot];
     /* 
     write this color component to the corresponding texture slot, but 
     be aware that different texture formats will have different physical 

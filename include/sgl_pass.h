@@ -62,6 +62,9 @@ Simply draw a model (probably with animation) onto screen.
 **/
 
 struct BaseAnimator_Uniforms {
+  /* A vertex/fragment shader can only accept 8 input textures at maximum. */
+  static const int MAX_TEXTURES_PER_SHADING_UNIT = 8;
+
   /* transforming vertex from local model space to world space. */
   Mat4x4 world;
   /* transforming vertex from world space to local view space. */
@@ -73,8 +76,8 @@ struct BaseAnimator_Uniforms {
   /* final bone transformations */
   Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
 };
-void BaseAnimator_VS(const void* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out);
-void BaseAnimator_FS(const void* uniforms, const Fragment_gl& fragment_in, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
+void BaseAnimator_VS(const void* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out, Vec4& gl_Position);
+void BaseAnimator_FS(const void* uniforms, const Fragment_gl& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
 
 class BaseAnimator : public Pass {
 public:
