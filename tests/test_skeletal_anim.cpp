@@ -5,7 +5,7 @@
 using namespace sgl;
 
 int w = 320, h = 240;
-int num_threads = -1;
+int num_threads = 2;
 PipelineDrawMode draw_mode = PipelineDrawMode::PipelineDrawMode_Triangle;
 bool keystate[SDL_NUM_SCANCODES];
 int show_texture = 1;

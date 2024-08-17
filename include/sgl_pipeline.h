@@ -259,17 +259,16 @@ class Pipeline {
     Vertex_gl v_lerp = v1 * w.i[0] + v2 * w.i[1];
     double z_real = 1.0 / (iz.i[0] * w.i[0] + iz.i[1] * w.i[1]);
     v_lerp *= z_real;
-    Fragment_gl fragment;
-    assemble_fragment(v_lerp, fragment);
+    Fragment_gl& fragment = v_lerp;
 
     double gl_FragDepth = ((v_lerp.gl_Position.z / v_lerp.gl_Position.w) + 1.0) * 0.5;
-    fragment.gl_FragCoord = Vec4(x, y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
+    Vec4 gl_FragCoord = Vec4(x, y, gl_FragDepth, 1.0 / v_lerp.gl_Position.w);
     FS_Outputs fs_outs;
     bool is_discarded = false;
-    shaders.FS(uniforms_data, fragment, fs_outs, is_discarded, gl_FragDepth);
+    shaders.FS(uniforms_data, fragment, gl_FragCoord, fs_outs, is_discarded, gl_FragDepth);
     /* Step 3.5: Fragment processing */
     if (!is_discarded) {
-      write_render_targets(fragment.gl_FragCoord.xy(), fs_outs, gl_FragDepth);
+      write_render_targets(gl_FragCoord.xy(), fs_outs, gl_FragDepth);
     }
   }
   void _bresenham_traversal(int x1, int y1, int x2, int y2,
