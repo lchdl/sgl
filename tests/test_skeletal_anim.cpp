@@ -19,8 +19,7 @@ BaseAnimator animator;
 Pipeline pipeline;
 Texture color_texture, depth_texture, normal_texture;
 
-void
-init_env(int argc, char* argv[]) {
+void init_env(int argc, char* argv[]) {
   SDL_SetMainReady();
 
   /* Initialize SDL */
@@ -41,14 +40,12 @@ init_env(int argc, char* argv[]) {
   set_cwd(gd(argv[0]));
 }
 
-void 
-destroy_env() {
+void destroy_env() {
   SDL_DestroyWindow(pWindow);
   SDL_Quit();
 }
 
-void
-process_key(SDL_KeyboardEvent *key) {
+void process_key(SDL_KeyboardEvent *key) {
   bool is_press = (key->type == SDL_KEYDOWN);
   /* scancode is based on QWERTY layout,
    * while keycode generated from the same key position
@@ -108,8 +105,7 @@ process_key(SDL_KeyboardEvent *key) {
   }
 }
 
-void
-init_render() {
+void init_render() {
   /* Step 1: Setup resources. */
   color_texture.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   depth_texture.create(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);

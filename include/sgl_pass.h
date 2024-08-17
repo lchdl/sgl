@@ -6,6 +6,7 @@ namespace sgl {
 
 Mat4x4 get_view_matrix(Vec3 eye, Vec3 look_at, Vec3 up);
 Mat4x4 get_perspective_matrix(double aspect_ratio, double near, double far, double field_of_view);
+Mat4x4 get_orthographic_matrix(double near, double far, double left, double right, double top, double bottom);
 Mat4x4 get_orthographic_matrix(double near, double far, double width, double height);
 
 /**
@@ -78,7 +79,6 @@ struct BaseAnimator_Uniforms {
 };
 void BaseAnimator_VS(const void* uniforms, const Vertex& vertex_in, Vertex_gl& vertex_out, Vec4& gl_Position);
 void BaseAnimator_FS(const void* uniforms, const Fragment_gl& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
-
 class BaseAnimator : public Pass {
 public:
   /* note: not owned */
@@ -114,11 +114,34 @@ public:
 
 /**
 BaseSpriteRenderer:
-
 Simply render a 2D sprite onto frame buffer.
+NOTE: currently our software rasterizer does not support alpha blending
+since it is expensive.
 **/
+struct BaseSpriteRenderer_Uniforms {
+  Vec3 color_mask;
+  Mat4x4 transform;
+  const Texture* in_texture; /* texture to be displayed */
+};
+void BaseSpriteRenderer_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_gl& vertex_out, Vec4& gl_Position);
+void BaseSpriteRenderer_FS(const void* uniforms_data, const Fragment_gl& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth);
 class BaseSpriteRenderer : public Pass {
-  /* TODO: add implementations for rendering sprites here */
+protected:
+  BaseSpriteRenderer_Uniforms uniforms;
+public:
+  struct {
+    Texture* color;
+  } out_texs;
+  Pipeline* pipeline;
+public:
+  void run(const Texture* tex, const Vec2& pos, const Vec2& scale, const double& rot, const Vec3& color_mask);
+
+  BaseSpriteRenderer();
+  virtual ~BaseSpriteRenderer() {}
+
+protected:
+  VertexBuffer_t vertices;
+  IndexBuffer_t indices;
 };
 
 

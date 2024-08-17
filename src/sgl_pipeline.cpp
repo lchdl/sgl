@@ -117,9 +117,18 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
       ppl.depth_texture_slot = i;
     }
   }
-  if (num_depth_buffers != 1 || ppl.cur_render_width == 0 || 
-    ppl.cur_render_height == 0 || ppl.depth_texture_slot<0) {
-    printf("frame buffer incomplete.\n");
+  /* check if buffer is complete */
+  bool is_complete = true;
+  if (ppl.cur_render_width <= 0 || ppl.cur_render_height <= 0) {
+    is_complete = false;
+  }
+  if (ppl.do_depth_test) {
+    if (num_depth_buffers != 1 || ppl.depth_texture_slot < 0) {
+      is_complete = false;
+    }
+  }
+  if (!is_complete) {
+    printf("Frame buffer incomplete.\n");
     return;
   }
 
@@ -457,13 +466,14 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
   int pixel_id = iy * w + ix;
 
   /* depth test */
-  double *depths = (double *) this->targets.out_comps[ppl.depth_texture_slot]->pixels;
-  double z_new = min(max(z, 0.0), 1.0);
-  double z_orig = depths[pixel_id];
-  if (z_new > z_orig && ppl.do_depth_test)
-    return;
-  if (ppl.do_depth_test)
+  if (ppl.do_depth_test) {
+    double *depths = (double *)this->targets.out_comps[ppl.depth_texture_slot]->pixels;
+    double z_new = min(max(z, 0.0), 1.0);
+    double z_orig = depths[pixel_id];
+    if (z_new > z_orig)
+      return;
     depths[pixel_id] = z_new;
+  }
 
   /* write each color component to their corresponding texture slot */
   for (int i_slot=0; i_slot < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i_slot++) {

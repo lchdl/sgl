@@ -19,6 +19,15 @@ Mat4x4 get_view_matrix(Vec3 eye, Vec3 look_at, Vec3 up)
     0.0, 1.0, 0.0, -ey,
     0.0, 0.0, 1.0, -ez,
     0.0, 0.0, 0.0, 1.0);
+  /*
+  Important note:
+  Here, we write `mul(rotation, translation)` instead of `mul(translation, rotation)`. 
+  The latter might seem reasonable since rotation is typically applied before translation. 
+  However, we apply translation first, followed by rotation, as explained in detail at: 
+  https://www.songho.ca/opengl/gl_camera.html.
+  Note that the rotation matrix here is actually in its transposed (inverted) state, 
+  so please don't be confused by the order of matrix multiplication.
+  */
   return mul(rotation, translation);
 }
 Mat4x4 get_perspective_matrix(double aspect_ratio, double near, double far, double field_of_view) {
@@ -37,19 +46,24 @@ Mat4x4 get_perspective_matrix(double aspect_ratio, double near, double far, doub
     0.0, 0.0, -(f + n) / (f - n), -2 * f * n / (f - n),
     0.0, 0.0, -1.0, 0.0);
 }
-Mat4x4 get_orthographic_matrix(double near, double far, double width, double height) {
+
+Mat4x4 get_orthographic_matrix(double near, double far, double left, double right, double top, double bottom) {
   double& n = near;
   double& f = far;
-  double r = width * 0.5;
-  double l = -r;
-  double t = height * 0.5;
-  double b = -t;
+  double& r = right;
+  double& l = left;
+  double& t = top;
+  double& b = bottom;
   return Mat4x4(
     2.0 / (r - l), 0.0, 0.0, -(r + l) / (r - l),
     0.0, 2.0 / (t - b), 0.0, -(t + b) / (t - b),
     0.0, 0.0, -2.0 / (f - n), -(f + n) / (f - n),
     0.0, 0.0, 0.0, 1.0
   );
+}
+
+Mat4x4 get_orthographic_matrix(double near, double far, double width, double height) {
+  return get_orthographic_matrix(near, far, -width * 0.5, width * 0.5, height * 0.5, -height * 0.5);
 }
 
 Mat4x4 Pass::get_view_matrix() const {
@@ -210,5 +224,68 @@ void BaseAnimator_FS(const void* uniforms_data, const Fragment_gl& fragment_in, 
   fs_outs[0] = Vec4(textured * falloff, 1.0);
   fs_outs[2] = Vec4((wn + 1.0)*0.5, 1.0);
 }
+
+BaseSpriteRenderer::BaseSpriteRenderer()
+{
+  Vertex v;
+  v.p = Vec3(0.0, 0.0, 0.0); v.t = Vec2(0.0, 0.0);
+  vertices.push_back(v);
+  v.p = Vec3(1.0, 0.0, 0.0); v.t = Vec2(1.0, 0.0);
+  vertices.push_back(v);
+  v.p = Vec3(1.0, 1.0, 0.0); v.t = Vec2(1.0, 1.0);
+  vertices.push_back(v);
+  v.p = Vec3(0.0, 1.0, 0.0); v.t = Vec2(0.0, 1.0);
+  vertices.push_back(v);
+  indices.resize(6);
+  indices[0] = 0; indices[1] = 1; indices[2] = 3;
+  indices[3] = 1; indices[4] = 2; indices[5] = 3;
+  out_texs.color = NULL;
+}
+
+void BaseSpriteRenderer_VS(const void* uniforms_data, const Vertex& vertex_in, Vertex_gl& vertex_out, Vec4& gl_Position)
+{
+  const BaseSpriteRenderer_Uniforms* uniforms = (const BaseSpriteRenderer_Uniforms*)uniforms_data;
+  gl_Position = uniforms->transform * Vec4(vertex_in.p.xy(), 0.0, 1.0);
+  vertex_out.t = vertex_in.t;
+}
+void BaseSpriteRenderer_FS(const void* uniforms_data, const Fragment_gl& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs, bool& is_discarded, double& gl_FragDepth)
+{
+  const BaseSpriteRenderer_Uniforms* uniforms = (const BaseSpriteRenderer_Uniforms*)uniforms_data;
+  Vec4 tex_color = texture(uniforms->in_texture, fragment_in.t);
+  if (tex_color.a < 0.99) { 
+    is_discarded = true; 
+    return;
+  }
+  fs_outs[0] = Vec4(uniforms->color_mask, 1.0) * tex_color;
+}
+
+void BaseSpriteRenderer::run(const Texture* tex, const Vec2& pos, const Vec2& scale, const double& rot, const Vec3& color_mask) {
+  Mat4x4 scaling(
+    scale.x, 0.0, 0.0, 0.0,
+    0.0, scale.y, 0.0, 0.0,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0);
+  Mat4x4 translation(
+    1.0, 0.0, 0.0, pos.x,
+    0.0, 1.0, 0.0, pos.y,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0);
+  Mat4x4 rotation(quat_to_mat3x3(Quat::rot_z(rot)));
+  Mat4x4 model = translation * rotation * scaling;
+  Mat4x4 projection = get_orthographic_matrix(0.0, 1.0, 0.0, out_texs.color->w, out_texs.color->h, 0.0);
+  vertices[0].p = Vec3(-0.5*tex->w, -0.5*tex->h, 0.0);
+  vertices[1].p = Vec3(+0.5*tex->w, -0.5*tex->h, 0.0);
+  vertices[2].p = Vec3(+0.5*tex->w, +0.5*tex->h, 0.0);
+  vertices[3].p = Vec3(-0.5*tex->w, +0.5*tex->h, 0.0);
+  uniforms.transform = projection * model;
+  uniforms.color_mask = color_mask;
+  uniforms.in_texture = tex;
+  pipeline->bind_render_target(0, out_texs.color);
+  pipeline->disable_depth_test();
+  pipeline->set_shaders(BaseSpriteRenderer_VS, BaseSpriteRenderer_FS);
+  pipeline->draw(vertices, indices, &uniforms);
+  pipeline->enable_depth_test();
+}
+
 
 }; /* namespace sgl */

@@ -138,4 +138,5 @@ typedef void(*FS_func_t)(
   double& gl_FragDepth
 );
 
+
 }; /* namespace sgl */
