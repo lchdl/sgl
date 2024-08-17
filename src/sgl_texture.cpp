@@ -17,8 +17,7 @@ Texture::Texture() {
   usage = TextureUsage_Unknown;
 }
 
-void
-Texture::destroy() {
+void Texture::destroy() {
   this->w = 0;
   this->h = 0;
   if (this->pixels)
@@ -29,11 +28,7 @@ Texture::destroy() {
   this->usage = TextureUsage_Unknown;
 }
 
-void
-Texture::create(int32_t w, int32_t h, 
-  PixelFormat texture_format,
-  TextureSampling texture_sampling,
-  TextureUsage texture_usage) {
+void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage) {
   this->destroy();
   if (w <= 0 || h <= 0)
     return;
@@ -64,8 +59,7 @@ Texture::create(int32_t w, int32_t h,
   this->pixels = malloc(w * h * bypp);
 }
 
-void
-Texture::copy(const Texture &texture) {
+void Texture::copy(const Texture &texture) {
   this->create(texture.w, texture.h, texture.format, texture.sampling, texture.usage);
   if (this->pixels != NULL && texture.pixels != NULL) {
     memcpy(this->pixels, texture.pixels, w * h * bypp);
@@ -152,8 +146,7 @@ Texture Texture::to_format(const PixelFormat & target_format) const
   converted_texture.create(this->w, this->h, target_format, this->sampling, this->usage);
   uint8_t* dst = (uint8_t*)converted_texture.pixels;
   uint8_t* src = (uint8_t*)this->pixels;
-  if (this->format == PixelFormat_RGBA8888 &&
-    target_format == PixelFormat_BGRA8888) {
+  if (this->format == PixelFormat_RGBA8888 && target_format == PixelFormat_BGRA8888) {
     for (int y = 0; y < this->h; y++) {
       for (int x = 0; x < this->w; x++) {
         int pid = y * this->w + x;
@@ -164,8 +157,7 @@ Texture Texture::to_format(const PixelFormat & target_format) const
       }
     }
   }
-  else if (this->format == PixelFormat_BGRA8888 &&
-    target_format == PixelFormat_RGBA8888) {
+  else if (this->format == PixelFormat_BGRA8888 && target_format == PixelFormat_RGBA8888) {
     for (int y = 0; y < this->h; y++) {
       for (int x = 0; x < this->w; x++) {
         int pid = y * this->w + x;
@@ -179,8 +171,6 @@ Texture Texture::to_format(const PixelFormat & target_format) const
   else {
     printf("Unimplemented texture format conversion type.\n");
   }
-
-
   return converted_texture;
 }
 
@@ -211,8 +201,14 @@ bool Texture::save_png(const std::string & path) const
   return false;
 }
 
-Texture
-load_texture(const std::string &file, const PixelFormat& target_format) {
+Texture create_texture(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage)
+{
+  Texture texture;
+  texture.create(w, h, texture_format, texture_sampling, texture_usage);
+  return texture;
+}
+
+Texture load_texture(const std::string &file, const PixelFormat& target_format) {
   int x, y, n;
   unsigned char *data = stbi_load(file.c_str(), &x, &y, &n, 4);
   Texture texture;
@@ -229,8 +225,7 @@ load_texture(const std::string &file, const PixelFormat& target_format) {
   return texture.to_format(target_format);
 }
 
-Vec4
-texture(const Texture *texobj, const Vec2 &uv) {
+Vec4 texture(const Texture *texobj, const Vec2 &uv) {
   if (texobj->format == PixelFormat_RGBA8888) {
     if (texobj->sampling == TextureSampling_Nearest) {
       return texobj->texture_RGBA8888_point(uv);

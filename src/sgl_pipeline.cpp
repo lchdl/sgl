@@ -453,9 +453,9 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
   int iy = h - 1 - int(p.y);
   if (ix < 0 || ix >= w || iy < 0 || iy >= h)
     return;
-  /* here (ix,iy) is the final output pixel location in window space 
-  (origin is at the top-left corner of the screen). */
+  /* here (ix,iy) is the final output pixel location in window space (origin is at the top-left corner of the screen). */
   int pixel_id = iy * w + ix;
+
   /* depth test */
   double *depths = (double *) this->targets.out_comps[ppl.depth_texture_slot]->pixels;
   double z_new = min(max(z, 0.0), 1.0);
@@ -464,6 +464,7 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
     return;
   if (ppl.do_depth_test)
     depths[pixel_id] = z_new;
+
   /* write each color component to their corresponding texture slot */
   for (int i_slot=0; i_slot < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i_slot++) {
     if (targets.out_comps[i_slot] == NULL) continue; /* this slot does not link to any texture, skip */
@@ -472,7 +473,7 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
     /* 
     write this color component to the corresponding texture slot, but 
     be aware that different texture formats will have different physical 
-    storage method
+    storage layout
     */
     if (targets.out_comps[i_slot]->format == PixelFormat_BGRA8888 ||
       targets.out_comps[i_slot]->format == PixelFormat_RGBA8888) {
@@ -493,8 +494,7 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
 }
 
 void
-Pipeline::clip_triangle(const Triangle_gl &triangle_in,
-                        std::vector<Triangle_gl> &triangles_out) {
+Pipeline::clip_triangle(const Triangle_gl &triangle_in, std::vector<Triangle_gl> &triangles_out) {
   std::vector<Triangle_gl> Q0, Q1;
   std::vector<Triangle_gl> *Qcur = &Q0, *Qnext = &Q1, *Qtemp = NULL;
   Qcur->push_back(triangle_in);

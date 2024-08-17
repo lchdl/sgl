@@ -38,10 +38,10 @@ void fragment_shader(const void *data, const Fragment_gl &fragment_in, const Vec
 
 void init_render() {
   /* create or load existing textures */
-  color_texture.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  depth_texture.create(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
+  color_texture = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  depth_texture = sgl::create_texture(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
   image_texture = sgl::load_texture("textures/checker_256.png", PixelFormat_BGRA8888);
-    
+
   /* set uniform variables */
   uniforms.model = quat_to_mat3x3(Quat::rot_x(degrees_to_radians(-55.0))); /* rotate model along x axis by -55 degrees */
   uniforms.view = Mat4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -3, 0, 0, 0, 1); /* translate model along z axis by -3 units */
@@ -49,8 +49,8 @@ void init_render() {
   uniforms.diffuse = &image_texture;
 
   /* initialize render pipeline */
-  pipeline.set_render_target(0, &color_texture);
-  pipeline.set_render_target(1, &depth_texture);
+  pipeline.bind_render_target(0, &color_texture);
+  pipeline.bind_render_target(1, &depth_texture);
   pipeline.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
   pipeline.set_shaders(vertex_shader, fragment_shader);
   pipeline.disable_backface_culling();
@@ -72,7 +72,7 @@ void init_render() {
   indices[3] = 1; indices[4] = 2; indices[5] = 3; /* second triangle */
 }
 
-void render_frame_and_save_to_disk() {
+void render_and_save_to_disk() {
   pipeline.draw(vertices, indices, &uniforms);
   color_texture.save_png("test_hello_world.png");
 }
@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
 
   set_cwd(gd(argv[0]));  /* set current working directory */
   init_render();
-  render_frame_and_save_to_disk();
+  render_and_save_to_disk();
 
   return 0;
 }
