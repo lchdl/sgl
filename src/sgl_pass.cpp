@@ -111,9 +111,9 @@ bool BaseAnimator::validate() const
 
 void BaseAnimator::run(bool clear) {
   this->pipeline->set_shaders(shaders.VS, shaders.FS);
-  this->pipeline->set_render_target(0, out_texs.color);
-  this->pipeline->set_render_target(1, out_texs.depth);
-  this->pipeline->set_render_target(2, out_texs.normal);
+  this->pipeline->bind_render_target(0, out_texs.color);
+  this->pipeline->bind_render_target(1, out_texs.depth);
+  this->pipeline->bind_render_target(2, out_texs.normal);
   if (clear)
     this->pipeline->clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
 

@@ -1,46 +1,26 @@
 #include <stdio.h>
-
 #include "sgl.h"
 
 using namespace sgl;
 
 int w = 800, h = 600;
 
-SDL_Window* pWindow;
-SDL_Surface* pWindowSurface;
-bool keystate[SDL_NUM_SCANCODES];
-
 Pipeline pipeline;
 VertexBuffer_t vertices;
 IndexBuffer_t indices;
 
-Texture color_texture, depth_texture;
-Texture image_texture;
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* * * * * * * * * * * * Vertex and Fragment Shaders * * * * * * * * * * */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+Texture color_texture, depth_texture, image_texture;
 
 struct MyUniforms {
-  /* transforming vertex from local model space to world space. */
-  Mat4x4 model;
-  /* transforming vertex from world space to local view space. */
-  Mat4x4 view;
-  /* transforming vertex from local view space to homogeneous clip space. */
-  Mat4x4 projection;
-  /* texture objects */
+  Mat4x4 model, view, projection;
   const Texture *diffuse;
 } uniforms;
 
-void vertex_shader(const void *uniforms_data, const Vertex &vertex_in, Vertex_gl &vertex_out, Vec4& gl_Position)
-{
+void vertex_shader(const void *uniforms_data, const Vertex &vertex_in, Vertex_gl &vertex_out, Vec4& gl_Position) {
   const MyUniforms* uniforms = (const MyUniforms*)uniforms_data;
-
-  /* Implement default vertex shader. */
   const Mat4x4 &model = uniforms->model;
   const Mat4x4 &view = uniforms->view;
   const Mat4x4 &projection = uniforms->projection;
-  /* Model & View & Projection matrix */
   Mat4x4 transform = mul(mul(projection, view), model);
   gl_Position = mul(transform, Vec4(vertex_in.p, 1.0));
   vertex_out.t = vertex_in.t;
@@ -49,188 +29,59 @@ void vertex_shader(const void *uniforms_data, const Vertex &vertex_in, Vertex_gl
 }
 
 void fragment_shader(const void *data, const Fragment_gl &fragment_in, const Vec4& gl_FragCoord, FS_Outputs &fs_outs,
-  bool& is_discarded, double& gl_FragDepth)
-{
+  bool& is_discarded, double& gl_FragDepth) {
   const MyUniforms* uniforms = (const MyUniforms*)data;
-
   Vec2 uv = fragment_in.t;
   Vec3 textured = texture(uniforms->diffuse, uv).rgb();
   fs_outs[0] = Vec4(textured, 1.0);
 }
 
+void init_render() {
+  /* create or load existing textures */
+  color_texture = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  depth_texture = sgl::create_texture(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
+  image_texture = sgl::load_texture("textures/checker_256.png", PixelFormat_BGRA8888);
 
-void
-init_env(int argc, char* argv[]) {
-  SDL_SetMainReady();
-
-  /* Initialize SDL */
-  if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    exit(1);
-  /* Create window */
-  pWindow = SDL_CreateWindow("SGL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN);
-  if (pWindow == NULL)
-    exit(1);
-  SDL_ShowWindow(pWindow);
-  pWindowSurface = SDL_GetWindowSurface(pWindow);
-  const char* SDL2_surface_native_format = SDL_GetPixelFormatName(pWindowSurface->format->format);
-  SDL_UpdateWindowSurface(pWindow);
-
-  for (uint32_t i_key = 0; i_key < SDL_NUM_SCANCODES; i_key++)
-    keystate[i_key] = false;
-
-  /* set current working directory */
-  set_cwd(gd(argv[0]));
-}
-
-void
-destroy_env() {
-  SDL_DestroyWindow(pWindow);
-  SDL_Quit();
-}
-
-void
-process_key(SDL_KeyboardEvent *key) {
-  bool is_press = (key->type == SDL_KEYDOWN);
-  /* scancode is based on QWERTY layout,
-   * while keycode generated from the same key position
-   * can be different from different keyboard layouts. */
-  uint32_t scancode = key->keysym.scancode;
-  uint32_t keycode = key->keysym.sym;
-  std::string keyname = SDL_GetKeyName(keycode);
-  /* record key state */
-  keystate[scancode] = is_press ? true : false;
-}
-
-Mat4x4
-compute_projection_matrix(double w, double h, double near, double far, double field_of_view) {
-  double aspect_ratio = double(w) / double(h);
-  double inv_aspect = double(1.0) / aspect_ratio;
-  double left = -tan(field_of_view / double(2.0)) * near;
-  double right = -left;
-  double top = inv_aspect * right;
-  double bottom = -top;
-  return
-    Mat4x4(2 * near / (right - left), 0, (right + left) / (right - left), 0,
-      0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0,
-      0, 0, -(far + near) / (far - near),
-      -2 * far * near / (far - near), 0, 0, -1.0, 0);
-}
-
-void
-init_render() {
-  /* Step 1: Setup resources. */
-  color_texture.create(w, h,
-    PixelFormat::PixelFormat_BGRA8888,
-    TextureSampling::TextureSampling_Nearest,
-    TextureUsage::TextureUsage_ColorComponents);
-  depth_texture.create(w, h,
-    PixelFormat::PixelFormat_Float64,
-    TextureSampling::TextureSampling_Nearest,
-    TextureUsage::TextureUsage_DepthBuffer);
-
-  /* rotate model along x axis by -55 degrees */
-  Mat4x4 model(quat_to_mat3x3(Quat::rot_x(degrees_to_radians(-55.0))));
-  /* translate model along z axis by -3 units */
-  Mat4x4 view(
-    1, 0, 0, 0,
-    0, 1, 0, 0,
-    0, 0, 1, -3,
-    0, 0, 0, 1
-  );
-  /* near = 0.1, far = 10.0, field of view = 45 degrees */
-  Mat4x4 projection = compute_projection_matrix(w, h, 0.1, 10.0, degrees_to_radians(45));
-  
-  /* initialize resources and render pipeline */
-  image_texture = sgl::load_texture("textures/checker_256.png", PixelFormat::PixelFormat_BGRA8888);
-  uniforms.model = model;
-  uniforms.view = view;
-  uniforms.projection = projection;
+  /* set uniform variables */
+  uniforms.model = quat_to_mat3x3(Quat::rot_x(degrees_to_radians(-55.0))); /* rotate model along x axis by -55 degrees */
+  uniforms.view = Mat4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -3, 0, 0, 0, 1); /* translate model along z axis by -3 units */
+  uniforms.projection = get_perspective_matrix(double(w) / double(h), 0.1, 10.0, degrees_to_radians(45)); /* near = 0.1, far = 10.0, field of view = 45 degrees */
   uniforms.diffuse = &image_texture;
-  pipeline.set_render_target(0, &color_texture);
-  pipeline.set_render_target(1, &depth_texture);
+
+  /* initialize render pipeline */
+  pipeline.bind_render_target(0, &color_texture);
+  pipeline.bind_render_target(1, &depth_texture);
   pipeline.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
   pipeline.set_shaders(vertex_shader, fragment_shader);
   pipeline.disable_backface_culling();
 
+  /* initialize vertices */
   Vertex v;
-  /* 
-  v.p: position (x,y,z)
-  v.t: texture coords (u,v)
-  */
-  v.p = Vec3(0.5, 0.5, 0.0);
-  v.t = Vec2(1.0, 1.0);
+  v.p = Vec3(0.5, 0.5, 0.0); v.t = Vec2(1.0, 1.0);
   vertices.push_back(v);
-  v.p = Vec3(0.5, -0.5, 0.0);
-  v.t = Vec2(1.0, 0.0);
+  v.p = Vec3(0.5, -0.5, 0.0); v.t = Vec2(1.0, 0.0);
   vertices.push_back(v);
-  v.p = Vec3(-0.5, -0.5, 0.0);
-  v.t = Vec2(0.0, 0.0);
+  v.p = Vec3(-0.5, -0.5, 0.0); v.t = Vec2(0.0, 0.0);
   vertices.push_back(v);
-  v.p = Vec3(-0.5, 0.5, 0.0);
-  v.t = Vec2(0.0, 1.0);
+  v.p = Vec3(-0.5, 0.5, 0.0); v.t = Vec2(0.0, 1.0);
   vertices.push_back(v);
 
-  /* triangle 1 */
-  indices.push_back(0);
-  indices.push_back(1);
-  indices.push_back(3);
-  /* triangle 2 */
-  indices.push_back(1);
-  indices.push_back(2);
-  indices.push_back(3);
+  /* initialize triangles */
+  indices.resize(6);
+  indices[0] = 0; indices[1] = 1; indices[2] = 3; /* first triangle */
+  indices[3] = 1; indices[4] = 2; indices[5] = 3; /* second triangle */
 }
 
-void
-render_frame() {
+void render_and_save_to_disk() {
   pipeline.draw(vertices, indices, &uniforms);
-  /* save first frame to disk */
-  static bool saved = false;
-  if (!saved) {
-    color_texture.save_png("test_hello_world.png");
-    saved = true;
-  }
+  color_texture.save_png("test_hello_world.png");
 }
 
-int
-main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
 
-  /* initialization */
-  init_env(argc, argv);
+  set_cwd(gd(argv[0]));  /* set current working directory */
   init_render();
+  render_and_save_to_disk();
 
-  /* Start main loop */
-  SDL_Event e;
-  Timer global_timer, frame_timer;
-  double T_global = 0.0, T_frame = 0.0;
-  int frameid = 0;
-
-  while (true) {
-    /* window message handling */
-    SDL_PollEvent(&e);
-    if (e.type == SDL_QUIT || keystate[SDL_SCANCODE_ESCAPE])
-      break;
-    else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
-      process_key(&e.key);
-
-    /* timing */
-    frameid++;
-    frame_timer.tick();
-    T_global += global_timer.tick();
-
-    /* render the whole frame */
-    render_frame();
-
-    /* logging */
-    double frame_time = frame_timer.tick();
-    T_frame += frame_time;
-    sgl::SDL2::sgl_texture_to_SDL2_surface(&color_texture, pWindowSurface);
-    SDL_UpdateWindowSurface(pWindow);
-    char buf[64];
-    sprintf(buf, "%.2lfms, T=%.2lfs", T_frame / frameid * 1000.0, T_global);
-    std::string title = std::string("SGL | ") + buf + " | FPS=" + std::to_string(int(1.0 / frame_time));
-    SDL_SetWindowTitle(pWindow, title.c_str());
-  }
-
-  destroy_env();
   return 0;
 }

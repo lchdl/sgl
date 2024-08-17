@@ -35,61 +35,37 @@ enum PipelineDrawMode {
 
 class Pipeline {
  public:
-  /**
-  Clear textures.
-  **/
+
+  /** Clear textures **/
   void clear_render_target(const int& slot, const Vec4& clear_color);
   void clear_render_targets(const Vec4 &clear_color);
-  /**
-  Set vertex & fragment shaders.
-  @note: NULL value will be ignored.
-  **/
-  void set_shaders(
-      VS_func_t VS, 
-      FS_func_t FS) {
-    if (VS!=NULL) shaders.VS=VS;
-    if (FS!=NULL) shaders.FS=FS;
-  }
-  /**
-  Set render targets.
-  8 output texture slots.
-  **/
-  void set_render_target(const int& slot, Texture* texobj) {
-    this->targets.out_comps[slot] = texobj;
-  }
-  /**
-  Enable/disable backface culling.
-  **/
-  void enable_backface_culling(bool state = true) {
-    ppl.backface_culling = state;
-  }
-  void disable_backface_culling() {
-    ppl.backface_culling = false;
-  }
-  /**
-  Enable/disable depth test.
-  **/
-  void enable_depth_test(bool state = true) {
-    ppl.do_depth_test = state;
-  }
-  void disable_depth_test() {
-    ppl.do_depth_test = false;
-  }
-  /**
-  Buffer manipulations.
-  **/
+  
+  /** Set vertex & fragment shaders **/
+  void set_shaders(VS_func_t VS, FS_func_t FS) { shaders.VS=VS; shaders.FS=FS; }
+  
+  /** Set render targets **/
+  void bind_render_target(const int& slot, Texture* texobj) { this->targets.out_comps[slot] = texobj; }
+  void unbind_render_target(const int& slot) { this->targets.out_comps[slot] = NULL; }
+  
+  /** Enable/disable backface culling **/
+  void enable_backface_culling(bool state = true) { ppl.backface_culling = state; }
+  void disable_backface_culling() { ppl.backface_culling = false; }
+  
+  /** Enable/disable depth test **/
+  void enable_depth_test(bool state = true) { ppl.do_depth_test = state; }
+  void disable_depth_test() { ppl.do_depth_test = false; }
+  
+  /** Buffer manipulations **/
   int32_t create_index_buffer();
   int32_t create_vertex_buffer();
   void fill_index_buffer(const int32_t& ibo, const IndexBuffer_t& buffer_data);
   void fill_vertex_buffer(const int32_t& vbo, const VertexBuffer_t& buffer_data);
   void delete_index_buffer(const int32_t& ibo);
   void delete_vertex_buffer(const int32_t& vbo);
-  /**
-  Set draw mode.
-  **/
-  void set_draw_mode(PipelineDrawMode draw_mode) {
-    ppl.draw_mode = draw_mode;
-  }
+  
+  /** Set draw mode **/
+  void set_draw_mode(PipelineDrawMode draw_mode) { ppl.draw_mode = draw_mode; }
+  
   /** 
   Render triangles onto target textures.
   @param vertices: Vertex buffer object.
@@ -116,8 +92,7 @@ class Pipeline {
   @note: This function will invoke vertex shader, and all processed vertices
   will be stored into this->ppl.Vertices for further use.
   **/
-  void vertex_processing(const VertexBuffer_t &vertex_buffer,
-                         const void *uniforms_data);
+  void vertex_processing(const VertexBuffer_t &vertex_buffer, const void *uniforms_data);
 
   /**
   Stage II: Vertex Post-processing.
@@ -148,8 +123,7 @@ class Pipeline {
   @param triangle_in: Input triangle in homogeneous space.
   @param triangles_out: Output triangle(s) in homogeneous space.
   **/
-  void clip_triangle(const Triangle_gl &triangle_in,
-                     std::vector<Triangle_gl> &triangles_out);
+  void clip_triangle(const Triangle_gl &triangle_in, std::vector<Triangle_gl> &triangles_out);
   /**
   Clip triangle (`v1`-`v2`-`v3`) in homogeneous space.
   Assume each vertex has homogeneous coordinate (x,y,z,w), then clip
@@ -214,8 +188,7 @@ class Pipeline {
   Edge function. Determine which side the point p is at w.r.t. edge p0-p1.
   **/
   double edge(const Vec4 &p0, const Vec4 &p1, const Vec4 &p) {
-    return (p0.y - p1.y) * p.x + (p1.x - p0.x) * p.y +
-           (p0.x * p1.y - p0.y * p1.x);
+    return (p0.y - p1.y) * p.x + (p1.x - p0.x) * p.y + (p0.x * p1.y - p0.y * p1.x);
   }
   /**
   Color convertion. Vec4 => RGBA8.
@@ -236,12 +209,12 @@ class Pipeline {
     note that here we default to little endian, 
     the order of all color components should be reversed when packing
     */
-    if (target_format == PixelFormat::PixelFormat_RGBA8888)
+    if (target_format == PixelFormat_RGBA8888)
       out_result = ((A << 24) | (B << 16) | (G << 8) | R);
-    else if (target_format == PixelFormat::PixelFormat_BGRA8888)
+    else if (target_format == PixelFormat_BGRA8888)
       out_result = ((A << 24) | (R << 16) | (G << 8) | B);
     else
-      printf("Invalid texture format.\n");
+      printf("Cannot unpack pixel. Invalid texture format.\n");
   }
   /**
   Write final color data into targeted textures.

@@ -96,13 +96,18 @@ class Texture {
 };
 
 /**
+  Create an empty image.
+  This is equivalent to Texture::create().
+**/
+Texture create_texture(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage);
+
+/**
   Load an image from disk and return the loaded texture object.
   @param file: Image file path.
   @returns: The loaded image texture. If image loading failed, an empty texture
 will be returned (pixels=NULL).
 **/
-Texture load_texture(const std::string &file, 
-  const PixelFormat& target_format = PixelFormat::PixelFormat_BGRA8888);
+Texture load_texture(const std::string &file, const PixelFormat& target_format = PixelFormat_BGRA8888);
 
 /**
   Common interface for sampling a texture. Designed mainly for fragment shaders.
