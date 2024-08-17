@@ -27,8 +27,9 @@ The overall design of the rasterization pipeline is shown below.
 ## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
 |:------------------|:---------------:|:------------|
-| `test_hello_world.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.cpp`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
-| `test_skeletal_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Including orthographic / perspective projection.  |
+| `test_hello_world.cpp` `test_buffer.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.cpp`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
+| `test_skeletal_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Including orthographic / perspective projection. |
+| `test_sprite_render.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_sprite_render.png) | A simple demo for rendering multiple 2D sprites onto a texture with just a few lines of code. The chess sprites used in this demo were downloaded from [here](https://dani-maccari.itch.io/pixel-chess). |
 
 ### Performance benchmarking
 | Demo or test name | Description |
