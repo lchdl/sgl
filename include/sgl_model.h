@@ -21,8 +21,8 @@ namespace sgl {
 /* A vertex can only be affected by no more than 4 bones.
   * NOTE: this value cannot be changed. */
 const int MAX_BONES_INFLUENCE_PER_VERTEX = 4;
-/* A mesh model can only have less than 128 nodes. */
-const int MAX_NODES_PER_MODEL = 128;
+/* A mesh model can only have less than 256 nodes. */
+const int MAX_NODES_PER_MODEL = 256;
 
 template <typename T> 
 struct KeyFrame {
@@ -210,8 +210,7 @@ private:
   void _dump_node(const Node* node, const uint32_t indent);
 };
 
-inline Mat4x4 
-convert_assimp_mat4x4(const aiMatrix4x4& m)
+inline Mat4x4 convert_assimp_mat4x4(const aiMatrix4x4& m)
 {
   return Mat4x4(
     m.a1, m.a2, m.a3, m.a4,
@@ -220,12 +219,10 @@ convert_assimp_mat4x4(const aiMatrix4x4& m)
     m.d1, m.d2, m.d3, m.d4
   );
 }
-inline Vec3
-convert_assimp_vec3(const aiVector3D& v) {
+inline Vec3 convert_assimp_vec3(const aiVector3D& v) {
   return Vec3(v.x, v.y, v.z);
 }
-inline Quat
-convert_assimp_quat(const aiQuaternion& q) {
+inline Quat convert_assimp_quat(const aiQuaternion& q) {
   return Quat(q.w, q.x, q.y, q.z);
 }
 
