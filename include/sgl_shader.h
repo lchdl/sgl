@@ -40,7 +40,6 @@ public:
   Vec3 wp; /* world position */
   Vec3 wn; /* world normal */
   Vec2 t;  /* texture coordinates */
-
 public:
   /**
   Used in primitive clipping. Linear interpolate two vertices.

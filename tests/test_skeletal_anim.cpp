@@ -115,14 +115,12 @@ void process_key(SDL_KeyboardEvent *key) {
 }
 
 void init_render() {
-  /* Step 1: Setup resources. */
+  /* setup resources */
   frame_buffer.color = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   frame_buffer.depth = sgl::create_texture(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
   frame_buffer.normal = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  boblamp.load("models/boblamp.zip");
-  boblamp.dump();
 
-  /* Step 2: Setup render pass. */
+  /* setup render pass */
   animator.out_texs.color = &frame_buffer.color;
   animator.out_texs.depth = &frame_buffer.depth;
   animator.out_texs.normal = &frame_buffer.normal;
@@ -140,7 +138,9 @@ void init_render() {
   animator.eye.orthographic.far = 50.0;
   animator.eye.orthographic.width = 12.0;
   animator.eye.orthographic.height = 9.0;
+
   /* setup model to be rendered */
+  boblamp.load("models/boblamp.zip");
   animator.model = &boblamp;
   animator.pipeline = &pipeline;
   pipeline.set_draw_mode(PipelineDrawMode_Triangle);

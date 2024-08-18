@@ -229,7 +229,6 @@ class Pipeline {
     FS_Outputs fs_outs;
     bool is_discarded = false;
     shaders.FS(uniforms_data, fragment, gl_FragCoord, fs_outs, is_discarded, gl_FragDepth);
-    /* Step 3.5: Fragment processing */
     if (!is_discarded) {
       write_render_targets(gl_FragCoord.xy(), fs_outs, gl_FragDepth);
     }
@@ -280,16 +279,19 @@ class Pipeline {
     Texture* out_texs[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
   } targets; /* render targets */
   struct {
-    std::vector<Vertex_gl> Vertices; /* vertices after vertex processing */
+    std::vector<Vertex_gl>    Vertices; /* vertices after vertex processing */
     std::vector<Triangle_gl> Triangles; /* geometry generated after vertex post-processing */
-    int num_threads; /* number of cpu cores used when running the pipeline */
-    bool backface_culling; /* enable/disable backface culling when rendering */
-    bool do_depth_test; /* enable/disable depth test when rendering */
-    int cur_render_width;
-    int cur_render_height;
-    int depth_texture_slot; /* which slot stores the depth texture, must be in range 
-                            [0, MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS) */
-    PipelineDrawMode draw_mode; /* different draw modes will invoke different fragment processing implementations */
+    int        num_threads;             /* number of cpu cores used when running the pipeline */
+    bool  backface_culling;             /* enable/disable backface culling when rendering */
+    bool     do_depth_test;             /* enable/disable depth test when rendering */
+    int   cur_render_width;             /* cur_render_width/height will be properly set when
+                                           a draw call is invoked based on bound textures in
+                                           a frame buffer */
+    int  cur_render_height;
+    int depth_texture_slot;             /* which slot stores the depth texture, must be in range 
+                                           [0, MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS) */
+    PipelineDrawMode draw_mode;         /* different draw modes will invoke different fragment 
+                                           processing implementations */
   } ppl; /* pipeline internal states and variables */
   struct {
     std::vector<VertexBuffer_t> VertexBuffers;
