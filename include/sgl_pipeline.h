@@ -12,20 +12,18 @@
 
 namespace sgl {
 
-/**
-Internal class that is used in primitive assembly stage.
-Users do not need to care about it too much since it is just an simple
-aggregation of vertices that represent an assembled primitive.
-**/
 class Triangle_gl {
+  /**
+  Internal class that is used in primitive assembly stage.
+  Users do not need to care about it too much since it is just an simple
+  aggregation of vertices that represent an assembled primitive.
+  **/
 public:
   Vertex_gl v[3];
 
 public:
   Triangle_gl() {}
-  Triangle_gl(const Vertex_gl &v1, const Vertex_gl &v2, const Vertex_gl &v3) {
-    this->v[0] = v1, this->v[1] = v2, this->v[2] = v3;
-  }
+  Triangle_gl(const Vertex_gl &v1, const Vertex_gl &v2, const Vertex_gl &v3) { this->v[0] = v1, this->v[1] = v2, this->v[2] = v3; }
 };
 
 enum PipelineDrawMode {
@@ -36,25 +34,29 @@ enum PipelineDrawMode {
 class Pipeline {
  public:
 
-  /** Clear textures **/
+  /** Clear **/
   void clear_render_target(const int& slot, const Vec4& clear_color);
   void clear_render_targets(const Vec4 &clear_color);
-  
+  void clear_cache();
+
   /** Set vertex & fragment shaders **/
   void set_shaders(VS_func_t VS, FS_func_t FS) { shaders.VS=VS; shaders.FS=FS; }
   
   /** Set render targets **/
-  void bind_render_target(const int& slot, Texture* texobj) { this->targets.out_comps[slot] = texobj; }
-  void unbind_render_target(const int& slot) { this->targets.out_comps[slot] = NULL; }
+  void bind_render_target(const int& slot, Texture* texobj) { this->targets.out_texs[slot] = texobj; }
+  void unbind_render_target(const int& slot) { this->targets.out_texs[slot] = NULL; }
+  Texture* get_render_target(const int& slot) const { return this->targets.out_texs[slot]; }
   
   /** Enable/disable backface culling **/
   void enable_backface_culling(bool state = true) { ppl.backface_culling = state; }
   void disable_backface_culling() { ppl.backface_culling = false; }
+  bool get_backface_culling_state() const { return ppl.backface_culling; }
   
   /** Enable/disable depth test **/
   void enable_depth_test(bool state = true) { ppl.do_depth_test = state; }
   void disable_depth_test() { ppl.do_depth_test = false; }
-  
+  bool get_depth_test_state() const { return ppl.do_depth_test; }
+
   /** Buffer manipulations **/
   int32_t create_index_buffer();
   int32_t create_vertex_buffer();
@@ -65,24 +67,15 @@ class Pipeline {
   
   /** Set draw mode **/
   void set_draw_mode(PipelineDrawMode draw_mode) { ppl.draw_mode = draw_mode; }
-  
-  /** 
-  Render triangles onto target textures.
-  @param vertices: Vertex buffer object.
-  @param indices: Index buffer object.
-  @param uniforms: Uniform variables used by vertex and
-    fragment shaders.
-  **/
-  virtual void draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const void* uniforms_data);
-  virtual void draw(const int32_t& vbo, const int32_t& ibo, const void* uniforms_data);
+  PipelineDrawMode get_draw_mode() const { return ppl.draw_mode; }
 
- public:
-  /**
-  Set number of threads for rasterization.
-  @param num_threads: Number of concurrent threads.
-  **/
+  /** Set number of threads for rasterization **/
   void set_num_threads(const int& num_threads) { ppl.num_threads = num_threads; }
-  void clear_cache();
+  int get_num_threads() const { return ppl.num_threads; }
+
+  /** Render triangles onto target textures **/
+  void draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const void* uniforms_data);
+  void draw(const int32_t& vbo, const int32_t& ibo, const void* uniforms_data);
 
  protected:
   /**
@@ -99,7 +92,7 @@ class Pipeline {
   @param index_buffer: The index buffer object that will tell us how the mesh is
   formed by using the vertex array.
   @note: After running post-processing, this->ppl.Triangles will be initialized
-  properly and ready for the next step.
+  properly and ready for the next stage.
   **/
   void vertex_post_processing(const std::vector<int> &index_buffer);
 
@@ -110,16 +103,15 @@ class Pipeline {
   @note: "MT" stands for "multi-threaded" version. 
          * If running in MT mode, OpenMP must be enabled.
   **/
-  void fragment_processing(const void *uniforms_data);
-  void fragment_processing_MT(const void *uniforms_data, const int &num_threads);
+  void fragment_processing_triangle(const void *uniforms_data);
+  void fragment_processing_triangle_MT(const void *uniforms_data, const int &num_threads);
   void fragment_processing_wireframe(const void *uniforms_data);
   void fragment_processing_wireframe_MT(const void *uniforms_data, const int &num_threads);
 
  protected:
   /**
   Clip triangle in homogeneous space.
-  @note: Assume each vertex has homogeneous coordinate (x,y,z,w), then clip
-  points outside -w <= x, y, z <= +w.
+  @note: Assume each vertex has homogeneous coordinate (x,y,z,w), then clip points outside -w <= x, y, z <= +w.
   @param triangle_in: Input triangle in homogeneous space.
   @param triangles_out: Output triangle(s) in homogeneous space.
   **/
@@ -132,11 +124,9 @@ class Pipeline {
   see: "How to clip in homogeneous space?" in "doc/graphics_pipeline.md".
   @param v1, v2, v3: Input triangle vertices in homogeneous space.
   @param clip_axis: Clip axis (0=x, 1=y, 2=z).
-  @param clip_sign: Clip sign (+1 or -1). +1 means clipping using +w, -1 means
-  clipping using -w.
+  @param clip_sign: Clip sign (+1 or -1). +1 means clipping using +w, -1 means clipping using -w.
   @param q1, q2, q3, q4: Output triangle vertices.
-    - If one triangle is produced, then (`q1`-`q2`-`q3`) represents the new
-  triangle.
+    - If one triangle is produced, then (`q1`-`q2`-`q3`) represents the new triangle.
     - If two triangles are produced, then (`q1`-`q2`-`q3`) represents the first
   triangle, (`q1`-`q3`-`q4`) represents the second triangle.
   @param n_tri: Number of triangle(s) produced after clipping. Can be 0, 1, or 
@@ -197,10 +187,10 @@ class Pipeline {
   **/
   void unpack_Vec4_color_to_unsigned_RGBA(
     const Vec4 &color, uint8_t &R, uint8_t &G, uint8_t &B, uint8_t &A) {
-    R = uint8_t(min(max(int(color.r * 255.0), 0), 255));
-    G = uint8_t(min(max(int(color.g * 255.0), 0), 255));
-    B = uint8_t(min(max(int(color.b * 255.0), 0), 255));
-    A = uint8_t(min(max(int(color.a * 255.0), 0), 255));
+    R = uint8_t(clamp(0, int(color.r * 255.0), 255));
+    G = uint8_t(clamp(0, int(color.g * 255.0), 255));
+    B = uint8_t(clamp(0, int(color.b * 255.0), 255));
+    A = uint8_t(clamp(0, int(color.a * 255.0), 255));
   }
   void pack_RGBA8888_to_uint32(
     const uint8_t& R, const uint8_t& G, const uint8_t& B, const uint8_t& A, 
@@ -287,7 +277,7 @@ class Pipeline {
 
  protected:
   struct {
-    Texture* out_comps[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
+    Texture* out_texs[MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS];
   } targets; /* render targets */
   struct {
     std::vector<Vertex_gl> Vertices; /* vertices after vertex processing */
@@ -297,9 +287,8 @@ class Pipeline {
     bool do_depth_test; /* enable/disable depth test when rendering */
     int cur_render_width;
     int cur_render_height;
-    int depth_texture_slot; /* which slot stores the depth texture,
-                            must be in range [0, MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS)
-                            */
+    int depth_texture_slot; /* which slot stores the depth texture, must be in range 
+                            [0, MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS) */
     PipelineDrawMode draw_mode; /* different draw modes will invoke different fragment processing implementations */
   } ppl; /* pipeline internal states and variables */
   struct {
@@ -314,9 +303,9 @@ class Pipeline {
   void _zero_init();
 
  public:
-  Pipeline();
-  Pipeline(VS_func_t VS, FS_func_t FS);
-  ~Pipeline();
+  Pipeline() { _zero_init(); }
+  ~Pipeline() {}
+
 };
 
 }; /* namespace sgl */

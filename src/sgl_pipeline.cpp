@@ -7,7 +7,7 @@ namespace sgl {
 void Pipeline::_zero_init()
 {
   for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
-    targets.out_comps[i] = NULL;
+    targets.out_texs[i] = NULL;
   }
   shaders.VS = NULL;
   shaders.FS = NULL;
@@ -16,17 +16,6 @@ void Pipeline::_zero_init()
   ppl.do_depth_test = true;
   ppl.draw_mode = PipelineDrawMode_Triangle;
 }
-
-Pipeline::Pipeline() {
-  _zero_init();
-}
-Pipeline::Pipeline(VS_func_t VS, FS_func_t FS)
-{
-  _zero_init();
-  shaders.VS = VS;
-  shaders.FS = FS;
-}
-Pipeline::~Pipeline() {}
 
 int32_t Pipeline::create_index_buffer()
 {
@@ -80,57 +69,65 @@ void Pipeline::delete_vertex_buffer(const int32_t & vbo)
 
 void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices, const void* uniforms_data)
 {
-  if (shaders.VS == NULL || shaders.FS == NULL)
-    return;
+  /* 
+  Initialize internal variables and check if frame buffer is complete.
+  A complete frame buffer must satisfy:
+  1) One and only one depth buffer if depth test is enabled, when depth test
+     is disabled, the depth buffer is optional.
+  2) At least one texture bound to one of the several output texture slots.
+  3) Each bound texture must have the same size.
+  */
+  {
+    bool is_ready = true;
+    int num_depth_buffers = 0;
+    ppl.cur_render_width = ppl.cur_render_height = -1;
+    ppl.depth_texture_slot = -1;
+    for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
+      if (targets.out_texs[i] == NULL) continue;
+      /* set current render height and width parameters */
+      if (ppl.cur_render_width < 0 || ppl.cur_render_height < 0) {
+        ppl.cur_render_width = targets.out_texs[i]->w;
+        ppl.cur_render_height = targets.out_texs[i]->h;
+      }
+      else {
+        if (ppl.cur_render_width != targets.out_texs[i]->w ||
+          ppl.cur_render_height != targets.out_texs[i]->h) {
+          printf("Invalid frame buffer: different texture sizes detected! "
+            "expected %dx%d, got %dx%d.\n", ppl.cur_render_width, ppl.cur_render_height,
+            targets.out_texs[i]->w, targets.out_texs[i]->h);
+          is_ready = false;
+          break;
+        }
+      }
+      if (targets.out_texs[i]->usage == TextureUsage_DepthBuffer) {
+        num_depth_buffers++;
+        ppl.depth_texture_slot = i;
+      }
+    }
+    /* check if pipeline is ready for render */
+    if (ppl.num_threads < 1) {
+      is_ready = false;
+    }
+    if (shaders.VS == NULL || shaders.FS == NULL) {
+      is_ready = false;
+    }
+    if (ppl.cur_render_width <= 0 || ppl.cur_render_height <= 0) {
+      is_ready = false;
+    }
+    if (ppl.do_depth_test) {
+      if (num_depth_buffers != 1 || ppl.depth_texture_slot < 0) {
+        is_ready = false;
+      }
+    }
+    if (!is_ready) {
+      printf("Pipeline is not ready for render due to invalid parameter settings.\n");
+      return;
+    }
+  }
 
   /* Clear cached data generated from previous call. */
   ppl.Vertices.clear();
   ppl.Triangles.clear();
-
-  /* 
-  initialize internal variables and check if frame buffer is complete 
-  a complete frame buffer must include:
-  1) at least one texture with usage set to color_components
-  2) one and only one depth buffer
-  */
-  int num_depth_buffers = 0;
-  ppl.cur_render_width = ppl.cur_render_height = -1;
-  ppl.depth_texture_slot = -1;
-  for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++) {
-    if (targets.out_comps[i] == NULL) continue;
-    /* set current render height and width parameters */
-    if (ppl.cur_render_width < 0 || ppl.cur_render_height < 0) {
-      ppl.cur_render_width = targets.out_comps[i]->w;
-      ppl.cur_render_height = targets.out_comps[i]->h;
-    }
-    else {
-      if (ppl.cur_render_width != targets.out_comps[i]->w ||
-        ppl.cur_render_height != targets.out_comps[i]->h) {
-        printf("Invalid frame buffer: different texture sizes detected! "
-          "expected %dx%d, got %dx%d.\n", ppl.cur_render_width, ppl.cur_render_height,
-          targets.out_comps[i]->w, targets.out_comps[i]->h);
-        return;
-      }
-    }
-    if (targets.out_comps[i]->usage == TextureUsage_DepthBuffer) {
-      num_depth_buffers++;
-      ppl.depth_texture_slot = i;
-    }
-  }
-  /* check if buffer is complete */
-  bool is_complete = true;
-  if (ppl.cur_render_width <= 0 || ppl.cur_render_height <= 0) {
-    is_complete = false;
-  }
-  if (ppl.do_depth_test) {
-    if (num_depth_buffers != 1 || ppl.depth_texture_slot < 0) {
-      is_complete = false;
-    }
-  }
-  if (!is_complete) {
-    printf("Frame buffer incomplete.\n");
-    return;
-  }
 
   /* Stage I: Vertex processing. */
   vertex_processing(vertices, uniforms_data);
@@ -138,13 +135,13 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
   /* Stage II: Vertex post-processing. */
   vertex_post_processing(indices);
 
-  /* Step III: Rasterization & fragment processing */
+  /* Stage III: Rasterization & fragment processing */
   if (ppl.draw_mode == PipelineDrawMode_Triangle) {
     if (ppl.num_threads > 1) {
-      fragment_processing_MT(uniforms_data, ppl.num_threads);
+      fragment_processing_triangle_MT(uniforms_data, ppl.num_threads);
     }
     else {
-      fragment_processing(uniforms_data);
+      fragment_processing_triangle(uniforms_data);
     }
   }
   else if (ppl.draw_mode == PipelineDrawMode_Wireframe) {
@@ -155,7 +152,6 @@ void Pipeline::draw(const VertexBuffer_t& vertices, const IndexBuffer_t& indices
       fragment_processing_wireframe(uniforms_data);
     }
   }
-
 }
 
 void Pipeline::draw(const int32_t & vbo, const int32_t & ibo, const void* uniforms_data)
@@ -202,7 +198,7 @@ Pipeline::vertex_post_processing(const std::vector<int> &index_buffer) {
 }
 
 void
-Pipeline::fragment_processing(const void *uniforms_data) {
+Pipeline::fragment_processing_triangle(const void *uniforms_data) {
   for (uint32_t i_tri = 0; i_tri < ppl.Triangles.size(); i_tri++) {
     /* Step 3.1: Convert clip space to NDC space (perspective divide) */
     Triangle_gl tri_gl = ppl.Triangles[i_tri];
@@ -283,7 +279,7 @@ Pipeline::fragment_processing(const void *uniforms_data) {
   }
 }
 
-void Pipeline::fragment_processing_MT(const void *uniforms_data, const int &num_threads) {
+void Pipeline::fragment_processing_triangle_MT(const void *uniforms_data, const int &num_threads) {
 #pragma omp parallel for num_threads(num_threads)
   for (int thread_id = 0; thread_id < num_threads; thread_id++) {
     /**
@@ -467,7 +463,7 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
 
   /* depth test */
   if (ppl.do_depth_test) {
-    double *depths = (double *)this->targets.out_comps[ppl.depth_texture_slot]->pixels;
+    double *depths = (double *)this->targets.out_texs[ppl.depth_texture_slot]->pixels;
     double z_new = min(max(z, 0.0), 1.0);
     double z_orig = depths[pixel_id];
     if (z_new > z_orig)
@@ -477,7 +473,7 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
 
   /* write each color component to their corresponding texture slot */
   for (int i_slot=0; i_slot < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i_slot++) {
-    if (targets.out_comps[i_slot] == NULL) continue; /* this slot does not link to any texture, skip */
+    if (targets.out_texs[i_slot] == NULL) continue; /* this slot does not link to any texture, skip */
     if (i_slot == ppl.depth_texture_slot) continue; /* skip depth buffer since we already processed it in above */
     const Vec4& color = fs_outs[i_slot];
     /* 
@@ -485,19 +481,19 @@ Pipeline::write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const d
     be aware that different texture formats will have different physical 
     storage layout
     */
-    if (targets.out_comps[i_slot]->format == PixelFormat_BGRA8888 ||
-      targets.out_comps[i_slot]->format == PixelFormat_RGBA8888) {
+    if (targets.out_texs[i_slot]->format == PixelFormat_BGRA8888 ||
+      targets.out_texs[i_slot]->format == PixelFormat_RGBA8888) {
       uint8_t R, G, B, A;
       uint32_t packed_32bit;
       unpack_Vec4_color_to_unsigned_RGBA(color, R, G, B, A);
-      pack_RGBA8888_to_uint32(R, G, B, A, targets.out_comps[i_slot]->format, packed_32bit);
-      uint32_t *pixels = (uint32_t *)targets.out_comps[i_slot]->pixels;
+      pack_RGBA8888_to_uint32(R, G, B, A, targets.out_texs[i_slot]->format, packed_32bit);
+      uint32_t *pixels = (uint32_t *)targets.out_texs[i_slot]->pixels;
       pixels[pixel_id] = packed_32bit;
     }
-    else if (targets.out_comps[i_slot]->format == PixelFormat_Float64) {
+    else if (targets.out_texs[i_slot]->format == PixelFormat_Float64) {
       /* we only select the first component of the Vec4 color (color.i[0]), other components are ignored */
       double data = color.i[0];
-      double *pixels = (double *)targets.out_comps[i_slot]->pixels;
+      double *pixels = (double *)targets.out_texs[i_slot]->pixels;
       pixels[pixel_id] = data;
     }
   }
@@ -507,9 +503,15 @@ void
 Pipeline::clip_triangle(const Triangle_gl &triangle_in, std::vector<Triangle_gl> &triangles_out) {
   std::vector<Triangle_gl> Q0, Q1;
   std::vector<Triangle_gl> *Qcur = &Q0, *Qnext = &Q1, *Qtemp = NULL;
-  Qcur->push_back(triangle_in);
   Vertex_gl q[4];
   const int clip_signs[2] = {+1, -1};
+  /* 
+  Clip triangle using homogeneous cube -w <= x,y,z <= +w
+  Since this cube has six faces, for each triangle we need to clip 
+  it six times, resulting in zero, one, or multiple triangles. We 
+  then return these clipped triangles to the caller.
+  */
+  Qcur->push_back(triangle_in);
   for (uint32_t clip_axis = 0; clip_axis < 3; clip_axis++) {
     for (uint32_t i_clip = 0; i_clip < 2; i_clip++) {
       const int clip_sign = clip_signs[i_clip];
@@ -543,8 +545,7 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
                         Vertex_gl &q3, Vertex_gl &q4, int &n_tri) {
   int p1_sign, p2_sign, p3_sign;
   if (clip_sign == +1) {
-    /* use <= instead of <, if a point lies on the clip plane we don't need to
-     * clip it. */
+    /* use <= instead of <, if a point lies on the clip plane we don't need to clip it. */
     p1_sign = (v1.gl_Position.i[clip_axis] <= v1.gl_Position.w) ? +1 : -1;
     p2_sign = (v2.gl_Position.i[clip_axis] <= v2.gl_Position.w) ? +1 : -1;
     p3_sign = (v3.gl_Position.i[clip_axis] <= v3.gl_Position.w) ? +1 : -1;
@@ -645,7 +646,7 @@ Pipeline::clip_triangle(const Vertex_gl &v1, const Vertex_gl &v2,
 }
 void Pipeline::clear_render_target(const int & slot, const Vec4 & clear_color)
 {
-  Texture* texture = targets.out_comps[slot];
+  Texture* texture = targets.out_texs[slot];
   if (texture == NULL) return;
   if (texture->usage == TextureUsage_DepthBuffer) {
     /* depth buffer is special, when it needs to be cleared,
@@ -682,6 +683,5 @@ Pipeline::clear_render_targets(const Vec4 &clear_color)
   for (int i=0; i < MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS; i++)
     clear_render_target(i, clear_color);
 }
-
 
 }; /* namespace sgl */

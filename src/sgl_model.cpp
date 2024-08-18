@@ -327,9 +327,9 @@ Model::_update_mesh_skeletal_animation_from_node(
   const Node* node, const Mat4x4& parent_transform, const Mesh& mesh,
   const uint32_t& anim_id, double play_time, Mat4x4* bone_matrices)
 {
-  /* retrieve some info about this node. 
-  NOTE: in Assimp, if a node is actually a bone, then the node name will be 
-  set to be the same as the bone name. */
+  /* First we retrieve some info about this node. In Assimp, if a node 
+  is actually a bone, then the node name will be set to be the same as 
+  the bone name. */
   std::string node_name = node->name;
   std::map<std::string, uint32_t>::const_iterator 
     item = mesh.bone_name_to_local_id.find(node_name);
