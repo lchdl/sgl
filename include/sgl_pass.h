@@ -4,6 +4,25 @@
 
 namespace sgl {
 
+/**
+
+A `pass` is an object that describes a complete render operation
+and stores all the resources used during rendering. All `pass`
+objects & instances should inherit from `Pass` base class.
+
+* The reason I introduce the concept of `pass` is that drawing an
+object onto the screen correctly requires a lot of preparation
+work beforehand, including but not limited to shader initialization,
+buffer preparation, uniform variable assignment, etc. To be honest,
+many things can go wrong here if not enough attention is paid, and
+usually, a blank screen will be shown if there is any bug in your
+code, which is not very informative for graphical debugging and can
+lower your efficiency. So, wrapping the above process into a `pass`
+can standardize the whole process for us, which will be much more
+convenient when drawing something complex onto the screen.
+
+**/
+
 class Pass {
 public:
   /* camera/eye settings */
@@ -37,7 +56,6 @@ Simply draw a model (probably with animation) onto screen.
   wraps up multiple draw calls to fully render a model, each draw call
   only renders a single mesh.
 **/
-
 class BaseAnimator : public Pass
 {
 public:
@@ -50,34 +68,34 @@ public:
     /* final bone transformations */
     Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
   };
-  struct Vertex : public IVertex {
+  struct VS_IN : public IVertex {
     Vec3 p; /* vertex position (in model local space) */
     Vec3 n; /* vertex normal (in model local space)*/
     Vec2 t; /* vertex texture coordinate */
     /* for skeletal animations */
     IVec4 bone_IDs; /* bones up to 4 */
     Vec4  bone_weights;
-
-    void convert_from(const MeshVertex& v);
   };
-  struct Fragment : public IFragment {
+  typedef struct VS_OUT : public IFragment {
     Vec3 wp; /* world position */
     Vec3 wn; /* world normal */
     Vec2 t;  /* texture coordinates */
 
-    void    operator*=(const double& w);
-    Fragment operator*(const double& w) const;
-    Fragment operator+(const Fragment& frag) const;
-  };
+    /* The `Fragment` class need define how two fragments should be interpolated.  */
+    void  operator*=(const double& scalar);
+    VS_OUT operator*(const double& scalar) const;
+    VS_OUT operator+(const VS_OUT& frag) const;
+
+  } FS_IN;
   class Shader {
   public:
-    void VS(const Uniforms& uniforms, const Vertex& vertex_in, Fragment& vertex_out, Vec4& gl_Position) const;
-    void FS(const Uniforms& uniforms, const Fragment& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs, bool& discard, double& gl_FragDepth) const;
+    void VS(const Uniforms& uniforms, const VS_IN& vertex_in, VS_OUT& vertex_out, Vec4& gl_Position) const;
+    void FS(const Uniforms& uniforms, const FS_IN& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs, bool& discard, double& gl_FragDepth) const;
   };
 
 
 public:
-  void                        run(bool clear=true);
+  void                        run();
   void                 load_model(const std::string& file);
   PipelineDrawMode  get_draw_mode() const { return this->pipeline.get_draw_mode(); }
   void              set_draw_mode(PipelineDrawMode draw_mode) { this->pipeline.set_draw_mode(draw_mode); }
@@ -86,20 +104,23 @@ public:
   void            set_num_threads(int num_threads) { this->pipeline.set_num_threads(num_threads); }
   void             play_animation(const std::string& anim_name, const double& play_time) { this->anim_name = anim_name; this->play_time = play_time; }
   double     query_last_draw_time() const { return this->last_draw_time; }
-  void         set_render_targets(Texture* color, Texture* depth, Texture* normal) { this->out_texs.color=color; this->out_texs.depth=depth; this->out_texs.normal = normal; }
+  void         set_render_targets(Texture* color, Texture* depth, Texture* normal) { 
+    this->pipeline.bind_render_target(0, color);
+    this->pipeline.bind_render_target(1, depth);
+    this->pipeline.bind_render_target(2, normal);
+  }
+  void       clear_pipeline_cache() { this->pipeline.clear_cache(); }
+  void       clear_render_targets(const Vec4& clear_color) { this->pipeline.clear_render_targets(clear_color); }
 
 public:
   BaseAnimator();
   virtual ~BaseAnimator() {}
 
 protected:
-  struct {
-    /* note: not owned */
-    Texture* color;
-    Texture* depth;
-    Texture* normal;
-  } out_texs;
-  typedef Pipeline<Uniforms, Vertex, Fragment, Shader> Pipeline_t;
+  VS_IN convert_from_mesh_vertex(const Vertex_pnt_bone& v) const;
+
+protected:
+  typedef Pipeline<Uniforms, VS_IN, VS_OUT, Shader> Pipeline_t;
   Pipeline_t pipeline;
   Uniforms   uniforms;
   Shader       shader;
@@ -111,8 +132,13 @@ protected:
   double      play_time; /* time value for controlling the skeletal animation (in sec.) */
   double last_draw_time; /* draw time (sec) of the last frame */
 
-
 };
+
+
+
+
+
+
 
 
 }; /* namespace sgl */

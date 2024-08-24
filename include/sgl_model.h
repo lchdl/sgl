@@ -8,6 +8,7 @@
 #include "sgl_utils.h"
 #include "sgl_math.h"
 #include "sgl_texture.h"
+#include "sgl_shader.h"
 
 /* Assimp: model import library */
 #include "assimp/Importer.hpp"
@@ -49,14 +50,6 @@ struct Bone {
      when the model is in bind pose (default T-pose). */
   Mat4x4 offset;
 };
-struct MeshVertex {
-  Vec3 p; /* vertex position (in model local space) */
-  Vec3 n; /* vertex normal (in model local space)*/
-  Vec2 t; /* vertex texture coordinate */
-  /* for skeletal animations */
-  IVec4 bone_IDs; /* bones up to 4 */
-  Vec4  bone_weights;
-};
 struct Node {
   std::string          name; /* name of the node */
   Node*              parent; /* parent node name */
@@ -71,7 +64,7 @@ struct Mesh {
    * one material. A mesh can contain multiple meshes. */
   /* vertex buffer, used in rasterization */
   std::string name; /* name of the mesh */
-  std::vector<MeshVertex> vertices;
+  std::vector<Vertex_pnt_bone> vertices;
   /* index buffer, used in rasterization */
   std::vector<int32_t> indices;
   /* material id */
@@ -198,7 +191,7 @@ private:
   void _delete_node(Node* node);
 
   /* animation related utility functions */
-  void _register_vertex_weight(MeshVertex& v, uint32_t bone_ID, double weight);
+  void _register_vertex_weight(Vertex_pnt_bone& v, uint32_t bone_ID, double weight);
   Node* _find_node_by_name(const std::string& node_name);
   Animation* _find_node_animation_by_name(Node& node, const std::string & anim_name);
   void _update_mesh_skeletal_animation_from_node(
