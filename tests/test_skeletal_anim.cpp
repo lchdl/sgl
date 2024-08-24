@@ -16,9 +16,7 @@ struct {
   Texture depth;
   Texture normal;
 } frame_buffer;
-Model boblamp;
 BaseAnimator animator;
-Pipeline pipeline;
 
 std::string dtos(double v, int precision) {
   std::stringstream stream;
@@ -77,7 +75,7 @@ void process_key(SDL_KeyboardEvent *key) {
     }
   }
   if (keycode == SDLK_RETURN && is_press) {
-    PipelineDrawMode draw_mode = pipeline.get_draw_mode();
+    PipelineDrawMode draw_mode = animator.get_draw_mode();
     if (draw_mode == PipelineDrawMode_Triangle) {
       draw_mode = PipelineDrawMode_Wireframe;
       printf("Now uses DrawMode::wireframe_draw_mode.\n");
@@ -86,7 +84,7 @@ void process_key(SDL_KeyboardEvent *key) {
       draw_mode = PipelineDrawMode_Triangle;
       printf("Now uses DrawMode::triangle_draw_mode.\n");
     }
-    pipeline.set_draw_mode(draw_mode);
+    animator.set_draw_mode(draw_mode);
   }
   if (keycode == SDLK_1 && is_press) {
     show_which_texture = 1;
@@ -101,7 +99,7 @@ void process_key(SDL_KeyboardEvent *key) {
     printf("Now display normal maps.\n");
   }
   if (keycode == SDLK_b && is_press) {
-    bool backface_culling = pipeline.get_backface_culling_state();
+    bool backface_culling = animator.get_backface_culling_state();
     if (backface_culling == false) {
       backface_culling = true;
       printf("Backface culling: ON\n");
@@ -110,7 +108,7 @@ void process_key(SDL_KeyboardEvent *key) {
       backface_culling = false;
       printf("Backface culling: OFF\n");
     }
-    pipeline.enable_backface_culling(backface_culling);
+    animator.set_backface_culling_state(backface_culling);
   }
 }
 
@@ -140,13 +138,11 @@ void init_render() {
   animator.eye.orthographic.height = 9.0;
 
   /* setup model to be rendered */
-  boblamp.load("models/boblamp.zip");
-  animator.model = &boblamp;
-  animator.pipeline = &pipeline;
-  pipeline.set_draw_mode(PipelineDrawMode_Triangle);
+  animator.load_model("models/boblamp.zip");
+  animator.set_draw_mode(PipelineDrawMode_Triangle);
   
   if (num_threads > 0) {
-    pipeline.set_num_threads(num_threads);
+    animator.set_num_threads(num_threads);
   }
   printf("\n");
   printf("Press SPACE to switch between perspective/orthographic modes.\n");
