@@ -183,14 +183,14 @@ public:
   struct {
     FragmentBuffer_t  Vertices; /* vertices after vertex processing */
     TriangleBuffer_t Triangles; /* geometry generated after vertex post-processing */
-    int        num_threads;     /* number of cpu cores used when running the pipeline */
-    bool  backface_culling;     /* enable/disable backface culling when rendering */
-    bool     do_depth_test;     /* enable/disable depth test when rendering */
-    int   cur_render_width;     /* cur_render_width/height will be properly set when
+    int            num_threads; /* number of cpu cores used when running the pipeline */
+    bool      backface_culling; /* enable/disable backface culling when rendering */
+    bool         do_depth_test; /* enable/disable depth test when rendering */
+    int       cur_render_width; /* cur_render_width/height will be properly set when
                                    a draw call is invoked based on bound textures in
                                    a frame buffer */
-    int  cur_render_height;
-    int depth_texture_slot;     /* which slot stores the depth texture, must be in range 
+    int      cur_render_height;
+    int     depth_texture_slot; /* which slot stores the depth texture, must be in range 
                                    [0, MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS) */
     PipelineDrawMode draw_mode; /* different draw modes will invoke different fragment 
                                    processing implementations */
@@ -993,6 +993,5 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::_bresenham_tra
     }
   }
 }
-
 
 }; /* namespace sgl */

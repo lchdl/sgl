@@ -26,7 +26,7 @@ const int MAX_FRAGMENT_SHADER_OUTPUT_COLOR_COMPONENTS = 8;
 
 /**
 A fragment shader can have multiple output components, and each
-component will write to its corresponding bound texture.
+component will write to its own corresponding bound texture.
 **/
 class FS_Outputs {
   template <typename U, typename V, typename F, typename S> 

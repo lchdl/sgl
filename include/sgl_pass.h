@@ -4,6 +4,25 @@
 
 namespace sgl {
 
+/**
+
+A `pass` is an object that describes a complete render operation
+and stores all the resources used during rendering. All `pass`
+objects & instances should inherit from `Pass` base class.
+
+* The reason I introduce the concept of `pass` is that drawing an
+object onto the screen correctly requires a lot of preparation
+work beforehand, including but not limited to shader initialization,
+buffer preparation, uniform variable assignment, etc. To be honest,
+many things can go wrong here if not enough attention is paid, and
+usually, a blank screen will be shown if there is any bug in your
+code, which is not very informative for graphical debugging and can
+lower your efficiency. So, wrapping the above process into a `pass`
+can standardize the whole process for us, which will be much more
+convenient when drawing something complex onto the screen.
+
+**/
+
 class Pass {
 public:
   /* camera/eye settings */
@@ -110,7 +129,6 @@ protected:
   std::string anim_name; /* name of the current animation being played */
   double      play_time; /* time value for controlling the skeletal animation (in sec.) */
   double last_draw_time; /* draw time (sec) of the last frame */
-
 
 };
 
