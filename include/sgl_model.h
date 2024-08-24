@@ -210,6 +210,30 @@ private:
   void _dump_node(const Node* node, const uint32_t indent);
 };
 
+/*
+Calculate tangent in local space of a triangle p0-p1-p2.
+The texture coordinates of p0, p1, and p2 are t0, t1, and 
+t2, respectively. Returns the calculated tangent vector
+(normalized). This function is an auxiliary function for 
+normal mapping.
+* NOTE: p0, p1, and p2 are expressed in local model space.
+* For the computation process of tangent vector, please
+  visit: https://learnopengl.com/Advanced-Lighting/Normal-Mapping
+  for more info.
+*/
+Vec3 calculate_tangent(
+  const Vec3& p0, const Vec3& p1, const Vec3& p2,
+  const Vec2& t0, const Vec2& t1, const Vec2& t2
+);
+void calculate_tangent_bitangent(
+  const Vec3& p0, const Vec3& p1, const Vec3& p2,
+  const Vec2& t0, const Vec2& t1, const Vec2& t2,
+  Vec3& tangent, Vec3& bitangent
+);
+
+/*
+Assimp data structure conversions.
+*/
 inline Mat4x4 convert_assimp_mat4x4(const aiMatrix4x4& m)
 {
   return Mat4x4(

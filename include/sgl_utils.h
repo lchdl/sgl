@@ -56,6 +56,10 @@ inline void print(const std::string &prefix, const Vec4 &v) {
   printf("%s (%.4f, %.4f, %.4f, %.4f)\n", prefix.c_str(), v.x, v.y, v.z, v.w);
 };
 
+inline void print(const Mat2x2& m) {
+  printf("[ %.2lf %.2lf\n", m.i11, m.i12);
+  printf("  %.2lf %.2lf ]\n", m.i21, m.i22);
+}
 inline void print(const Mat3x3& m) {
   printf("[ %.2lf %.2lf %.2lf\n", m.i11, m.i12, m.i13);
   printf("  %.2lf %.2lf %.2lf\n", m.i21, m.i22, m.i23);

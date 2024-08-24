@@ -608,6 +608,20 @@ inline Vec4 mul(Vec4 _a, Vec4 _b) {
 inline Vec4 operator*(Vec4 _a, Vec4 _b) {
   return mul(_a, _b);
 }
+
+inline Mat2x2 mul(Mat2x2 _a, Mat2x2 _b) {
+  return Mat2x2(
+    _a.i11*_b.i11 + _a.i12*_b.i21, _a.i11*_b.i12 + _a.i12*_b.i22,
+    _a.i21*_b.i11 + _a.i22*_b.i21, _a.i21*_b.i12 + _a.i22*_b.i22
+    );
+}
+inline Mat2x2 operator*(Mat2x2 _a, Mat2x2 _b) {
+  return mul(_a, _b);
+}
+inline Mat2x2 inverse(Mat2x2 _a) {
+  return _a.inverse();
+}
+
 inline Mat3x3
 transpose(Mat3x3 _a) {
   return Mat3x3(_a.i11, _a.i21, _a.i31, _a.i12, _a.i22, _a.i32, _a.i13, _a.i23,
@@ -637,6 +651,10 @@ mul(Mat3x3 _a, Mat3x3 _b) {
   }
   return c;
 }
+inline Mat3x3 inverse(Mat3x3 _a) {
+  return _a.inverse();
+}
+
 inline Vec3
 mul(Vec3 _a, Mat3x3 _b) {
   return Vec3(_a.x * _b.i[0] + _a.y * _b.i[3] + _a.z * _b.i[6],
@@ -694,6 +712,9 @@ mul(Mat4x4 _a, Mat4x4 _b) {
 }
 inline Mat4x4 operator*(Mat4x4 _a, Mat4x4 _b) {
   return mul(_a, _b);
+}
+inline Mat4x4 inverse(Mat4x4 _a) {
+  return _a.inverse();
 }
 inline Vec4 mul(Vec4 _a, Mat4x4 _b) {
   return Vec4(

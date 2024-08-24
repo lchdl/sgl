@@ -598,4 +598,50 @@ Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
     anim_id, play_time, bone_matrices);
 }
 
+Vec3 calculate_tangent(
+  const Vec3 & p0, const Vec3 & p1, const Vec3 & p2, 
+  const Vec2 & t0, const Vec2 & t1, const Vec2 & t2)
+{
+  /* assume p0-p1-p2 is counter clock wised */
+  Vec3 e1 = p1 - p0, e2 = p2 - p0;
+  double dU0 = t1.x - t0.x, dU1 = t2.x - t0.x;
+  double dV0 = t1.y - t0.y, dV1 = t2.y - t0.y;
+  Mat2x2 Q = Mat2x2(
+    dU0, dV0,
+    dU1, dV1
+  );
+  Mat2x2 Q_inv = inverse(Q);
+  return Vec3(
+    Q_inv.i11 * e1.x + Q_inv.i12 * e2.x,
+    Q_inv.i11 * e1.y + Q_inv.i12 * e2.y,
+    Q_inv.i11 * e1.z + Q_inv.i12 * e2.z
+  );
+}
+
+void calculate_tangent_bitangent(
+  const Vec3 & p0, const Vec3 & p1, const Vec3 & p2, 
+  const Vec2 & t0, const Vec2 & t1, const Vec2 & t2, 
+  Vec3 & tangent, Vec3 & bitangent)
+{
+  /* assume p0-p1-p2 is counter clock wised */
+  Vec3 e1 = p1 - p0, e2 = p2 - p0;
+  double dU0 = t1.x - t0.x, dU1 = t2.x - t0.x;
+  double dV0 = t1.y - t0.y, dV1 = t2.y - t0.y;
+  Mat2x2 Q = Mat2x2(
+    dU0, dV0,
+    dU1, dV1
+  );
+  Mat2x2 Q_inv = inverse(Q);
+  tangent = Vec3(
+    Q_inv.i11 * e1.x + Q_inv.i12 * e2.x,
+    Q_inv.i11 * e1.y + Q_inv.i12 * e2.y,
+    Q_inv.i11 * e1.z + Q_inv.i12 * e2.z
+  );
+  bitangent = Vec3(
+    Q_inv.i21 * e1.x + Q_inv.i22 * e2.x,
+    Q_inv.i21 * e1.y + Q_inv.i22 * e2.y,
+    Q_inv.i21 * e1.z + Q_inv.i22 * e2.z
+  );
+}
+
 }; /* namespace sgl */
