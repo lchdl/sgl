@@ -38,8 +38,8 @@ Simply draw a model (probably with animation) onto screen.
   only renders a single mesh.
 **/
 
-class BaseAnimator : public Pass {
-
+class BaseAnimator : public Pass
+{
 public:
   struct Uniforms {
     Mat4x4 world;
@@ -65,48 +65,53 @@ public:
     Vec3 wn; /* world normal */
     Vec2 t;  /* texture coordinates */
 
-    void operator*=(const double& w);
+    void    operator*=(const double& w);
     Fragment operator*(const double& w) const;
     Fragment operator+(const Fragment& frag) const;
   };
   class Shader {
   public:
     void VS(const Uniforms& uniforms, const Vertex& vertex_in, Fragment& vertex_out, Vec4& gl_Position) const;
-    void FS(const Uniforms& uniforms, const Fragment& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs,
-      bool& discard, double& gl_FragDepth) const;
+    void FS(const Uniforms& uniforms, const Fragment& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs, bool& discard, double& gl_FragDepth) const;
   };
+
+
 public:
+  void                        run(bool clear=true);
+  void                 load_model(const std::string& file);
+  PipelineDrawMode  get_draw_mode() const { return this->pipeline.get_draw_mode(); }
+  void              set_draw_mode(PipelineDrawMode draw_mode) { this->pipeline.set_draw_mode(draw_mode); }
+  bool get_backface_culling_state() const { return this->pipeline.get_backface_culling_state(); }
+  void set_backface_culling_state(bool state) { this->pipeline.set_backface_culling_state(state); }
+  void            set_num_threads(int num_threads) { this->pipeline.set_num_threads(num_threads); }
+  void             play_animation(const std::string& anim_name, const double& play_time) { this->anim_name = anim_name; this->play_time = play_time; }
+  double     query_last_draw_time() const { return this->last_draw_time; }
+  void         set_render_targets(Texture* color, Texture* depth, Texture* normal) { this->out_texs.color=color; this->out_texs.depth=depth; this->out_texs.normal = normal; }
+
+public:
+  BaseAnimator();
+  virtual ~BaseAnimator() {}
+
+protected:
   struct {
     /* note: not owned */
     Texture* color;
     Texture* depth;
     Texture* normal;
   } out_texs;
+  typedef Pipeline<Uniforms, Vertex, Fragment, Shader> Pipeline_t;
+  Pipeline_t pipeline;
+  Uniforms   uniforms;
+  Shader       shader;
+  Model         model;
+  std::map<uint32_t, Pipeline_t::VertexBuffer_t> vertices_map;
+  std::map<uint32_t, Pipeline_t::IndexBuffer_t>   indices_map;
+
   std::string anim_name; /* name of the current animation being played */
   double      play_time; /* time value for controlling the skeletal animation (in sec.) */
   double last_draw_time; /* draw time (sec) of the last frame */
 
-protected:
-  typedef Pipeline<Uniforms, Vertex, Fragment, Shader> Pipeline_t;
-  Pipeline_t pipeline;
-  Uniforms   uniforms;
-  Model         model;
-  Shader shader;
-  std::map<uint32_t, Pipeline_t::VertexBuffer_t> vertices_map;
-  std::map<uint32_t, Pipeline_t::IndexBuffer_t>   indices_map;
 
-public:
-  void run(bool clear=true);
-  void load_model(const std::string& file);
-  PipelineDrawMode get_draw_mode() const { return this->pipeline.get_draw_mode(); }
-  void set_draw_mode(PipelineDrawMode draw_mode) { this->pipeline.set_draw_mode(draw_mode); }
-  bool get_backface_culling_state() const { return this->pipeline.get_backface_culling_state(); }
-  void set_backface_culling_state(bool state) { this->pipeline.set_backface_culling_state(state); }
-  void set_num_threads(int num_threads) { this->pipeline.set_num_threads(num_threads); }
-
-public:
-  BaseAnimator();
-  virtual ~BaseAnimator() {}
 };
 
 
