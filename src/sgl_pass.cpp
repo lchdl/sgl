@@ -38,18 +38,18 @@ BaseAnimator::BaseAnimator() {
   play_time = 0.0; 
 }
 
-BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_bone & v) const
+BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_nm_bone & v) const
 {
   VS_IN v0;
-  v0.p = v.p;
-  v0.n = v.n;
-  v0.t = v.t;
+  v0.p = v.position;
+  v0.n = v.normal;
+  v0.t = v.texcoord;
   v0.bone_IDs = v.bone_IDs;
   v0.bone_weights = v.bone_weights;
   return v0;
 }
 
-void BaseAnimator::run() {
+void BaseAnimator::draw() {
 
   /* setup uniforms */
   this->uniforms.world = this->model.get_model_transform();
@@ -89,7 +89,7 @@ void BaseAnimator::load_model(const std::string & file)
   const std::vector<Material>& materials = model.get_materials();
 
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
-    const std::vector<Vertex_pnt_bone>& vertices = mesh_data[i_mesh].vertices;
+    const std::vector<Vertex_pnt_nm_bone>& vertices = mesh_data[i_mesh].vertices;
     const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
     /* load vertices */
     this->vertices_map.insert(std::pair<uint32_t, Pipeline_t::VertexBuffer_t>(i_mesh, Pipeline_t::VertexBuffer_t()));
@@ -104,6 +104,11 @@ void BaseAnimator::load_model(const std::string & file)
   }
 }
 
+void BaseAnimator::set_model_transform(const Mat4x4 & transform)
+{
+  this->model.set_model_transform(transform);
+}
+
 inline void BaseAnimator::VS_OUT::operator*=(const double& scalar)
 {
   this->gl_Position *= scalar;
@@ -113,21 +118,21 @@ inline void BaseAnimator::VS_OUT::operator*=(const double& scalar)
 }
 
 inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator*(const double& scalar) const {
-  VS_OUT result;
-  result.gl_Position = this->gl_Position * scalar;
-  result.wp = this->wp * scalar;
-  result.wn = this->wn * scalar;
-  result.t = this->t * scalar;
-  return result;
+  VS_OUT out;
+  out.gl_Position = this->gl_Position * scalar;
+  out.wp = this->wp * scalar;
+  out.wn = this->wn * scalar;
+  out.t = this->t * scalar;
+  return out;
 }
 
 inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator+(const VS_OUT& frag) const {
-  VS_OUT result;
-  result.gl_Position = this->gl_Position + frag.gl_Position;
-  result.wp = this->wp + frag.wp;
-  result.wn = this->wn + frag.wn;
-  result.t = this->t + frag.t;
-  return result;
+  VS_OUT out;
+  out.gl_Position = this->gl_Position + frag.gl_Position;
+  out.wp = this->wp + frag.wp;
+  out.wn = this->wn + frag.wn;
+  out.t = this->t + frag.t;
+  return out;
 }
 
 inline void BaseAnimator::Shader::VS(const Uniforms & uniforms, const VS_IN & vertex_in, VS_OUT & vertex_out, Vec4 & gl_Position) const

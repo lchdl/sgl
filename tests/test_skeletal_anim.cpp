@@ -158,7 +158,7 @@ double render_frame(double T) {
   animator.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
   animator.eye.look_at = Vec3(0, 3.5, 0);
   animator.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
-  animator.run();
+  animator.draw();
   return animator.query_last_draw_time();
 }
 

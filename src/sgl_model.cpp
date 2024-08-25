@@ -51,9 +51,13 @@ bool Model::load(const std::string& file) {
       std::string file_no_ext = file.substr(0, dpos);
       std::string file_ext = file.substr(dpos + 1);
       if (endswith(file_no_ext, "model")) {
-        if (file_ext == "obj" || file_ext == "md5mesh") {
+        if (file_ext == "obj" || file_ext == "md5mesh" || file_ext == "fbx") {
           model_file = file;
           break;
+        }
+        else {
+          printf("Found a file with name \"model.*\" but its format "
+            "is not recognized (\".%s\").\nIgnored.", file_ext.c_str());
         }
       }
     }
@@ -69,7 +73,7 @@ bool Model::load(const std::string& file) {
   }
   
   /* then import the file using assimp */
-  uint32_t load_flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices;
+  uint32_t load_flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace;
   _scene = _importer->ReadFile(model_file.c_str(), load_flags);
   if (!_scene || !_scene->mRootNode || _scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
     printf("Assimp importer.ReadFile() error when loading file \"%s\": \"%s\".\n",
@@ -101,14 +105,24 @@ bool Model::load(const std::string& file) {
     this->meshes[i_mesh].name = mesh->mName.data;
     /* load vertex (positions, normals, and texture coordinates) */
     for (uint32_t i_vert = 0; i_vert < n_vert; i_vert++) {
-      const aiVector3D* position = &mesh->mVertices[i_vert];
-      const aiVector3D* normal   = &mesh->mNormals[i_vert];
-      const aiVector3D* texcoord = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
-      Vertex_pnt_bone v;
-      v.p = Vec3(double(position->x), double(position->y), double(position->z));
-      v.n = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
-      v.t = Vec2(double(texcoord->x), double(texcoord->y));
-      v.bone_IDs = IVec4(-1,-1,-1,-1);
+      const aiVector3D* position  = &mesh->mVertices[i_vert];
+      const aiVector3D* normal    = &mesh->mNormals[i_vert];
+      const aiVector3D* texcoord  = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
+      const aiVector3D* tangent   = &mesh->mTangents[i_vert];
+      const aiVector3D* bitangent = &mesh->mBitangents[i_vert];
+      Vertex_pnt_nm_bone v;
+      v.position  = Vec3(double(position->x),  double(position->y),  double(position->z));
+      v.normal    = Vec3(double(normal->x),    double(normal->y),    double(normal->z));
+      v.texcoord  = Vec2(double(texcoord->x),  double(texcoord->y));
+      v.tangent   = Vec3(double(tangent->x),   double(tangent->y),   double(tangent->z));
+      v.bitangent = Vec3(double(bitangent->x), double(bitangent->y), double(bitangent->z));
+      v.bone_IDs     = IVec4(-1,-1,-1,-1);
+      v.bone_weights = Vec4(0.0, 0.0, 0.0, 0.0);
+      v.tangent   = normalize(v.tangent);
+      v.bitangent = normalize(v.bitangent);
+      v.normal = normalize(v.normal);
+      //print(cross(v.tangent, v.bitangent));
+      //print(v.normal);
       this->meshes[i_mesh].vertices.push_back(v);
     }
     /* load triangle face indices */
@@ -137,7 +151,7 @@ bool Model::load(const std::string& file) {
         aiVertexWeight vw = mesh->mBones[i_bone]->mWeights[i_vert];
         /* write bone info into affected vertex (let the vertex know
          * there is a bone that influences itself). */
-        Vertex_pnt_bone& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
+        Vertex_pnt_nm_bone& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
         uint32_t node_unique_id = this->node_name_to_unique_id[bone.name];
         _register_vertex_weight(affected_vert, node_unique_id, vw.mWeight);
       }
@@ -282,7 +296,7 @@ void Model::_delete_node(Node * node)
 
 void
 Model::_register_vertex_weight(
-  Vertex_pnt_bone& v, uint32_t bone_ID, double weight) 
+  Vertex_pnt_nm_bone& v, uint32_t bone_ID, double weight) 
 {
   /* insert & sort vertex weights in descent order,
    * in this way, only top-k bones will be kept for
@@ -495,7 +509,7 @@ Model::_interpolate_skeletal_animation(
   should exist in the animation (even if the model has no animation).
   */
   Vec3 position = _interpolate_key_frames<Vec3>(anim.position_key_frames, tick, interp);
-  Vec3 scaling = _interpolate_key_frames<Vec3>(anim.scaling_key_frames, tick, interp);
+  Vec3 scaling  = _interpolate_key_frames<Vec3>(anim.scaling_key_frames, tick, interp);
   Quat rotation = _interpolate_key_frames<Quat>(anim.rotation_key_frames, tick, interp);
 
   /* build matrices and combine them */
@@ -581,8 +595,9 @@ Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
   std::map<std::string, uint32_t>::const_iterator 
     item = anim_name_to_unique_id.find(anim_name);
   if (item == anim_name_to_unique_id.end()) {
-    printf("[*] Warning: could not find the required "
-      "animation \"%s\" for model.\n", anim_name.c_str());
+    /* The animation being played does not exist. I want to make it a 
+    silent fail since this function may be called frequently. Printing 
+    an error message could cause a significant performance hit. */
     return;
   }
   uint32_t anim_id = item->second;
