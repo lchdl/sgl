@@ -64,7 +64,7 @@ struct Mesh {
    * one material. A mesh can contain multiple meshes. */
   /* vertex buffer, used in rasterization */
   std::string name; /* name of the mesh */
-  std::vector<Vertex_pnt_bone> vertices;
+  std::vector<Vertex_pnt_nm_bone> vertices;
   /* index buffer, used in rasterization */
   std::vector<int32_t> indices;
   /* material id */
@@ -191,7 +191,7 @@ private:
   void _delete_node(Node* node);
 
   /* animation related utility functions */
-  void _register_vertex_weight(Vertex_pnt_bone& v, uint32_t bone_ID, double weight);
+  void _register_vertex_weight(Vertex_pnt_nm_bone& v, uint32_t bone_ID, double weight);
   Node* _find_node_by_name(const std::string& node_name);
   Animation* _find_node_animation_by_name(Node& node, const std::string & anim_name);
   void _update_mesh_skeletal_animation_from_node(

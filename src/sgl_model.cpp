@@ -51,9 +51,13 @@ bool Model::load(const std::string& file) {
       std::string file_no_ext = file.substr(0, dpos);
       std::string file_ext = file.substr(dpos + 1);
       if (endswith(file_no_ext, "model")) {
-        if (file_ext == "obj" || file_ext == "md5mesh") {
+        if (file_ext == "obj" || file_ext == "md5mesh" || file_ext == "fbx") {
           model_file = file;
           break;
+        }
+        else {
+          printf("Found a file with name \"model.*\" but its format "
+            "is not recognized (\".%s\").\nIgnored.", file_ext.c_str());
         }
       }
     }
@@ -101,17 +105,24 @@ bool Model::load(const std::string& file) {
     this->meshes[i_mesh].name = mesh->mName.data;
     /* load vertex (positions, normals, and texture coordinates) */
     for (uint32_t i_vert = 0; i_vert < n_vert; i_vert++) {
-      const aiVector3D* position = &mesh->mVertices[i_vert];
-      const aiVector3D* normal   = &mesh->mNormals[i_vert];
-      const aiVector3D* texcoord = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
-      const aiVector3D* tangent  = &mesh->mTangents[i_vert];
-      Vertex_pnt_bone v;
-      v.position = Vec3(double(position->x), double(position->y), double(position->z));
-      v.normal   = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
-      v.texcoord = Vec2(double(texcoord->x), double(texcoord->y));
-      v.tangent  = Vec3(double(tangent->x),  double(tangent->y),  double(tangent->z));
-      v.bone_IDs = IVec4(-1,-1,-1,-1);
+      const aiVector3D* position  = &mesh->mVertices[i_vert];
+      const aiVector3D* normal    = &mesh->mNormals[i_vert];
+      const aiVector3D* texcoord  = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
+      const aiVector3D* tangent   = &mesh->mTangents[i_vert];
+      const aiVector3D* bitangent = &mesh->mBitangents[i_vert];
+      Vertex_pnt_nm_bone v;
+      v.position  = Vec3(double(position->x),  double(position->y),  double(position->z));
+      v.normal    = Vec3(double(normal->x),    double(normal->y),    double(normal->z));
+      v.texcoord  = Vec2(double(texcoord->x),  double(texcoord->y));
+      v.tangent   = Vec3(double(tangent->x),   double(tangent->y),   double(tangent->z));
+      v.bitangent = Vec3(double(bitangent->x), double(bitangent->y), double(bitangent->z));
+      v.bone_IDs     = IVec4(-1,-1,-1,-1);
       v.bone_weights = Vec4(0.0, 0.0, 0.0, 0.0);
+      v.tangent   = normalize(v.tangent);
+      v.bitangent = normalize(v.bitangent);
+      v.normal = normalize(v.normal);
+      //print(cross(v.tangent, v.bitangent));
+      //print(v.normal);
       this->meshes[i_mesh].vertices.push_back(v);
     }
     /* load triangle face indices */
@@ -140,7 +151,7 @@ bool Model::load(const std::string& file) {
         aiVertexWeight vw = mesh->mBones[i_bone]->mWeights[i_vert];
         /* write bone info into affected vertex (let the vertex know
          * there is a bone that influences itself). */
-        Vertex_pnt_bone& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
+        Vertex_pnt_nm_bone& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
         uint32_t node_unique_id = this->node_name_to_unique_id[bone.name];
         _register_vertex_weight(affected_vert, node_unique_id, vw.mWeight);
       }
@@ -285,7 +296,7 @@ void Model::_delete_node(Node * node)
 
 void
 Model::_register_vertex_weight(
-  Vertex_pnt_bone& v, uint32_t bone_ID, double weight) 
+  Vertex_pnt_nm_bone& v, uint32_t bone_ID, double weight) 
 {
   /* insert & sort vertex weights in descent order,
    * in this way, only top-k bones will be kept for

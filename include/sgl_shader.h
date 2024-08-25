@@ -43,25 +43,21 @@ public:
 /* here we pre-define some common vertex formats for further use */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-struct Vertex_pnt : public IVertex {
-  /*
-  a basic vertex format with position (3), normal (3), and
-  texture coordinates (2).
-  */
-  Vec3 p; /* vertex position (in model local space) */
-  Vec3 n; /* vertex normal (in model local space)*/
-  Vec2 t; /* vertex texture coordinate */
-};
-struct Vertex_pnt_bone : public IVertex {
+/*
+Vertex with position, normal, texture coordinate [pnt]. 
+Supports normal mapping [nm] and stores bone info [bone].
+*/
+struct Vertex_pnt_nm_bone : public IVertex {
+  /* standard vertex info */
   Vec3 position; /* vertex position (in model local space) */
-  Vec3 normal; /* vertex normal (in model local space)*/
+  Vec3 normal;   /* vertex normal (in model local space)*/
   Vec2 texcoord; /* vertex texture coordinate */
-  /* normal mapping: tangent vector in tangent space */
+  /* normal mapping: tangent & bitangent vectors in tangent space */
   Vec3 tangent;
-  /* for skeletal animations */
+  Vec3 bitangent;
+  /* stores bone info for skeletal animations */
   IVec4 bone_IDs; /* bones up to 4 */
   Vec4  bone_weights;
 };
-
 
 }; /* namespace sgl */

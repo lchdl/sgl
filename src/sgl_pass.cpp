@@ -38,7 +38,7 @@ BaseAnimator::BaseAnimator() {
   play_time = 0.0; 
 }
 
-BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_bone & v) const
+BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_nm_bone & v) const
 {
   VS_IN v0;
   v0.p = v.position;
@@ -89,7 +89,7 @@ void BaseAnimator::load_model(const std::string & file)
   const std::vector<Material>& materials = model.get_materials();
 
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
-    const std::vector<Vertex_pnt_bone>& vertices = mesh_data[i_mesh].vertices;
+    const std::vector<Vertex_pnt_nm_bone>& vertices = mesh_data[i_mesh].vertices;
     const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
     /* load vertices */
     this->vertices_map.insert(std::pair<uint32_t, Pipeline_t::VertexBuffer_t>(i_mesh, Pipeline_t::VertexBuffer_t()));

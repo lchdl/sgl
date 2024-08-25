@@ -220,7 +220,7 @@ public:
   virtual ~BaseAnimator() {}
 
 protected:
-  VS_IN convert_from_mesh_vertex(const Vertex_pnt_bone& v) const;
+  VS_IN convert_from_mesh_vertex(const Vertex_pnt_nm_bone& v) const;
 
 protected:
   typedef Pipeline<Uniforms, VS_IN, VS_OUT, Shader> Pipeline_t;
