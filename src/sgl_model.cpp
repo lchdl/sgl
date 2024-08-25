@@ -69,7 +69,7 @@ bool Model::load(const std::string& file) {
   }
   
   /* then import the file using assimp */
-  uint32_t load_flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices;
+  uint32_t load_flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace;
   _scene = _importer->ReadFile(model_file.c_str(), load_flags);
   if (!_scene || !_scene->mRootNode || _scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
     printf("Assimp importer.ReadFile() error when loading file \"%s\": \"%s\".\n",
@@ -104,11 +104,14 @@ bool Model::load(const std::string& file) {
       const aiVector3D* position = &mesh->mVertices[i_vert];
       const aiVector3D* normal   = &mesh->mNormals[i_vert];
       const aiVector3D* texcoord = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
+      const aiVector3D* tangent  = &mesh->mTangents[i_vert];
       Vertex_pnt_bone v;
-      v.p = Vec3(double(position->x), double(position->y), double(position->z));
-      v.n = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
-      v.t = Vec2(double(texcoord->x), double(texcoord->y));
+      v.position = Vec3(double(position->x), double(position->y), double(position->z));
+      v.normal   = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
+      v.texcoord = Vec2(double(texcoord->x), double(texcoord->y));
+      v.tangent  = Vec3(double(tangent->x),  double(tangent->y),  double(tangent->z));
       v.bone_IDs = IVec4(-1,-1,-1,-1);
+      v.bone_weights = Vec4(0.0, 0.0, 0.0, 0.0);
       this->meshes[i_mesh].vertices.push_back(v);
     }
     /* load triangle face indices */

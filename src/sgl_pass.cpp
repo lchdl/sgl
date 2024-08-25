@@ -41,9 +41,9 @@ BaseAnimator::BaseAnimator() {
 BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_bone & v) const
 {
   VS_IN v0;
-  v0.p = v.p;
-  v0.n = v.n;
-  v0.t = v.t;
+  v0.p = v.position;
+  v0.n = v.normal;
+  v0.t = v.texcoord;
   v0.bone_IDs = v.bone_IDs;
   v0.bone_weights = v.bone_weights;
   return v0;
