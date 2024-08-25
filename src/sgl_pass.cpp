@@ -36,14 +36,11 @@ Pass::Pass()
 
 BaseAnimator::BaseAnimator() { 
   play_time = 0.0; 
-  out_texs.color = NULL;
-  out_texs.depth = NULL;
-  out_texs.normal = NULL;
 }
 
-BaseAnimator::Vertex BaseAnimator::convert_from_mesh_vertex(const MeshVertex & v) const
+BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_bone & v) const
 {
-  Vertex v0;
+  VS_IN v0;
   v0.p = v.p;
   v0.n = v.n;
   v0.t = v.t;
@@ -52,17 +49,12 @@ BaseAnimator::Vertex BaseAnimator::convert_from_mesh_vertex(const MeshVertex & v
   return v0;
 }
 
-void BaseAnimator::run(bool clear) {
-  this->pipeline.bind_render_target(0, out_texs.color);
-  this->pipeline.bind_render_target(1, out_texs.depth);
-  this->pipeline.bind_render_target(2, out_texs.normal);
-  if (clear)
-    pipeline.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
+void BaseAnimator::run() {
 
   /* setup uniforms */
   this->uniforms.world = this->model.get_model_transform();
   this->uniforms.view = this->get_view_matrix();
-  this->uniforms.projection = this->get_projection_matrix(out_texs.color->w, out_texs.color->h);
+  this->uniforms.projection = this->get_projection_matrix(this->pipeline.get_render_target(0)->w, this->pipeline.get_render_target(0)->h);
 
   /* Rendering all the mesh parts in model */
   const std::vector<Mesh>& mesh_data = model.get_meshes();
@@ -97,7 +89,7 @@ void BaseAnimator::load_model(const std::string & file)
   const std::vector<Material>& materials = model.get_materials();
 
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
-    const std::vector<MeshVertex>& vertices = mesh_data[i_mesh].vertices;
+    const std::vector<Vertex_pnt_bone>& vertices = mesh_data[i_mesh].vertices;
     const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
     /* load vertices */
     this->vertices_map.insert(std::pair<uint32_t, Pipeline_t::VertexBuffer_t>(i_mesh, Pipeline_t::VertexBuffer_t()));
@@ -112,25 +104,25 @@ void BaseAnimator::load_model(const std::string & file)
   }
 }
 
-inline void BaseAnimator::Fragment::operator*=(const double& w)
+inline void BaseAnimator::VS_OUT::operator*=(const double& scalar)
 {
-  this->gl_Position *= w;
-  this->wp *= w;
-  this->wn *= w;
-  this->t *= w;
+  this->gl_Position *= scalar;
+  this->wp *= scalar;
+  this->wn *= scalar;
+  this->t *= scalar;
 }
 
-inline BaseAnimator::Fragment BaseAnimator::Fragment::operator*(const double& w) const {
-  Fragment result;
-  result.gl_Position = this->gl_Position * w;
-  result.wp = this->wp * w;
-  result.wn = this->wn * w;
-  result.t = this->t * w;
+inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator*(const double& scalar) const {
+  VS_OUT result;
+  result.gl_Position = this->gl_Position * scalar;
+  result.wp = this->wp * scalar;
+  result.wn = this->wn * scalar;
+  result.t = this->t * scalar;
   return result;
 }
 
-inline BaseAnimator::Fragment BaseAnimator::Fragment::operator+(const Fragment& frag) const {
-  Fragment result;
+inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator+(const VS_OUT& frag) const {
+  VS_OUT result;
   result.gl_Position = this->gl_Position + frag.gl_Position;
   result.wp = this->wp + frag.wp;
   result.wn = this->wn + frag.wn;
@@ -138,7 +130,7 @@ inline BaseAnimator::Fragment BaseAnimator::Fragment::operator+(const Fragment& 
   return result;
 }
 
-inline void BaseAnimator::Shader::VS(const Uniforms & uniforms, const Vertex & vertex_in, Fragment & vertex_out, Vec4 & gl_Position) const
+inline void BaseAnimator::Shader::VS(const Uniforms & uniforms, const VS_IN & vertex_in, VS_OUT & vertex_out, Vec4 & gl_Position) const
 {
   /* uniforms:
   * in_textures[0]: diffuse texture.
@@ -188,7 +180,7 @@ inline void BaseAnimator::Shader::VS(const Uniforms & uniforms, const Vertex & v
   }
 }
 
-inline void BaseAnimator::Shader::FS(const Uniforms & uniforms, const Fragment & fragment_in, 
+inline void BaseAnimator::Shader::FS(const Uniforms & uniforms, const FS_IN& fragment_in,
   const Vec4 & gl_FragCoord, FS_Outputs & fs_outs, bool & discard, double & gl_FragDepth) const
 {
   Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);

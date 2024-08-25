@@ -120,6 +120,7 @@ void init_render() {
 
   /* setup render pass */
   animator.set_render_targets(&frame_buffer.color, &frame_buffer.depth, &frame_buffer.normal);
+  animator.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
   animator.eye.position = Vec3(0, 6, 10);
   animator.eye.look_at = Vec3(0, 3.5, 0);
   animator.eye.up_dir = Vec3(0, 1, 0);
@@ -156,6 +157,7 @@ double render_frame(double T) {
   animator.play_animation("", fmod(T, 6.0)); /* 6 seconds per loop */
   animator.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
   animator.eye.look_at = Vec3(0, 3.5, 0);
+  animator.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
   animator.run();
   return animator.query_last_draw_time();
 }

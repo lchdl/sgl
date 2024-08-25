@@ -103,6 +103,7 @@ public:
     };
   };
   typedef std::vector<Triangle_t> TriangleBuffer_t;
+
 protected:
   /**
   Clip triangle in homogeneous space.
@@ -344,13 +345,19 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::draw(
   ppl.Vertices.clear();
   ppl.Triangles.clear();
 
+  /* * * * * * * * * * * * * * * */
   /* Stage I: Vertex processing. */
+  /* * * * * * * * * * * * * * * */
   vertex_processing(shader, vertices, uniforms);
 
+  /* * * * * * * * * * * * * * * * * * */
   /* Stage II: Vertex post-processing. */
+  /* * * * * * * * * * * * * * * * * * */
   vertex_post_processing(indices);
 
-  /* Stage III: Rasterization & fragment processing */
+  /* * * * * * * * * * * * * * * * * * * * * * * * * */
+  /* Stage III: Rasterization & fragment processing  */
+  /* * * * * * * * * * * * * * * * * * * * * * * * * */
   if (ppl.draw_mode == PipelineDrawMode_Triangle) {
     if (ppl.num_threads > 1) {
       fragment_processing_triangle_MT(shader, uniforms, ppl.num_threads);
