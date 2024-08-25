@@ -20,26 +20,11 @@ enum PipelineDrawMode {
 
 template <typename Uniforms_t, typename Vertex_t, typename Fragment_t, typename Shader_t>
 class Pipeline {
-protected:
-  class Triangle_t {
-    /**
-    Internal class that is used in primitive assembly stage.
-    Users do not need to care about it too much since it is just an simple
-    aggregation of vertices that represent an assembled primitive.
-    **/
-  public:
-    Fragment_t v[3];
-
-  public:
-    Triangle_t() {}
-    Triangle_t(const Fragment_t &v1, const Fragment_t &v2, const Fragment_t &v3) { this->v[0] = v1, this->v[1] = v2, this->v[2] = v3; }
-  };
 public:
 
   typedef std::vector<Vertex_t>     VertexBuffer_t;
   typedef std::vector<int32_t>       IndexBuffer_t;
   typedef std::vector<Fragment_t> FragmentBuffer_t;
-  typedef std::vector<Triangle_t> TriangleBuffer_t;
 
   /** Clear **/
   void clear_render_target(const int& slot, const Vec4& clear_color);
@@ -102,6 +87,23 @@ public:
   void fragment_processing_wireframe_MT(const Shader_t& shader, const Uniforms_t& uniforms, const int &num_threads);
 
  protected:
+  class Triangle_t {
+    /**
+    Internal class that is used in primitive assembly stage.
+    Users do not need to care about it too much since it is just an simple
+    aggregation of vertices that represent an assembled primitive.
+    **/
+  public:
+    Fragment_t v[3];
+
+  public:
+    Triangle_t() {}
+    Triangle_t(const Fragment_t &v1, const Fragment_t &v2, const Fragment_t &v3) {
+      this->v[0] = v1, this->v[1] = v2, this->v[2] = v3;
+    };
+  };
+  typedef std::vector<Triangle_t> TriangleBuffer_t;
+protected:
   /**
   Clip triangle in homogeneous space.
   @note: Assume each vertex has homogeneous coordinate (x,y,z,w), then clip points outside -w <= x, y, z <= +w.
@@ -171,10 +173,14 @@ public:
   void write_render_targets(const Vec2 &p, const FS_Outputs &fs_outs, const double &z);
 
   /**
-  For wireframe rendering.
+  Internal functions for wireframe rendering.
   **/
-  void _inner_interpolate(const Shader_t& shader, int x, int y, double q, const Fragment_t& v1, const Fragment_t& v2, const Vec2 & iz, const Uniforms_t& uniforms);
-  void _bresenham_traversal(const Shader_t& shader, int x1, int y1, int x2, int y2, const Fragment_t & v1, const Fragment_t & v2, const Vec2 & iz, const Uniforms_t& uniforms);
+  void _inner_interpolate(const Shader_t& shader, int x, int y, double q, 
+    const Fragment_t& v1, const Fragment_t& v2, const Vec2 & iz, 
+    const Uniforms_t& uniforms);
+  void _bresenham_traversal(const Shader_t& shader, int x1, int y1, int x2, int y2, 
+    const Fragment_t & v1, const Fragment_t & v2, const Vec2 & iz, 
+    const Uniforms_t& uniforms);
 
  protected:
   struct {
@@ -209,9 +215,9 @@ Mat4x4 get_perspective_matrix(double aspect_ratio, double near, double far, doub
 Mat4x4 get_orthographic_matrix(double near, double far, double left, double right, double top, double bottom);
 Mat4x4 get_orthographic_matrix(double near, double far, double width, double height);
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* * * * * * * * * * * Implementations below * * * * * * * * * * */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * Implementations below * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 template<typename Uniforms_t, typename Vertex_t, typename Fragment_t, typename Shader_t>
 inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::_zero_init()

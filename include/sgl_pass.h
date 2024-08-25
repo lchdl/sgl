@@ -76,16 +76,14 @@ public:
     /* for skeletal animations */
     IVec4 bone_IDs; /* bones up to 4 */
     Vec4  bone_weights;
-
-    void convert_from(const MeshVertex& v);
   };
   struct Fragment : public IFragment {
     Vec3 wp; /* world position */
     Vec3 wn; /* world normal */
     Vec2 t;  /* texture coordinates */
 
-    void    operator*=(const double& w);
-    Fragment operator*(const double& w) const;
+    void    operator*=(const double& scalar);
+    Fragment operator*(const double& scalar) const;
     Fragment operator+(const Fragment& frag) const;
   };
   class Shader {
@@ -110,6 +108,9 @@ public:
 public:
   BaseAnimator();
   virtual ~BaseAnimator() {}
+
+protected:
+  Vertex convert_from_mesh_vertex(const MeshVertex& v) const;
 
 protected:
   struct {

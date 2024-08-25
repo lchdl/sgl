@@ -41,6 +41,17 @@ BaseAnimator::BaseAnimator() {
   out_texs.normal = NULL;
 }
 
+BaseAnimator::Vertex BaseAnimator::convert_from_mesh_vertex(const MeshVertex & v) const
+{
+  Vertex v0;
+  v0.p = v.p;
+  v0.n = v.n;
+  v0.t = v.t;
+  v0.bone_IDs = v.bone_IDs;
+  v0.bone_weights = v.bone_weights;
+  return v0;
+}
+
 void BaseAnimator::run(bool clear) {
   this->pipeline.bind_render_target(0, out_texs.color);
   this->pipeline.bind_render_target(1, out_texs.depth);
@@ -91,9 +102,7 @@ void BaseAnimator::load_model(const std::string & file)
     /* load vertices */
     this->vertices_map.insert(std::pair<uint32_t, Pipeline_t::VertexBuffer_t>(i_mesh, Pipeline_t::VertexBuffer_t()));
     for (uint32_t i_vert=0; i_vert < vertices.size(); i_vert++) {
-      Vertex v;
-      v.convert_from(vertices[i_vert]);
-      this->vertices_map[i_mesh].push_back(v);
+      this->vertices_map[i_mesh].push_back(convert_from_mesh_vertex(vertices[i_vert]));
     }
     /* load indices */
     this->indices_map.insert(std::pair<uint32_t, Pipeline_t::IndexBuffer_t>(i_mesh, Pipeline_t::IndexBuffer_t()));
@@ -101,15 +110,6 @@ void BaseAnimator::load_model(const std::string & file)
       this->indices_map[i_mesh].push_back(indices[i_ind]);
     }
   }
-}
-
-inline void BaseAnimator::Vertex::convert_from(const MeshVertex & v) {
-  /* simply just a copy */
-  this->p = v.p;
-  this->n = v.n;
-  this->t = v.t;
-  this->bone_IDs = v.bone_IDs;
-  this->bone_weights = v.bone_weights;
 }
 
 inline void BaseAnimator::Fragment::operator*=(const double& w)
