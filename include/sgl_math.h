@@ -360,6 +360,13 @@ struct Mat4x4 {
         0, 0, 1, 0, 
         0, 0, 0, 1);
   }
+  static Mat4x4 translate(double dx, double dy, double dz) {
+    return Mat4x4(
+      1, 0, 0, dx,
+      0, 1, 0, dy,
+      0, 0, 1, dz,
+      0, 0, 0, 1);
+  }
   inline Mat4x4 inverse() {
     double inv[16], det;
     inv[0] = i[5] * i[10] * i[15] - i[5] * i[11] * i[14] - i[9] * i[6] * i[15] + i[9] * i[7] * i[14] + i[13] * i[6] * i[11] - i[13] * i[7] * i[10];

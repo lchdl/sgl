@@ -49,7 +49,7 @@ BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_bone
   return v0;
 }
 
-void BaseAnimator::run() {
+void BaseAnimator::draw() {
 
   /* setup uniforms */
   this->uniforms.world = this->model.get_model_transform();
@@ -113,21 +113,21 @@ inline void BaseAnimator::VS_OUT::operator*=(const double& scalar)
 }
 
 inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator*(const double& scalar) const {
-  VS_OUT result;
-  result.gl_Position = this->gl_Position * scalar;
-  result.wp = this->wp * scalar;
-  result.wn = this->wn * scalar;
-  result.t = this->t * scalar;
-  return result;
+  VS_OUT out;
+  out.gl_Position = this->gl_Position * scalar;
+  out.wp = this->wp * scalar;
+  out.wn = this->wn * scalar;
+  out.t = this->t * scalar;
+  return out;
 }
 
 inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator+(const VS_OUT& frag) const {
-  VS_OUT result;
-  result.gl_Position = this->gl_Position + frag.gl_Position;
-  result.wp = this->wp + frag.wp;
-  result.wn = this->wn + frag.wn;
-  result.t = this->t + frag.t;
-  return result;
+  VS_OUT out;
+  out.gl_Position = this->gl_Position + frag.gl_Position;
+  out.wp = this->wp + frag.wp;
+  out.wn = this->wn + frag.wn;
+  out.t = this->t + frag.t;
+  return out;
 }
 
 inline void BaseAnimator::Shader::VS(const Uniforms & uniforms, const VS_IN & vertex_in, VS_OUT & vertex_out, Vec4 & gl_Position) const
