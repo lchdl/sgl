@@ -2,10 +2,12 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 #include "zip.h" /* for loading zipped model files */
 #include "sgl_utils.h"
 #include "sgl_math.h"
+#include "sgl_texture.h"
 #include "sgl_shader.h"
 
 /* Assimp: model import library */
@@ -62,9 +64,9 @@ struct Mesh {
    * one material. A mesh can contain multiple meshes. */
   /* vertex buffer, used in rasterization */
   std::string name; /* name of the mesh */
-  VertexBuffer_t vertices;
+  std::vector<Vertex_pnt_bone> vertices;
   /* index buffer, used in rasterization */
-  IndexBuffer_t indices;
+  std::vector<int32_t> indices;
   /* material id */
   uint32_t mat_id; 
   /* all the bones in this mesh */
@@ -189,7 +191,7 @@ private:
   void _delete_node(Node* node);
 
   /* animation related utility functions */
-  void _register_vertex_weight(Vertex& v, uint32_t bone_ID, double weight);
+  void _register_vertex_weight(Vertex_pnt_bone& v, uint32_t bone_ID, double weight);
   Node* _find_node_by_name(const std::string& node_name);
   Animation* _find_node_animation_by_name(Node& node, const std::string & anim_name);
   void _update_mesh_skeletal_animation_from_node(

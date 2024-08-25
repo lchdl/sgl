@@ -15,16 +15,14 @@ Model::~Model() {
   this->unload();
 }
 
-void
-Model::unload() {
+void Model::unload() {
   this->meshes.clear();
   this->materials.clear();
   this->_delete_node(root_node);
   this->root_node = NULL;
 }
 
-bool 
-Model::load(const std::string& file) {
+bool Model::load(const std::string& file) {
   
   /* clear trash data from previous load */
   this->unload(); 
@@ -106,7 +104,7 @@ Model::load(const std::string& file) {
       const aiVector3D* position = &mesh->mVertices[i_vert];
       const aiVector3D* normal   = &mesh->mNormals[i_vert];
       const aiVector3D* texcoord = mesh->HasTextureCoords(0) ? &mesh->mTextureCoords[0][i_vert] : &zvec;
-      Vertex v;
+      Vertex_pnt_bone v;
       v.p = Vec3(double(position->x), double(position->y), double(position->z));
       v.n = Vec3(double(normal->x),   double(normal->y),   double(normal->z));
       v.t = Vec2(double(texcoord->x), double(texcoord->y));
@@ -139,7 +137,7 @@ Model::load(const std::string& file) {
         aiVertexWeight vw = mesh->mBones[i_bone]->mWeights[i_vert];
         /* write bone info into affected vertex (let the vertex know
          * there is a bone that influences itself). */
-        Vertex& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
+        Vertex_pnt_bone& affected_vert = this->meshes[i_mesh].vertices[vw.mVertexId];
         uint32_t node_unique_id = this->node_name_to_unique_id[bone.name];
         _register_vertex_weight(affected_vert, node_unique_id, vw.mWeight);
       }
@@ -241,8 +239,7 @@ Model::load(const std::string& file) {
   return true;
 }
 
-void 
-Model::dump()
+void Model::dump()
 {
   printf("Model dump:\n");
   printf("  Total number of mesh(es): %zd\n", this->meshes.size());
@@ -254,8 +251,7 @@ Model::dump()
   this->_dump_node(root_node, 2);
 }
 
-void 
-Model::_parse_and_copy_node(Node* node, aiNode* ai_node)
+void Model::_parse_and_copy_node(Node* node, aiNode* ai_node)
 {
   std::string node_name = ai_node->mName.data;
   node->name = node_name;
@@ -276,8 +272,7 @@ Model::_parse_and_copy_node(Node* node, aiNode* ai_node)
   }
 }
 
-void 
-Model::_delete_node(Node * node)
+void Model::_delete_node(Node * node)
 {
   if (node == NULL) return;
   for (uint32_t i = 0; i < node->childs.size(); i++)
@@ -287,9 +282,7 @@ Model::_delete_node(Node * node)
 
 void
 Model::_register_vertex_weight(
-    Vertex& v, 
-    uint32_t bone_ID, 
-    double weight) 
+  Vertex_pnt_bone& v, uint32_t bone_ID, double weight) 
 {
   /* insert & sort vertex weights in descent order,
    * in this way, only top-k bones will be kept for

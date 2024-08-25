@@ -3,8 +3,7 @@
 namespace sgl {
 namespace SDL2 {
 
-void
-sgl_texture_to_SDL2_surface(const Texture * texture, SDL_Surface * surface) {
+void sgl_texture_to_SDL2_surface(const Texture * texture, SDL_Surface * surface) {
   /*
   Many graphics drivers and graphics APIs use BGRA8888 as their default surface format.
   Since SDL2 use Direct3D or OpenGL as its backend, it also follows the same native 

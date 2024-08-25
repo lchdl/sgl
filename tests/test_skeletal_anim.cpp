@@ -16,9 +16,7 @@ struct {
   Texture depth;
   Texture normal;
 } frame_buffer;
-Model boblamp;
 BaseAnimator animator;
-Pipeline pipeline;
 
 std::string dtos(double v, int precision) {
   std::stringstream stream;
@@ -77,7 +75,7 @@ void process_key(SDL_KeyboardEvent *key) {
     }
   }
   if (keycode == SDLK_RETURN && is_press) {
-    PipelineDrawMode draw_mode = pipeline.get_draw_mode();
+    PipelineDrawMode draw_mode = animator.get_draw_mode();
     if (draw_mode == PipelineDrawMode_Triangle) {
       draw_mode = PipelineDrawMode_Wireframe;
       printf("Now uses DrawMode::wireframe_draw_mode.\n");
@@ -86,7 +84,7 @@ void process_key(SDL_KeyboardEvent *key) {
       draw_mode = PipelineDrawMode_Triangle;
       printf("Now uses DrawMode::triangle_draw_mode.\n");
     }
-    pipeline.set_draw_mode(draw_mode);
+    animator.set_draw_mode(draw_mode);
   }
   if (keycode == SDLK_1 && is_press) {
     show_which_texture = 1;
@@ -101,7 +99,7 @@ void process_key(SDL_KeyboardEvent *key) {
     printf("Now display normal maps.\n");
   }
   if (keycode == SDLK_b && is_press) {
-    bool backface_culling = pipeline.get_backface_culling_state();
+    bool backface_culling = animator.get_backface_culling_state();
     if (backface_culling == false) {
       backface_culling = true;
       printf("Backface culling: ON\n");
@@ -110,7 +108,7 @@ void process_key(SDL_KeyboardEvent *key) {
       backface_culling = false;
       printf("Backface culling: OFF\n");
     }
-    pipeline.enable_backface_culling(backface_culling);
+    animator.set_backface_culling_state(backface_culling);
   }
 }
 
@@ -121,9 +119,8 @@ void init_render() {
   frame_buffer.normal = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
 
   /* setup render pass */
-  animator.out_texs.color = &frame_buffer.color;
-  animator.out_texs.depth = &frame_buffer.depth;
-  animator.out_texs.normal = &frame_buffer.normal;
+  animator.set_render_targets(&frame_buffer.color, &frame_buffer.depth, &frame_buffer.normal);
+  animator.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
   animator.eye.position = Vec3(0, 6, 10);
   animator.eye.look_at = Vec3(0, 3.5, 0);
   animator.eye.up_dir = Vec3(0, 1, 0);
@@ -140,13 +137,11 @@ void init_render() {
   animator.eye.orthographic.height = 9.0;
 
   /* setup model to be rendered */
-  boblamp.load("models/boblamp.zip");
-  animator.model = &boblamp;
-  animator.pipeline = &pipeline;
-  pipeline.set_draw_mode(PipelineDrawMode_Triangle);
+  animator.load_model("models/boblamp.zip");
+  animator.set_draw_mode(PipelineDrawMode_Triangle);
   
   if (num_threads > 0) {
-    pipeline.set_num_threads(num_threads);
+    animator.set_num_threads(num_threads);
   }
   printf("\n");
   printf("Press SPACE to switch between perspective/orthographic modes.\n");
@@ -159,12 +154,12 @@ void init_render() {
 
 double render_frame(double T) {
   const double radius = 8.0;
-  animator.play_time = fmod(T, 6.0); /* 6 seconds per loop */
-  animator.anim_name = ""; /* play the animation "" */
+  animator.play_animation("", fmod(T, 6.0)); /* 6 seconds per loop */
   animator.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
   animator.eye.look_at = Vec3(0, 3.5, 0);
-  animator.run();
-  return animator.last_draw_time;
+  animator.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
+  animator.draw();
+  return animator.query_last_draw_time();
 }
 
 int main(int argc, char* argv[]) {
@@ -194,11 +189,11 @@ int main(int argc, char* argv[]) {
 
     /* logging */
     if (show_which_texture == 1)
-      sgl::SDL2::sgl_texture_to_SDL2_surface(animator.out_texs.color, pWindowSurface);
+      sgl::SDL2::sgl_texture_to_SDL2_surface(&frame_buffer.color, pWindowSurface);
     else if (show_which_texture == 2)
-      sgl::SDL2::sgl_texture_to_SDL2_surface(animator.out_texs.depth, pWindowSurface);
+      sgl::SDL2::sgl_texture_to_SDL2_surface(&frame_buffer.depth, pWindowSurface);
     else if (show_which_texture == 3)
-      sgl::SDL2::sgl_texture_to_SDL2_surface(animator.out_texs.normal, pWindowSurface);
+      sgl::SDL2::sgl_texture_to_SDL2_surface(&frame_buffer.normal, pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
     std::string title = std::string("SGL | ") + dtos(T_frame / frameid * 1000.0, 2) + "ms | FPS=" + std::to_string(int(frameid / T_frame));
     SDL_SetWindowTitle(pWindow, title.c_str());
