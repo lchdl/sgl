@@ -104,6 +104,11 @@ void BaseAnimator::load_model(const std::string & file)
   }
 }
 
+void BaseAnimator::set_model_transform(const Mat4x4 & transform)
+{
+  this->model.set_model_transform(transform);
+}
+
 inline void BaseAnimator::VS_OUT::operator*=(const double& scalar)
 {
   this->gl_Position *= scalar;

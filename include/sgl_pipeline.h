@@ -294,7 +294,7 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::draw(
   1) One and only one depth buffer if depth test is enabled, when depth test
      is disabled, the depth buffer is optional.
   2) At least one texture bound to one of the several output texture slots.
-  3) Each bound texture must have the same size.
+  3) Each bound texture must have the same width and height.
   */
   {
     bool is_ready = true;

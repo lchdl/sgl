@@ -509,7 +509,7 @@ Model::_interpolate_skeletal_animation(
   should exist in the animation (even if the model has no animation).
   */
   Vec3 position = _interpolate_key_frames<Vec3>(anim.position_key_frames, tick, interp);
-  Vec3 scaling = _interpolate_key_frames<Vec3>(anim.scaling_key_frames, tick, interp);
+  Vec3 scaling  = _interpolate_key_frames<Vec3>(anim.scaling_key_frames, tick, interp);
   Quat rotation = _interpolate_key_frames<Quat>(anim.rotation_key_frames, tick, interp);
 
   /* build matrices and combine them */
@@ -595,8 +595,9 @@ Model::update_skeletal_animation_for_mesh(const Mesh& mesh,
   std::map<std::string, uint32_t>::const_iterator 
     item = anim_name_to_unique_id.find(anim_name);
   if (item == anim_name_to_unique_id.end()) {
-    printf("[*] Warning: could not find the required "
-      "animation \"%s\" for model.\n", anim_name.c_str());
+    /* The animation being played does not exist. I want to make it a 
+    silent fail since this function may be called frequently. Printing 
+    an error message could cause a significant performance hit. */
     return;
   }
   uint32_t anim_id = item->second;
