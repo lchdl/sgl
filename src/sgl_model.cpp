@@ -619,11 +619,11 @@ Vec3 calculate_tangent(
     dU1, dV1
   );
   Mat2x2 Q_inv = inverse(Q);
-  return Vec3(
+  return normalize(Vec3(
     Q_inv.i11 * e1.x + Q_inv.i12 * e2.x,
     Q_inv.i11 * e1.y + Q_inv.i12 * e2.y,
     Q_inv.i11 * e1.z + Q_inv.i12 * e2.z
-  );
+  ));
 }
 
 void calculate_tangent_bitangent(
@@ -640,16 +640,16 @@ void calculate_tangent_bitangent(
     dU1, dV1
   );
   Mat2x2 Q_inv = inverse(Q);
-  tangent = Vec3(
+  tangent = normalize(Vec3(
     Q_inv.i11 * e1.x + Q_inv.i12 * e2.x,
     Q_inv.i11 * e1.y + Q_inv.i12 * e2.y,
     Q_inv.i11 * e1.z + Q_inv.i12 * e2.z
-  );
-  bitangent = Vec3(
+  ));
+  bitangent = normalize(Vec3(
     Q_inv.i21 * e1.x + Q_inv.i22 * e2.x,
     Q_inv.i21 * e1.y + Q_inv.i22 * e2.y,
     Q_inv.i21 * e1.z + Q_inv.i22 * e2.z
-  );
+  ));
 }
 
 }; /* namespace sgl */
