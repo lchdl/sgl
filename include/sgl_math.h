@@ -261,6 +261,12 @@ struct Mat3x3 {
     i21 = _21, i22 = _22, i23 = _23;
     i31 = _31, i32 = _32, i33 = _33;
   }
+  Mat3x3(const Vec3& i1x, const Vec3& i2x, const Vec3& i3x) {
+    i11 = i1x.x, i12 = i1x.y, i13 = i1x.z;
+    i21 = i2x.x, i22 = i2x.y, i23 = i2x.z;
+    i31 = i3x.x, i32 = i3x.y, i33 = i3x.z;
+  }
+
   Mat3x3(double* _data) {
     for (int t = 0; t < 9; t++)
       this->i[t] = _data[t];
@@ -300,6 +306,12 @@ struct Mat3x3 {
     i11 -= a.i11; i12 -= a.i12; i13 -= a.i13;
     i21 -= a.i21; i22 -= a.i22; i23 -= a.i23;
     i31 -= a.i31; i32 -= a.i32; i33 -= a.i33;
+    return (*this);
+  }
+  inline Mat3x3 operator*=(const double& a) {
+    i11 *= a; i12 *= a; i13 *= a;
+    i21 *= a; i22 *= a; i23 *= a;
+    i31 *= a; i32 *= a; i33 *= a;
     return (*this);
   }
   /* check if all elements in the matrix are close to zero */
@@ -525,6 +537,10 @@ operator-(Vec3 _a, Vec3 _b) {
   return Vec3(_a.x - _b.x, _a.y - _b.y, _a.z - _b.z);
 }
 inline Vec3
+operator-(Vec3 _a, double _b) {
+  return Vec3(_a.x - _b, _a.y - _b, _a.z - _b);
+}
+inline Vec3
 operator*(Vec3 _a, double _b) {
   return Vec3(_a.x * _b, _a.y * _b, _a.z * _b);
 }
@@ -631,8 +647,10 @@ inline Mat2x2 inverse(Mat2x2 _a) {
 
 inline Mat3x3
 transpose(Mat3x3 _a) {
-  return Mat3x3(_a.i11, _a.i21, _a.i31, _a.i12, _a.i22, _a.i32, _a.i13, _a.i23,
-                _a.i33);
+  return Mat3x3(
+    _a.i11, _a.i21, _a.i31, 
+    _a.i12, _a.i22, _a.i32, 
+    _a.i13, _a.i23, _a.i33);
 }
 inline Mat3x3
 operator+(Mat3x3 _a, Mat3x3 _b) {
@@ -673,6 +691,10 @@ mul(Mat3x3 _a, Vec3 _b) {
   return Vec3(_b.x * _a.i[0] + _b.y * _a.i[1] + _b.z * _a.i[2],
               _b.x * _a.i[3] + _b.y * _a.i[4] + _b.z * _a.i[5],
               _b.x * _a.i[6] + _b.y * _a.i[7] + _b.z * _a.i[8]);
+}
+inline Vec3
+operator*(Mat3x3 _a, Vec3 _b) {
+  return mul(_a, _b);
 }
 inline Mat3x3
 operator*(Mat3x3 _a, double _b) {

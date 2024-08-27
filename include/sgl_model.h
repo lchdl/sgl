@@ -60,11 +60,12 @@ struct Node {
   std::vector<Animation> animations;
 };
 struct Mesh {
+  typedef Vertex_pnt_nm_bone Vertex_t;
   /* A mesh is a unique part of a model that has only 
    * one material. A mesh can contain multiple meshes. */
   /* vertex buffer, used in rasterization */
   std::string name; /* name of the mesh */
-  std::vector<Vertex_pnt_nm_bone> vertices;
+  std::vector<Vertex_t> vertices;
   /* index buffer, used in rasterization */
   std::vector<int32_t> indices;
   /* material id */
