@@ -156,16 +156,6 @@ protected:
   **/
   double edge(const Vec4 &p0, const Vec4 &p1, const Vec4 &p);
   /**
-  Color convertion. Vec4 => RGBA8.
-  @param color: A Vec4 color (r,g,b,a), map value range [0.0, 1.0] to [0, 255],
-  out of bound values will be clamped to 0 or 1 before conversion.
-  **/
-  void unpack_Vec4_color_to_unsigned_RGBA(
-    const Vec4 &color, uint8_t &R, uint8_t &G, uint8_t &B, uint8_t &A);
-  void pack_RGBA8888_to_uint32(
-    const uint8_t& R, const uint8_t& G, const uint8_t& B, const uint8_t& A, 
-    const PixelFormat& target_format, uint32_t& out_result);
-  /**
   Write final color data into targeted textures.
   @param p: Window coordinate (x, y), origin is at lower-left corner.
   @param color: Output color from the fragment shader.
@@ -238,31 +228,31 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::clear_render_t
 {
   Texture* texture = targets.out_texs[slot];
   if (texture == NULL) return;
-  if (texture->usage == TextureUsage_DepthBuffer) {
+  if (texture->get_texture_usage() == TextureUsage_DepthBuffer) {
     /* depth buffer is special, when it needs to be cleared,
     it should be set to 1.0, clear_color will be ignored. */
-    int n_pixels = texture->w * texture->h;
-    double *pixels = (double *)texture->pixels;
+    int n_pixels = texture->get_width() * texture->get_height();
+    double *pixels = (double *)texture->get_pixel_data();
     for (int i = 0; i < n_pixels; i++)
       pixels[i] = 1.0;
   }
-  else if (texture->format == PixelFormat_Float64) {
+  else if (texture->get_pixel_format() == PixelFormat_Float64) {
     /* if the texture format is float64 and it is not used as
     a depth buffer, we take the first component of clear_color
     and set all the pixels in the texture to this value. */
-    int n_pixels = texture->w * texture->h;
-    double *pixels = (double *)texture->pixels;
+    int n_pixels = texture->get_width() * texture->get_height();
+    double *pixels = (double *)texture->get_pixel_data();
     for (int i = 0; i < n_pixels; i++)
       pixels[i] = clear_color.i[0];
   }
-  else if (texture->format == PixelFormat_BGRA8888 ||
-    texture->format == PixelFormat_RGBA8888) {
+  else if (texture->get_pixel_format() == PixelFormat_BGRA8888 ||
+    texture->get_pixel_format() == PixelFormat_RGBA8888) {
     uint8_t R, G, B, A;
     uint32_t packed_32bit;
-    unpack_Vec4_color_to_unsigned_RGBA(clear_color, R, G, B, A);
-    pack_RGBA8888_to_uint32(R, G, B, A, texture->format, packed_32bit);
-    int n_pixels = texture->w * texture->h;
-    uint32_t *pixels = (uint32_t *)texture->pixels;
+    convert_Vec4_color_to_RGBA_uint8(clear_color, R, G, B, A);
+    pack_RGBA8888_to_uint32(R, G, B, A, texture->get_pixel_format(), packed_32bit);
+    int n_pixels = texture->get_width() * texture->get_height();
+    uint32_t *pixels = (uint32_t *)texture->get_pixel_data();
     for (int i = 0; i < n_pixels; i++)
       pixels[i] = packed_32bit;
   }
@@ -305,20 +295,20 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::draw(
       if (targets.out_texs[i] == NULL) continue;
       /* set current render height and width parameters */
       if (ppl.cur_render_width < 0 || ppl.cur_render_height < 0) {
-        ppl.cur_render_width = targets.out_texs[i]->w;
-        ppl.cur_render_height = targets.out_texs[i]->h;
+        ppl.cur_render_width = targets.out_texs[i]->get_width();
+        ppl.cur_render_height = targets.out_texs[i]->get_height();
       }
       else {
-        if (ppl.cur_render_width != targets.out_texs[i]->w ||
-          ppl.cur_render_height != targets.out_texs[i]->h) {
+        if (ppl.cur_render_width != targets.out_texs[i]->get_width() ||
+          ppl.cur_render_height != targets.out_texs[i]->get_height()) {
           printf("Invalid frame buffer: different texture sizes detected! "
             "expected %dx%d, got %dx%d.\n", ppl.cur_render_width, ppl.cur_render_height,
-            targets.out_texs[i]->w, targets.out_texs[i]->h);
+            targets.out_texs[i]->get_width(), targets.out_texs[i]->get_height());
           is_ready = false;
           break;
         }
       }
-      if (targets.out_texs[i]->usage == TextureUsage_DepthBuffer) {
+      if (targets.out_texs[i]->get_texture_usage() == TextureUsage_DepthBuffer) {
         num_depth_buffers++;
         ppl.depth_texture_slot = i;
       }
@@ -865,33 +855,6 @@ inline double Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::edge(
 }
 
 template<typename Uniforms_t, typename Vertex_t, typename Fragment_t, typename Shader_t>
-inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::unpack_Vec4_color_to_unsigned_RGBA(
-  const Vec4 & color, uint8_t & R, uint8_t & G, uint8_t & B, uint8_t & A) 
-{
-  R = uint8_t(clamp(0, int(color.r * 255.0), 255));
-  G = uint8_t(clamp(0, int(color.g * 255.0), 255));
-  B = uint8_t(clamp(0, int(color.b * 255.0), 255));
-  A = uint8_t(clamp(0, int(color.a * 255.0), 255));
-}
-
-template<typename Uniforms_t, typename Vertex_t, typename Fragment_t, typename Shader_t>
-inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::pack_RGBA8888_to_uint32(
-  const uint8_t & R, const uint8_t & G, const uint8_t & B, const uint8_t & A, 
-  const PixelFormat & target_format, uint32_t & out_result) 
-{
-  /*
-  note that here we default to little endian,
-  the order of all color components should be reversed when packing
-  */
-  if (target_format == PixelFormat_RGBA8888)
-    out_result = ((A << 24) | (B << 16) | (G << 8) | R);
-  else if (target_format == PixelFormat_BGRA8888)
-    out_result = ((A << 24) | (R << 16) | (G << 8) | B);
-  else
-    printf("Cannot unpack pixel. Invalid texture format.\n");
-}
-
-template<typename Uniforms_t, typename Vertex_t, typename Fragment_t, typename Shader_t>
 inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::write_render_targets(
   const Vec2 & p, const FS_Outputs & fs_outs, const double & z)
 {
@@ -906,7 +869,7 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::write_render_t
 
   /* depth test */
   if (ppl.do_depth_test) {
-    double *depths = (double *)this->targets.out_texs[ppl.depth_texture_slot]->pixels;
+    double *depths = (double *)this->targets.out_texs[ppl.depth_texture_slot]->get_pixel_data();
     double z_new = min(max(z, 0.0), 1.0);
     double z_orig = depths[pixel_id];
     if (z_new > z_orig)
@@ -924,19 +887,19 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::write_render_t
     be aware that different texture formats will have different physical
     storage layout
     */
-    if (targets.out_texs[i_slot]->format == PixelFormat_BGRA8888 ||
-      targets.out_texs[i_slot]->format == PixelFormat_RGBA8888) {
+    if (targets.out_texs[i_slot]->get_pixel_format() == PixelFormat_BGRA8888 ||
+      targets.out_texs[i_slot]->get_pixel_format() == PixelFormat_RGBA8888) {
       uint8_t R, G, B, A;
       uint32_t packed_32bit;
-      unpack_Vec4_color_to_unsigned_RGBA(color, R, G, B, A);
-      pack_RGBA8888_to_uint32(R, G, B, A, targets.out_texs[i_slot]->format, packed_32bit);
-      uint32_t *pixels = (uint32_t *)targets.out_texs[i_slot]->pixels;
+      convert_Vec4_color_to_RGBA_uint8(color, R, G, B, A);
+      pack_RGBA8888_to_uint32(R, G, B, A, targets.out_texs[i_slot]->get_pixel_format(), packed_32bit);
+      uint32_t *pixels = (uint32_t *)targets.out_texs[i_slot]->get_pixel_data();
       pixels[pixel_id] = packed_32bit;
     }
-    else if (targets.out_texs[i_slot]->format == PixelFormat_Float64) {
+    else if (targets.out_texs[i_slot]->get_pixel_format() == PixelFormat_Float64) {
       /* we only select the first component of the Vec4 color (color.i[0]), other components are ignored */
       double data = color.i[0];
-      double *pixels = (double *)targets.out_texs[i_slot]->pixels;
+      double *pixels = (double *)targets.out_texs[i_slot]->get_pixel_data();
       pixels[pixel_id] = data;
     }
   }

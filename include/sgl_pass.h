@@ -312,12 +312,12 @@ public:
     Mat4x4 rotation(quat_to_mat3x3(Quat::rot_z(rot)));
     Mat4x4 model = translation * rotation * scaling;
     Mat4x4 projection = get_orthographic_matrix(0.0, 1.0, 0.0, 
-      this->pipeline.get_render_target(0)->w, 
-      this->pipeline.get_render_target(0)->h, 0.0);
-    vertices[0].xy = Vec2(-0.5*tex->w, -0.5*tex->h);
-    vertices[1].xy = Vec2(+0.5*tex->w, -0.5*tex->h);
-    vertices[2].xy = Vec2(+0.5*tex->w, +0.5*tex->h);
-    vertices[3].xy = Vec2(-0.5*tex->w, +0.5*tex->h);
+      this->pipeline.get_render_target(0)->get_width(), 
+      this->pipeline.get_render_target(0)->get_height(), 0.0);
+    vertices[0].xy = Vec2(-0.5*tex->get_width(), -0.5*tex->get_height());
+    vertices[1].xy = Vec2(+0.5*tex->get_width(), -0.5*tex->get_height());
+    vertices[2].xy = Vec2(+0.5*tex->get_width(), +0.5*tex->get_height());
+    vertices[3].xy = Vec2(-0.5*tex->get_width(), +0.5*tex->get_height());
     uniforms.transform = projection * model;
     uniforms.color_mask = color_mask;
     uniforms.in_texture = tex;

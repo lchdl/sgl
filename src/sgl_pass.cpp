@@ -54,7 +54,7 @@ void BaseAnimator::draw() {
   /* setup uniforms */
   this->uniforms.world = this->model.get_model_transform();
   this->uniforms.view = this->get_view_matrix();
-  this->uniforms.projection = this->get_projection_matrix(this->pipeline.get_render_target(0)->w, this->pipeline.get_render_target(0)->h);
+  this->uniforms.projection = this->get_projection_matrix(this->pipeline.get_render_target(0)->get_width(), this->pipeline.get_render_target(0)->get_height());
 
   /* Rendering all the mesh parts in model */
   const std::vector<Mesh>& mesh_data = model.get_meshes();
