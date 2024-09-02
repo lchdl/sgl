@@ -235,7 +235,7 @@ bool Model::load(const std::string& file) {
         /* create texture object and append to mesh texture library */
         this->materials[i_mat].diffuse_texture = load_texture(tex_full_path);
         this->materials[i_mat].diffuse_texture_file = tex_full_path;
-        if (this->materials[i_mat].diffuse_texture.pixels == NULL) {
+        if (this->materials[i_mat].diffuse_texture.get_pixel_data() == NULL) {
           printf("Texture loading error: cannot load texture \"%s\". "
               "File not exist or have no access.\n", tex_full_path.c_str());
         }
@@ -546,10 +546,10 @@ Model::_dump_material(const Material & material)
   /* diffuse texture */
   printf("      Diffuse: \"%s\" (%s)\n", 
     material.diffuse_texture_file.c_str(),
-    (material.diffuse_texture.pixels != NULL) ? "OK" : "NOT FOUND");
+    (material.diffuse_texture.get_pixel_data() != NULL) ? "OK" : "NOT FOUND");
   printf("               size=%dx%d\n", 
-    material.diffuse_texture.w, 
-    material.diffuse_texture.h);
+    material.diffuse_texture.get_width(), 
+    material.diffuse_texture.get_width());
 }
 
 void 

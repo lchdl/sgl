@@ -116,6 +116,8 @@ typedef Pipeline<Uniforms, VS_IN, FS_IN, Shader> Pipeline_t;
 int w = 320, h = 240;
 int num_threads = 2;
 int tilt_model = 0;
+//TextureSampling sampling = TextureSampling_Nearest;
+TextureSampling sampling = TextureSampling_Bilinear;
 
 bool keystate[SDL_NUM_SCANCODES];
 SDL_Window*         pWindow;
@@ -215,6 +217,19 @@ void process_key(SDL_KeyboardEvent *key) {
     }
     printf("Model placement changed.\n");
   }
+  if (keycode == SDLK_s && is_press) {
+    if (sampling == TextureSampling_Nearest) {
+      sampling = TextureSampling_Bilinear;
+      printf("Use linear sampling.\n");
+    }
+    else {
+      sampling = TextureSampling_Nearest;
+      printf("Use point (nearest) sampling.\n");
+    }
+    brick.diffuse.set_sampling_mode(sampling);
+    brick.normal.set_sampling_mode(sampling);
+    brick.specular.set_sampling_mode(sampling);
+  }
 }
 
 void init_render() {
@@ -224,6 +239,9 @@ void init_render() {
   brick.diffuse = sgl::load_texture("textures/brick/brick_diffuse_256.png");
   brick.normal = sgl::load_texture("textures/brick/brick_normal_256.png");
   brick.specular = sgl::load_texture("textures/brick/brick_specular_256.png");
+  brick.diffuse.set_sampling_mode(sampling);
+  brick.normal.set_sampling_mode(sampling);
+  brick.specular.set_sampling_mode(sampling);
 
   /* setup pipeline */
   pipeline.bind_render_target(0, &frame_buffer.color);
@@ -251,6 +269,7 @@ void init_render() {
   printf("Press SPACE to enable/disable normal mapping.\n");
   printf("Press a to enable/disable diffuse texture.\n");
   printf("Press q to tilt/recover plane placement.\n");
+  printf("Press s to use point/linear sampling.\n");
   printf("Press ESC to quit this demo.\n");
   printf("\n");
 }
@@ -260,7 +279,7 @@ double render_frame(double T) {
   Vec3 pos  = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
   Vec3 look = Vec3(0, 0, 0);
   Vec3 up   = Vec3(0, 1, 0);
-  double aspect_ratio = double(frame_buffer.color.w) / double(frame_buffer.color.h);
+  double aspect_ratio = double(frame_buffer.color.get_width()) / double(frame_buffer.color.get_height());
   uniforms.world = plane.get_model_transform();
   uniforms.view  = sgl::get_view_matrix(pos, look, up);
   uniforms.proj  = sgl::get_perspective_matrix(aspect_ratio, 0.1, 100.0, degrees_to_radians(60));    

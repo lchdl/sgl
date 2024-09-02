@@ -56,7 +56,7 @@ void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSa
   this->pixels = malloc(w * h * bypp);
 }
 
-void Texture::load(const std::string & file, const PixelFormat & target_format)
+void Texture::load(const std::string & file, const PixelFormat & target_format, const TextureSampling& texture_sampling)
 {
   int x, y, n;
   unsigned char *data = stbi_load(file.c_str(), &x, &y, &n, 4);
@@ -71,6 +71,7 @@ void Texture::load(const std::string & file, const PixelFormat & target_format)
   memcpy(pixels, data, x * y * 4);
   stbi_image_free(data);
   this->to_format(target_format);
+  this->set_sampling_mode(texture_sampling);
 }
 
 void Texture::copy(const Texture &texture) {
@@ -151,6 +152,18 @@ Vec4 Texture::texture_float64_point(const Vec2 & p) const
   return Vec4(data[pixel_id], 0.0, 0.0, 0.0);
 }
 
+Vec4 Texture::texture_xxxx8888_bilinear(const Vec2 & p) const
+{
+  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+
+  p0.x = max(min(p0.x, 1.0), 0.0);
+  p0.y = max(min(p0.y, 1.0), 0.0);
+
+  Vec4 output;
+  sgl::bilinear_interpolation_xxxx8888((uint32_t*)this->pixels, this->format, this->w, this->h, p0, &output);
+  return output;
+}
+
 Texture Texture::to_format(const PixelFormat & target_format) const
 {
   if (this->format == target_format) {
@@ -222,29 +235,30 @@ Texture create_texture(int32_t w, int32_t h, PixelFormat format, TextureSampling
   return texture;
 }
 
-Texture load_texture(const std::string &file, const PixelFormat& target_format) {
+Texture load_texture(const std::string &file, const PixelFormat& target_format, const TextureSampling& texture_sampling) {
   Texture texture;
-  texture.load(file, target_format);
+  texture.load(file, target_format, texture_sampling);
   return texture;
 }
 
 Vec4 texture(const Texture *texobj, const Vec2 &uv) {
-  if (texobj->format == PixelFormat_RGBA8888) {
-    if (texobj->sampling == TextureSampling_Nearest) {
+  if (texobj->sampling == TextureSampling_Bilinear) {
+    return texobj->texture_xxxx8888_bilinear(uv);
+  }
+  else if (texobj->sampling == TextureSampling_Nearest) {
+    if (texobj->format == PixelFormat_RGBA8888) {
       return texobj->texture_RGBA8888_point(uv);
     }
-  }
-  else if (texobj->format == PixelFormat_BGRA8888) {
-    if (texobj->sampling == TextureSampling_Nearest) {
+    else if (texobj->format == PixelFormat_BGRA8888) {
       return texobj->texture_BGRA8888_point(uv);
     }
-  }
-  else if (texobj->format == PixelFormat_Float64) {
-    if (texobj->sampling == TextureSampling_Nearest) {
+    else if (texobj->format == PixelFormat_Float64) {
       return texobj->texture_float64_point(uv);
     }
   }
   return Vec4(0, 0, 0, 0);
 }
+
+
 
 }; /* namespace sgl */
