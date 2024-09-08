@@ -158,8 +158,6 @@ class Texture {
   Vec4 texture_BGRA8888_point(const Vec2 &p) const;
   Vec4 texture_float64_point(const Vec2 &p) const;
   Vec4 texture_xxxx8888_bilinear(const Vec2 &p) const;
-  Vec4 texture_float64_bilinear(const Vec2 &p) const;
-
 
   /**
   set/get

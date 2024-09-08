@@ -22,7 +22,7 @@ void Model::unload() {
   this->root_node = NULL;
 }
 
-bool Model::load(const std::string& file) {
+bool Model::load_zip(const std::string& zip_file, const std::string& model_fname) {
   
   /* clear trash data from previous load */
   this->unload(); 
@@ -37,39 +37,35 @@ bool Model::load(const std::string& file) {
   std::string temp_folder = "";
   std::string model_file = "";
 
-  if (endswith(file, ".zip")) {
-    temp_folder = mktdir(gd(file));
-    int zipret = zip_extract(file.c_str(), temp_folder.c_str(), NULL, NULL);
+
+  if (endswith(zip_file, ".zip")) {
+    temp_folder = mktdir(gd(zip_file));
+    int zipret = zip_extract(zip_file.c_str(), temp_folder.c_str(), NULL, NULL);
     if (zipret < 0) {
-      printf("Assimp import error: cannot unzip file \"%s\".", file.c_str());
+      printf("Assimp import error: cannot unzip file \"%s\".", zip_file.c_str());
       rm(temp_folder);
       return false;
     }
     std::vector<std::string> files = ls(temp_folder);
     for (auto& file : files) {
-      size_t dpos = file.find_last_of(".");
-      std::string file_no_ext = file.substr(0, dpos);
-      std::string file_ext = file.substr(dpos + 1);
-      if (endswith(file_no_ext, "model")) {
-        if (file_ext == "obj" || file_ext == "md5mesh" || file_ext == "fbx") {
-          model_file = file;
-          break;
-        }
-        else {
-          printf("Found a file with name \"model.*\" but its format "
-            "is not recognized (\".%s\").\nIgnored.", file_ext.c_str());
-        }
+      size_t dpos0 = file.find_last_of("\\");
+      size_t dpos1 = file.find_last_of(".");
+      std::string file_no_ext = file.substr(dpos0+1, dpos1-dpos0-1);
+      std::string file_ext = file.substr(dpos1 + 1);
+      if (file_no_ext + '.' + file_ext == model_fname) {
+        model_file = temp_folder + '\\' + model_fname;
+        break;
       }
     }
     if (model_file == "") {
-      printf("Assimp import error: you need to provide a file "
-          "named \"model.*\" in zipped file \"%s\".", file.c_str());
+      printf("Model import error: cannot find model \"%s\" in zip file \"%s\".\n", model_fname.c_str(), zip_file.c_str());
       rm(temp_folder);
       return false;
     }
   }
   else {
-    model_file = file;
+    printf("File name must ends with \".zip\".\n");
+    return false;
   }
   
   /* then import the file using assimp */
@@ -77,7 +73,7 @@ bool Model::load(const std::string& file) {
   _scene = _importer->ReadFile(model_file.c_str(), load_flags);
   if (!_scene || !_scene->mRootNode || _scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
     printf("Assimp importer.ReadFile() error when loading file \"%s\": \"%s\".\n",
-      file.c_str(), _importer->GetErrorString());
+      model_file.c_str(), _importer->GetErrorString());
     if (temp_folder != "")
       rm(temp_folder);
     return false;

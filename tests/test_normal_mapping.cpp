@@ -253,7 +253,7 @@ void init_render() {
   tilt_model = 0;
 
   /* load model */
-  plane.load("models/plane.zip");
+  plane.load_zip("models/plane.zip", "model.obj");
   auto convert_vertex_format = [](const Mesh::Vertex_t& v) {
     return VS_IN(v.position, v.normal, v.texcoord, v.tangent, v.bitangent);
   };

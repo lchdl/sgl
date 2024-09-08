@@ -199,7 +199,7 @@ public:
 
 public:
   void                       draw();
-  void                 load_model(const std::string& file);
+  void                 load_model(const std::string & zip_file, const std::string& model_fname);
   void        set_model_transform(const Mat4x4& transform);
   PipelineDrawMode  get_draw_mode() const { return this->pipeline.get_draw_mode(); }
   void              set_draw_mode(PipelineDrawMode draw_mode) { this->pipeline.set_draw_mode(draw_mode); }
