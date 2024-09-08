@@ -12,14 +12,14 @@ Users can program their own <i><b>vertex and fragment shaders</i></b> and attach
 The overall design of the rasterization pipeline is shown below.
 
 <p align="center">
-  <img width="700" src="https://github.com/lchdl/sgl/blob/develop/demos/pipeline.png">
+  <img width="700" src="https://github.com/lchdl/sgl/blob/develop/assets/readme/pipeline.png">
 </p>
 
 * Currently, SGL is designed to <i><b>serve as a graphical backend for retro-style game engines</b></i>. Rendering something onto the screen with SGL can be <i><b>very simple</b></i>: simply provide the vertex positions, texture coordinates, and normals. SGL will then draw the model for you without any help from the dedicated GPU.
 
 * <b><i>Write your own vertex and fragment shaders for the software rasterizer</i></b>: SGL supports customized vertex and fragment shaders. The image below shows an example:
   <p align="center">
-    <img src="https://github.com/lchdl/sgl/blob/develop/demos/shaders_code_demo.png">
+    <img src="https://github.com/lchdl/sgl/blob/develop/assets/readme/shaders_code_demo.png">
   </p>
 
 * Due to the benefit of abstracting the entire rendering operation into multiple <b><i>render passes</i></b>, SGL can also easily support hardware acceleration (GPU rendering using OpenGL) to render complex scenes. This feature is currently working in progress.
@@ -27,9 +27,9 @@ The overall design of the rasterization pipeline is shown below.
 ## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
 |:------------------|:---------------:|:------------|
-| `test_hello_world.cpp` `test_buffer.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.cpp`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
-| `test_skeletal_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Including orthographic / perspective projection. |
-| `test_sprite_render.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/demos/test_sprite_render.png) | A simple demo for rendering multiple 2D sprites onto a texture with just a few lines of code. The chess sprites used in this demo were downloaded from [here](https://dani-maccari.itch.io/pixel-chess). |
+| `test_hello_world.cpp` `test_buffer.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.cpp`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
+| `test_skeletal_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Including orthographic / perspective projection. |
+| `test_sprite_render.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_sprite_render.png) | A simple demo for rendering multiple 2D sprites onto a texture with just a few lines of code. The chess sprites used in this demo were downloaded from [here](https://dani-maccari.itch.io/pixel-chess). |
 
 ### Performance benchmarking
 | Demo or test name | Description |
@@ -57,10 +57,10 @@ The overall design of the rasterization pipeline is shown below.
 
 2. Using CMake build system (<b>cmake-gui</b>) to generate Visual Studio solutions. Press `Configure`, select "<b>x64</b>" platform, under the "<b>COMPILER</b>" option list, select "<b>MSVC</b>". Then, CMake will prompt you to <b>specify the path for compiled libraries and the location of include headers</b> (shown below).
 
-   > Watch this self-explanatory [<b>video</b>](https://github.com/lchdl/sgl/blob/develop/demos/how_to_compile_using_cmake_gui.mp4) for more infomation.
+   > Watch this self-explanatory [<b>video</b>](https://github.com/lchdl/sgl/blob/develop/assets/readme/how_to_compile_using_cmake_gui.mp4) for more infomation.
 
    <p align="center">
-     <img src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_windows_compile.png">
+     <img src="https://github.com/lchdl/sgl/blob/develop/assets/readme/cmake_windows_compile.png">
    </p>
 
    > <b>DO NOT add extra "\\" after directories</b> to avoid strange include errors when building the project.
@@ -87,7 +87,7 @@ The overall design of the rasterization pipeline is shown below.
    Then, ccmake will prompt you to provide the file paths of the precompiled libraries (\*.a) and headers (\*.h). After filling in all the paths, the final configuration should look like this:
 
    <p align="center">
-     <img width=650 src="https://github.com/lchdl/sgl/blob/develop/demos/cmake_linux_compile.png">
+     <img width=650 src="https://github.com/lchdl/sgl/blob/develop/assets/readme/cmake_linux_compile.png">
    </p>
 
    Hit `g` to generate makefile and ccmake will automatically quit if succeed.
