@@ -77,12 +77,12 @@ void BaseAnimator::draw() {
   this->last_draw_time = timer.tick();
 }
 
-void BaseAnimator::load_model(const std::string & file)
+void BaseAnimator::load_model(const std::string & zip_file, const std::string& model_fname)
 {
   this->vertices_map.clear();
   this->indices_map.clear();
 
-  this->model.load(file);
+  this->model.load_zip(zip_file, model_fname);
 
   /* load mesh data */
   const std::vector<Mesh>& mesh_data = model.get_meshes();

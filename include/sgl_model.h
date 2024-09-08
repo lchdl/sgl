@@ -88,7 +88,7 @@ class Model {
    * renders a single mesh onto the frame buffer. */
 public:
   /* initialize mesh object from external/internal file formats. */
-  bool load(const std::string& file);
+  bool load_zip(const std::string& zip_file, const std::string& model_file);
   /* dump mesh information for debugging */
   void dump();
   /* unload mesh and return allocated resources to OS. */
