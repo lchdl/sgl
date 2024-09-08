@@ -67,7 +67,7 @@ The overall design of the rasterization pipeline is shown below.
    
    Finally, press `Generate`, and `Open Project` to open Visual Studio. In Visual Studio, choose `Release` or `MinSizeRel` and compile SGL (if you want to debug SGL on Windows, select "Debug").
 
-   > After compiling SGL, you may need to copy all \*.dll files and the contents of the `res/` folder to the same location as the generated executables.
+   > After compiling SGL, you may need to copy all \*.dll files and the contents of the `assets/` folder to the same location as the generated executables.
 
 ### For Linux-based systems (g++ & make)
 1. Manually compile all external libraries. I have provided the precompiled libraries in [<b>here</b>](https://drive.google.com/file/d/1Z_MBPST6IFheGnUseI-6bwaOUG4MM3s3/view?usp=sharing) for download.
@@ -94,7 +94,7 @@ The overall design of the rasterization pipeline is shown below.
 
    Finally, `make -jN` to compile SGL using `N` threads (such as `make -j8`) and wait for it to finish.
    
-   > After compiling SGL, you may need to copy all the contents of the `res/` folder to the same location as the generated executables.
+   > After compiling SGL, you may need to copy all the contents of the `assets/` folder to the same location as the generated executables.
 
 ## For developers
 
@@ -107,6 +107,8 @@ The overall design of the rasterization pipeline is shown below.
 ### Project structure
 * `CMakeLists.txt`
   - For CMake.
+* `assets/`
+  - Contains assets (models, textures, etc.) for running demos.
 * `demos/`
   - All demo outputs (*.png, *.gif), tutorials, and media files.
 * `include/`
@@ -117,8 +119,6 @@ The overall design of the rasterization pipeline is shown below.
   - All CI test cases (*.cpp sources will be compiled and linked as executables).
 * `doc/`
   - Documentations, devlog, tutorials, notes, etc.
-* `res/`
-  - Resource files (models, textures, etc.).
 * `ext/` <i><b>(not included in this repo)</b></i>
   - External dependencies, including the source code for all 3rd-party libraries.
 * `build/` <i><b>(not included in this repo)</b></i>
