@@ -11,6 +11,7 @@ SDL_Surface* pWindowSurface;
 int w = 800, h = 600;
 
 sgl::Texture target;
+sgl::Texture chess, chess_mask;
 
 std::string dtos(double v, int precision) {
   std::stringstream stream;
@@ -65,6 +66,8 @@ void init_render() {
   /* setup resources */
   target = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   target.clear(Vec4(0, 0, 0, 1));
+  chess = sgl::load_texture("assets/tests/textures/chess.png", PixelFormat_BGRA8888);
+  chess_mask = sgl::load_texture("assets/tests/textures/chess_mask.png", PixelFormat_UInt8);
 }
 
 double render_frame(double T) {
@@ -83,6 +86,8 @@ double render_frame(double T) {
   sgl::draw_rectangle(&target, 100, 150, 50, 80, Vec4(0, 0.2, 1.0, 1.0));
   sgl::draw_rectangle(&target, 150, 180, 100, 60, 1.0, Vec4(1, 1, 0, 1));
   sgl::draw_bezier(&target, Vec2(50, 50), Vec2(100, 50), Vec2(50, 100), Vec2(100, 100), Vec4(1, 0, 0, 1), 64);
+
+  sgl::blit_texture(&chess, &target, 0, 0, 96, 32, 100, 150, &chess_mask);
 
   return timer.tick();
 }
