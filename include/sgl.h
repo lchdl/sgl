@@ -12,6 +12,7 @@ adjust the number of CPU cores used for rendering.
 
 #pragma once
 
+/* core features */
 #include "sgl_utils.h"
 #include "sgl_SDL2.h"
 #include "sgl_math.h"
@@ -21,6 +22,9 @@ adjust the number of CPU cores used for rendering.
 #include "sgl_pipeline.h"
 #include "sgl_pass.h"
 
+/* extension */
+#include "sgl_primitives.h" /* draw 2D shapes or make 3D meshes */
+
 /*
 namespaces:
 
@@ -28,6 +32,5 @@ sgl         * Core software rasterization feature.
 |             (NOTE: this does not rely on any external libraries.)
 +--SDL2     * Implement communications between sgl and SDL2.
 |             For example, texture to surface conversion
-+--OpenGL    
 
 */

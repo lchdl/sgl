@@ -74,6 +74,40 @@ void Texture::load(const std::string & file, const PixelFormat & target_format, 
   this->set_sampling_mode(texture_sampling);
 }
 
+void Texture::clear(const Vec4& clear_color)
+{
+  if (this->usage == TextureUsage_DepthBuffer) {
+    /* depth buffer is special, when it needs to be cleared,
+    it should be set to 1.0, clear_color will be ignored. */
+    int n_pixels = w * h;
+    double *data = (double *)pixels;
+    for (int i = 0; i < n_pixels; i++)
+      data[i] = 1.0;
+  }
+  else if (this->format == PixelFormat_Float64) {
+    /* if the texture format is float64 and it is not used as
+    a depth buffer, we take the first component of clear_color
+    and set all the pixels in the texture to this value. */
+    int n_pixels = w * h;
+    double *data = (double *)pixels;
+    for (int i = 0; i < n_pixels; i++)
+      data[i] = clear_color.i[0];
+  }
+  else if (this->format == PixelFormat_BGRA8888 || this->format == PixelFormat_RGBA8888) {
+    uint8_t R, G, B, A;
+    uint32_t packed_32bit;
+    convert_Vec4_color_to_RGBA_uint8(clear_color, R, G, B, A);
+    pack_RGBA8888_to_uint32(R, G, B, A, this->format, packed_32bit);
+    int n_pixels = w * h;
+    uint32_t *data = (uint32_t *)pixels;
+    for (int i = 0; i < n_pixels; i++)
+      data[i] = packed_32bit;
+  }
+  else {
+    printf("Cannot clear texture, unsupported texture format or usage.\n");
+  }
+}
+
 void Texture::copy(const Texture &texture) {
   this->create(texture.w, texture.h, texture.format, texture.sampling, texture.usage);
   if (this->pixels != NULL && texture.pixels != NULL) {
@@ -258,7 +292,5 @@ Vec4 texture(const Texture *texobj, const Vec2 &uv) {
   }
   return Vec4(0, 0, 0, 0);
 }
-
-
 
 }; /* namespace sgl */
