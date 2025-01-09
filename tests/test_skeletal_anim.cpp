@@ -119,7 +119,7 @@ void init_render() {
   frame_buffer.normal = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
 
   /* setup render pass */
-  animator.set_render_targets(&frame_buffer.color, &frame_buffer.depth, &frame_buffer.normal);
+  animator.bind_render_targets(&frame_buffer.color, &frame_buffer.depth, &frame_buffer.normal);
   animator.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
   animator.eye.position = Vec3(0, 6, 10);
   animator.eye.look_at = Vec3(0, 3.5, 0);

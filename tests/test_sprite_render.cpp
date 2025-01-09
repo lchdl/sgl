@@ -15,7 +15,7 @@ void init_render() {
   chess = sgl::load_texture("assets/tests/textures/chess.png", PixelFormat_BGRA8888);
 
   /* initialize render pipeline */
-  renderer.set_render_target(&tex);
+  renderer.bind_render_target(&tex);
   renderer.clear_render_target(Vec4(0.5, 0.5, 0.5, 1.0));
   renderer.set_num_threads(2);
 }

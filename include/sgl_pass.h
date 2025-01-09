@@ -208,7 +208,7 @@ public:
   void            set_num_threads(int num_threads) { this->pipeline.set_num_threads(num_threads); }
   void             play_animation(const std::string& anim_name, const double& play_time) { this->anim_name = anim_name; this->play_time = play_time; }
   double     query_last_draw_time() const { return this->last_draw_time; }
-  void         set_render_targets(Texture* color, Texture* depth, Texture* normal) { 
+  void        bind_render_targets(Texture* color, Texture* depth, Texture* normal) { 
     this->pipeline.bind_render_target(0, color);
     this->pipeline.bind_render_target(1, depth);
     this->pipeline.bind_render_target(2, normal);
@@ -325,7 +325,7 @@ public:
     pipeline.draw(shader, vertices, indices, uniforms);
     pipeline.set_depth_test_state(true);
   }
-  void set_render_target(Texture* target) { this->pipeline.bind_render_target(0, target); }
+  void bind_render_target(Texture* target) { this->pipeline.bind_render_target(0, target); }
   void set_num_threads(int num_threads) { this->pipeline.set_num_threads(num_threads); }
   void clear_pipeline_cache() { this->pipeline.clear_cache(); }
   void clear_render_target(const Vec4& clear_color) { this->pipeline.clear_render_targets(clear_color); }

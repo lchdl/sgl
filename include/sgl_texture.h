@@ -145,6 +145,10 @@ class Texture {
   **/
   void load(const std::string &file, const PixelFormat& target_format = PixelFormat_BGRA8888, const TextureSampling& texture_sampling = TextureSampling_Nearest);
   /**
+  Clear a texture.
+  **/
+  void clear(const Vec4& clear_color);
+  /**
   Destroy texture.
   **/
   void destroy();

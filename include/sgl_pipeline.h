@@ -228,34 +228,7 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::clear_render_t
 {
   Texture* texture = targets.out_texs[slot];
   if (texture == NULL) return;
-  if (texture->get_texture_usage() == TextureUsage_DepthBuffer) {
-    /* depth buffer is special, when it needs to be cleared,
-    it should be set to 1.0, clear_color will be ignored. */
-    int n_pixels = texture->get_width() * texture->get_height();
-    double *pixels = (double *)texture->get_pixel_data();
-    for (int i = 0; i < n_pixels; i++)
-      pixels[i] = 1.0;
-  }
-  else if (texture->get_pixel_format() == PixelFormat_Float64) {
-    /* if the texture format is float64 and it is not used as
-    a depth buffer, we take the first component of clear_color
-    and set all the pixels in the texture to this value. */
-    int n_pixels = texture->get_width() * texture->get_height();
-    double *pixels = (double *)texture->get_pixel_data();
-    for (int i = 0; i < n_pixels; i++)
-      pixels[i] = clear_color.i[0];
-  }
-  else if (texture->get_pixel_format() == PixelFormat_BGRA8888 ||
-    texture->get_pixel_format() == PixelFormat_RGBA8888) {
-    uint8_t R, G, B, A;
-    uint32_t packed_32bit;
-    convert_Vec4_color_to_RGBA_uint8(clear_color, R, G, B, A);
-    pack_RGBA8888_to_uint32(R, G, B, A, texture->get_pixel_format(), packed_32bit);
-    int n_pixels = texture->get_width() * texture->get_height();
-    uint32_t *pixels = (uint32_t *)texture->get_pixel_data();
-    for (int i = 0; i < n_pixels; i++)
-      pixels[i] = packed_32bit;
-  }
+  texture->clear(clear_color);
 }
 
 template<typename Uniforms_t, typename Vertex_t, typename Fragment_t, typename Shader_t>

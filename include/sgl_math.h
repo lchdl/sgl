@@ -495,6 +495,10 @@ operator*(double _a, Vec2 _b) {
   return Vec2(_b.x * _a, _b.y * _a);
 }
 inline Vec2
+operator*(Vec2 _a, Vec2 _b) {
+  return Vec2(_a.x * _b.x, _a.y * _b.y);
+}
+inline Vec2
 operator/(Vec2 _a, double _b) {
   double inv_b = 1.0 / _b;
   return Vec2(_a.x * inv_b, _a.y * inv_b);
@@ -978,6 +982,38 @@ euler_to_quat(double yaw, double pitch, double roll)
 inline void
 quat_to_euler(Quat q, double& yaw, double& pitch, double& roll) {
   q.to_euler(yaw, pitch, roll);
+}
+
+/*
+Rotate a 2D vector by an arbitrary angle.
+*/
+inline Vec2
+rotate(Vec2 v, double rad) {
+  double cos_theta = cos(rad);
+  double sin_theta = sin(rad);
+  return Vec2(v.x * cos_theta - v.y * sin_theta, v.x * sin_theta + v.y * cos_theta);
+}
+/* 
+Rotate a 3D vector around an axis by arbitrary angle.
+NOTE: the axis should be normalized.
+*/
+inline Vec3
+rotate(Vec3 v, Vec3 axis, double rad) {
+  /*
+  see
+  https://en.wikipedia.org/wiki/Rotation_matrix
+  for more info.
+  */
+  double cos_theta = cos(rad);
+  double one_minus_cos_theta = 1.0 - cos_theta;
+  double sin_theta = sin(rad);
+  double &ux = axis.x, &uy = axis.y, &uz = axis.z;
+  Mat3x3 R = Mat3x3(
+    ux * ux * one_minus_cos_theta + cos_theta, ux * uy * one_minus_cos_theta - uz * sin_theta, ux * uz * one_minus_cos_theta + uy * sin_theta,
+    ux * uy * one_minus_cos_theta + uz * sin_theta, uy * uy * one_minus_cos_theta + cos_theta, uy * uz * one_minus_cos_theta - ux * sin_theta,
+    ux * uz * one_minus_cos_theta - uy * sin_theta, uy * uz * one_minus_cos_theta + ux * sin_theta, uz * uz * one_minus_cos_theta + cos_theta
+  );
+  return mul(R, v);
 }
 
 }; /* namespace sgl */
