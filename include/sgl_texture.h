@@ -24,6 +24,7 @@ enum PixelFormat {
   PixelFormat_RGBA8888,
   PixelFormat_BGRA8888, /* NVIDIA graphics card native format */
   PixelFormat_Float64, /* such as depth buffer, a single pixel stores a float64 */
+  PixelFormat_UInt8, /* often used as stencil buffers or other flag buffers. */
 };
 
 enum TextureSampling {
@@ -162,6 +163,9 @@ class Texture {
   Vec4 texture_BGRA8888_point(const Vec2 &p) const;
   Vec4 texture_float64_point(const Vec2 &p) const;
   Vec4 texture_xxxx8888_bilinear(const Vec2 &p) const;
+  Vec4 texture_float64_bilinear(const Vec2 &p) const;
+  Vec4 texture_uint8_point(const Vec2 &p) const;
+  Vec4 texture_uint8_bilinear(const Vec2 &p) const;
 
   /**
   set/get
@@ -263,5 +267,56 @@ inline void bilinear_interpolation_xxxx8888(
 
   *output = interped;
 }
+
+template <typename T>
+inline void bilinear_interpolation_scalar(T* data, 
+  const int32_t input_width, const int32_t input_height,
+  const Vec2& uv, Vec4* output)
+{
+  /* NOTE: uv must be in [0,1] */
+  double qx = uv.x * input_width - 0.5;
+  double qy = uv.y * input_height - 0.5;
+
+  int32_t x_l = int32_t(qx);
+  int32_t x_h = x_l + 1;
+  int32_t y_l = int32_t(qy);
+  int32_t y_h = y_l + 1;
+
+  x_l = clamp(0, x_l, input_width - 1);
+  x_h = clamp(0, x_h, input_width - 1);
+  y_l = clamp(0, y_l, input_height - 1);
+  y_h = clamp(0, y_h, input_height - 1);
+
+  double dummy;
+  double x_weight = modf(qx, &dummy);
+  double y_weight = modf(qy, &dummy);
+
+  T a = data[(int)y_l * input_width + (int)x_l];
+  T b = data[(int)y_l * input_width + (int)x_h];
+  T c = data[(int)y_h * input_width + (int)x_l];
+  T d = data[(int)y_h * input_width + (int)x_h];
+
+  double interped = \
+    (double)a * (1.0 - x_weight) * (1.0 - y_weight) +
+    (double)b * x_weight * (1.0 - y_weight) +
+    (double)c * y_weight * (1.0 - x_weight) +
+    (double)d * x_weight * y_weight;
+
+  *output = Vec4(interped, interped, interped, 1.0);
+}
+
+/**
+Texture Blitting refers to the process of transferring or copying a
+portion of one texture (often an image or a surface) onto another.
+
+Blitting involves a direct copy of pixel data from a source texture
+to a destination texture or screen. The term "blit" is short for
+"bit-block transfer", which originated from older graphics hardware
+operations where pixels or blocks of memory were moved to other
+areas without needing complex operations.
+**/
+void blit_texture(sgl::Texture* source, sgl::Texture* target,
+  int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
+  sgl::Texture* src_mask = NULL);
 
 }; /* namespace sgl */
