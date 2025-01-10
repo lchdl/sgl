@@ -31,6 +31,7 @@ The overall design of the rasterization pipeline is shown below.
 | `test_skeletal_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Including orthographic / perspective projection. |
 | `test_sprite_render.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_sprite_render.png) | A simple demo for rendering multiple 2D sprites onto a texture with just a few lines of code. The chess sprites used in this demo were downloaded from [here](https://dani-maccari.itch.io/pixel-chess). |
 | `test_normal_mapping.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_normal_mapping.png) | Demonstration of normal mapping techniques and nearest/linear texture sampling. |
+| `test_font_rendering.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_font_rendering.png) | Stylized font rendering with decent rasterization performance. |
 
 ### Performance benchmarking
 | Demo or test name | Description |
