@@ -414,6 +414,23 @@ void blit_texture(sgl::Texture * source, sgl::Texture * target,
       }
     }
   }
+  /* 2 bytes copy */
+  else if (source->get_bytes_per_pixel() == 2) {
+    uint16_t* source_ptr = (uint16_t*)source->get_pixel_data();
+    uint16_t* target_ptr = (uint16_t*)target->get_pixel_data();
+    for (int sy = src_y; sy < src_y + src_h; sy++) {
+      for (int sx = src_x; sx < src_x + src_w; sx++) {
+        int dx = sx + offx, dy = sy + offy;
+        bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
+        bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
+        bool allow_copy = (mask == NULL || mask[sy * source->get_width() + sx] != 0);
+        if (src_valid && dst_valid && allow_copy) {
+          target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
+        }
+      }
+    }
+  }
+  /* 4 bytes copy */
   else if (source->get_bytes_per_pixel() == 4) {
     uint32_t* source_ptr = (uint32_t*)source->get_pixel_data();
     uint32_t* target_ptr = (uint32_t*)target->get_pixel_data();
@@ -429,6 +446,7 @@ void blit_texture(sgl::Texture * source, sgl::Texture * target,
       }
     }
   }
+  /* 8 bytes copy */
   else if (source->get_bytes_per_pixel() == 8) {
     uint64_t* source_ptr = (uint64_t*)source->get_pixel_data();
     uint64_t* target_ptr = (uint64_t*)target->get_pixel_data();

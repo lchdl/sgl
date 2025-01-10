@@ -395,6 +395,303 @@ void draw_bezier2(sgl::Texture * target, const Vec2 & p1, const Vec2 & p1_tangen
 }
 
 
+bool Font::load(const char * path)
+{
+  unload();
+
+  if (sgl::endswith(path, ".fnt")) {
+    /* 
+    the font is generated from Bitmap Font Generator.
+    */
+    if (!_load_from_BitmapFontGenerator(path))
+      unload();
+    else return true;
+  }
+  else {
+    printf("Cannot load font from path \"%s\". Unknown font format.\n", path);
+  }
+  return false;
+}
+
+void Font::unload()
+{
+  charmap.clear();
+  line_height = 0;
+  line_base = 0;
+  is_bold = 0;
+  is_italic = 0;
+  font_size = 0;
+  face_name = "";
+}
+
+void Font::draw(sgl::Texture * target, const char * text, int x, int y, int w, int h, const Vec4 & color)
+{
+  if (target == NULL || target->get_width() <= 0 || target->get_height() <= 0 ||
+    target->get_bytes_per_pixel() != 4) return; /* only supports 32 bit texture */
+  if (target->get_pixel_format() != PixelFormat_BGRA8888 && target->get_pixel_format() != PixelFormat_RGBA8888) {
+    printf("Invalid texture format. Bitmap glyph can only be drawn onto texture with RGBA8888 or BGRA8888 format.\n");
+    return;
+  }
+  if (strlen(text) == 0)
+    return;
+
+  uint32_t* pixels = (uint32_t*)target->get_pixel_data();
+  uint8_t R, G, B, A;
+  uint32_t packed_color;
+  convert_Vec4_color_to_RGBA_uint8(color, R, G, B, A);
+  pack_RGBA8888_to_uint32(R, G, B, A, target->get_pixel_format(), packed_color);
+
+  /* define an auxiliary function for blitting a single glyph onto target texture */
+  auto blit_glyph_to_target = [](const Glyph& glyph, sgl::Texture* target,
+    int x_dst, int y_dst, const uint32_t& packed_color) -> void
+  {
+    int w_src = glyph.tex.get_width(), h_src = glyph.tex.get_height();
+    int w_dst = target->get_width(), h_dst = target->get_height();
+    uint8_t* glyph_data = (uint8_t*)glyph.tex.get_pixel_data();
+    uint32_t* target_data = (uint32_t*)target->get_pixel_data();
+    for (int y = y_dst; y < y_dst + h_src; y++) {
+      for (int x = x_dst; x < x_dst + w_src; x++) {
+        int x0 = x - x_dst, y0 = y - y_dst;
+        bool dst_valid = (x >= 0 && x < target->get_width() && y >= 0 && y < target->get_height());
+        bool allow_copy = (glyph_data[y0 * w_src + x0] > 0);
+        if (!dst_valid || !allow_copy) continue;
+        target_data[y * w_dst + x] = packed_color;
+      }
+    }
+  };
+
+  /* render a single line text */
+  int x_cursor = 0, y_cursor = 0;
+  bool cursor_inited = false;
+  int line_chars = 0; /* number of blitted chars in current line */
+  int x_dst, y_dst;
+
+  /* 
+  Auxiliary functions for manipulating cursor position.
+  */
+  auto cursor_init = [&]() {
+    x_cursor = x;
+    y_cursor = y + this->line_base;
+    cursor_inited = true;
+  };
+  auto cursor_to_new_line = [&](Glyph* glyph) {
+    y_cursor += this->line_height;
+    x_cursor = x;
+    x_dst = x_cursor;
+    y_dst = y_cursor - this->line_base + (glyph == NULL ? 0 : glyph->yoffset);
+    line_chars = 0; /* reset line chars counter */
+  };
+
+  for (size_t i = 0; i < strlen(text); i++) {
+    /*
+    When encountering a newline character ('\n'), start a new
+    line immediately.
+    */
+    if ((uint32_t)text[i] == (uint32_t)'\n') {
+      cursor_to_new_line(NULL);
+      continue;
+    }
+    /*
+    Load glyph.
+    */
+    if (this->charmap.find((uint32_t)text[i]) == this->charmap.end())
+      continue;
+    Glyph& glyph = this->charmap[(uint32_t)text[i]];
+    if (!cursor_inited)
+      cursor_init();
+    /*
+    Calculate the default blit destination position.
+    Note the following adjustment:
+      * If this is the first character of the current line and
+      x_dst is less than zero (which can happen because glyph.xoffset
+      may sometimes be negative), ensure x_dst is non-negative.
+    */
+    x_dst = x_cursor + glyph.xoffset;
+    y_dst = y_cursor - this->line_base + glyph.yoffset;
+    if (line_chars == 0 && x_dst < 0) {
+      x_cursor -= x_dst;
+      x_dst = 0;
+    }
+    /*
+    Check if the current glyph is outside the text box. If so, 
+    a new line must be started. However, if the text box width 
+    is too small, the glyph must be displayed regardless.
+    Note:
+      * If w is less than or equal to 0, the text box region is 
+      ignored, and the entire text will be displayed on a single 
+      line.
+    */
+    if (w > 0 && x_dst + glyph.tex.get_width() >= x + w && line_chars > 0)
+      cursor_to_new_line(&glyph);
+    /*
+    Render glyph to texture.
+    */
+    blit_glyph_to_target(glyph, target, x_dst, y_dst, packed_color);
+    line_chars++;
+    x_cursor += glyph.xadvance;
+  }
+}
+
+void Font::draw(sgl::Texture * target, const char * text, int x, int y, const Vec4& color)
+{
+  draw(target, text, x, y, 0, 0, color);
+}
+
+
+
+Font::Font()
+{
+  unload();
+}
+
+Font::~Font()
+{
+  unload();
+}
+
+bool Font::_load_from_BitmapFontGenerator(const char * path)
+{
+  /* 
+  The Bitmap Font Generator will produce two files:
+    1. A "*.fnt" file containing the glyph information,
+    2. A bitmap file representing the actual font glyph tiles. 
+  */
+  FILE* fp = fopen(path, "r");
+  if (fp == NULL) {
+    printf("Cannot open file.\n");
+    return false;
+  }
+
+  auto regularize_string = [](std::string s) -> std::string {
+    /* 
+    Replace multiple spaces with one space in a string, see
+    https://stackoverflow.com/questions/8362094/replace-multiple-spaces-with-one-space-in-a-string
+    */
+    std::string::iterator new_end = std::unique(s.begin(), s.end(),
+        [=](char lhs, char rhs) { return (lhs == rhs) && (lhs == ' '); }
+    );
+    s.erase(new_end, s.end());
+    /* 
+    In-place ltrim and rtrim, see
+    https://stackoverflow.com/questions/216823/how-to-trim-a-stdstring
+    */
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
+    return s;
+  };
+
+  auto read_config = [](std::string in, std::string& lhs, std::string& rhs) -> void {
+    /*
+    Read config defined with format "a=b".
+    */
+    std::vector<std::string> tokens = sgl::split(in, "=");
+    lhs = tokens[0];
+    rhs = tokens[1];
+  };
+
+  /* Some bitmap fonts can be stored in multiple pages. */
+  std::map<int32_t, sgl::Texture> page_id2tex; /* page id to bitmap texture */
+
+  const int bufsize = 1024;
+  char buf[bufsize];
+  memset(buf, 0, bufsize);
+  int lineno = 0;
+  while (fgets(buf, bufsize - 1, fp) != NULL) {
+    lineno++;
+    std::string line = regularize_string(buf);
+    std::vector<std::string> tokens = sgl::split(line, " ");
+    std::string name, value;
+    if (tokens[0] == "info") {
+      for (int itok = 1; itok < tokens.size(); itok++) {
+        read_config(tokens[itok], name, value);
+        if (name == "face") {
+          sgl::replace_all(value, "\"", ""); /* remove '"' */
+          this->face_name = value;
+        }
+        else if (name == "size") {
+          int font_size = atoi(value.c_str());
+          this->font_size = font_size < 0 ? -font_size : font_size;
+        }
+        else if (name == "bold") {
+          this->is_bold = atoi(value.c_str());
+        }
+        else if (name == "italic") {
+          this->is_italic = atoi(value.c_str());
+        }
+      }
+    }
+    else if (tokens[0] == "common") {
+      for (int itok = 1; itok < tokens.size(); itok++) {
+        read_config(tokens[itok], name, value);
+        if (name == "lineHeight") {
+          this->line_height = atoi(value.c_str());
+        }
+        else if (name == "base") {
+          this->line_base = atoi(value.c_str());
+        }
+      }
+    }
+    else if (tokens[0] == "page") {
+      int32_t page_id = -1;
+      std::string page_fname = "";
+      for (int itok = 1; itok < tokens.size(); itok++) {
+        read_config(tokens[itok], name, value);
+        if (name == "id") page_id = atoi(value.c_str());
+        else if (name == "file") {
+          sgl::replace_all(value, "\"", "");
+          page_fname = value;
+        }
+      }
+      std::string texdir = gd(path);
+      std::string texfile = sgl::join(texdir, page_fname);
+      sgl::Texture tex;
+      if (!file_exists(texfile)) {
+        printf("Cannot open file \"%s\", file not exist.\n", texfile.c_str());
+      }
+      else {
+        tex = sgl::load_texture(texfile, PixelFormat_UInt8, TextureSampling_Nearest);
+      }
+      page_id2tex.insert_or_assign(page_id, tex);
+    }
+    else if (tokens[0] == "char") {
+      Glyph new_glyph;
+      int32_t glyph_page_id, x, y, w, h;
+      for (int itok = 1; itok < tokens.size(); itok++) {
+        read_config(tokens[itok], name, value);
+        if (name == "id") new_glyph.unicode = atoi(value.c_str());
+        else if (name == "xoffset") new_glyph.xoffset = atoi(value.c_str());
+        else if (name == "yoffset") new_glyph.yoffset = atoi(value.c_str());
+        else if (name == "xadvance") new_glyph.xadvance = atoi(value.c_str());
+        else if (name == "page") glyph_page_id = atoi(value.c_str());
+        else if (name == "x") x = atoi(value.c_str());
+        else if (name == "y") y = atoi(value.c_str());
+        else if (name == "width") w = atoi(value.c_str());
+        else if (name == "height") h = atoi(value.c_str());
+      }
+      if (page_id2tex.find(glyph_page_id) == page_id2tex.end()) {
+        printf("[Line #%d] Invalid glyph page id \"%d\". The required page is still not defined before this glyph.\n", lineno, glyph_page_id);
+      }
+      if (w > 0 && h > 0) {
+        new_glyph.tex = sgl::create_texture(w, h, PixelFormat_UInt8, TextureSampling_Nearest, TextureUsage_ColorComponents);
+      }
+      else {
+        printf("[Line #%d] Invalid glyph size config (w<=0 or h<=0).\n", lineno);
+      }
+      /* all things done, now blit texture data to glyph and add glyph to charmap */
+      sgl::blit_texture(&page_id2tex[glyph_page_id], &new_glyph.tex, x, y, w, h, 0, 0);
+      this->charmap.insert_or_assign(new_glyph.unicode, new_glyph);
+    }
+  }
+  fclose(fp);
+  return true;
+}
+
+void Font::set_line_height(int new_height)
+{
+  this->line_height = new_height;
+}
+
+
 };
 
 

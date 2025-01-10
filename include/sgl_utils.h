@@ -16,10 +16,14 @@
 #include <string.h>
 #endif
 
+#include <cctype>
 #include <stdio.h>
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <map>
+#include <fstream>
+#include <streambuf>
 
 #include "sgl_math.h"
 
@@ -249,6 +253,16 @@ gd(const std::string& file) {
 }
 
 /**
+Get file name.
+**/
+inline std::string
+gn(const std::string& file) {
+  std::filesystem::path file_path = file;
+  std::filesystem::path file_name = file_path.filename();
+  return file_name.string();
+}
+
+/**
 Replace a substring to another substring (in-place).
 **/
 inline void 
@@ -264,6 +278,51 @@ replace_all(std::string& str,
     str.replace(start_pos, from.length(), to);
     start_pos += to.length();
   }
+}
+
+/**
+Split a standard string using a string delimiter.
+Original answer from:
+https://stackoverflow.com/questions/14265581/parse-split-a-string-in-c-using-string-delimiter-standard-c.
+**/
+inline std::vector<std::string> 
+split(std::string& s, const std::string& delimiter) {
+  std::vector<std::string> tokens;
+  size_t pos = 0;
+  std::string token;
+  while ((pos = s.find(delimiter)) != std::string::npos) {
+    token = s.substr(0, pos);
+    tokens.push_back(token);
+    s.erase(0, pos + delimiter.length());
+  }
+  tokens.push_back(s);
+  return tokens;
+}
+
+inline std::string
+read_file_as_string(const char* file) {
+  if (!file_exists(file)) {
+    printf("File \"%s\" not exist.\n", file);
+    return std::string("");
+  }
+  std::ifstream t(file);
+  std::string s((std::istreambuf_iterator<char>(t)),
+    std::istreambuf_iterator<char>());
+  return s;
+}
+
+/**
+Truncate a string.
+**/
+inline std::string 
+truncate(std::string str, size_t width, bool show_ellipsis = true)
+{
+  if (str.length() > width)
+    if (show_ellipsis)
+      return str.substr(0, width) + "...";
+    else
+      return str.substr(0, width);
+  return str;
 }
 
 }; /* namespace sgl */
