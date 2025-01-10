@@ -11,7 +11,10 @@ SDL_Surface* pWindowSurface;
 int w = 640, h = 480;
 
 sgl::Texture target;
-sgl::Font Arial_11pt;
+sgl::Font MiniHerz_16pt;
+sgl::Font Beatixel_16pt;
+sgl::Font CuteBlockhead_16pt;
+sgl::Font PixelFraktur_16pt;
 
 std::string dtos(double v, int precision) {
   std::stringstream stream;
@@ -67,7 +70,10 @@ void init_render() {
   target = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   target.clear(Vec4(0, 0, 0, 1));
 
-  Arial_11pt.load("assets/tests/fonts/Arial/11pt_Regular.fnt");
+  MiniHerz_16pt.load("assets/tests/fonts/MiniHerz/16pt_Regular.fnt");
+  Beatixel_16pt.load("assets/tests/fonts/Beatixel/16pt_Regular.fnt");
+  CuteBlockhead_16pt.load("assets/tests/fonts/CuteBlockhead/16pt_Regular.fnt");
+  PixelFraktur_16pt.load("assets/tests/fonts/PixelFraktur/16pt_Regular.fnt");
 }
 
 double render_frame(double T) {
@@ -75,9 +81,13 @@ double render_frame(double T) {
   timer.tick();
 
   std::string text_sample = sgl::read_file_as_string("assets/tests/texts/introduction_to_Deep_Learning.txt");
-  sgl::replace_all(text_sample, "\n", "");
+  sgl::replace_all(text_sample, "\n", " ");
   text_sample = sgl::truncate(text_sample, 6000);
-  Arial_11pt.draw(&target, text_sample.c_str(), 0, 0, w, h, Vec4(1, 1, 1, 1));
+
+  MiniHerz_16pt.draw(&target, text_sample.c_str(), 0, 0, w/2, h/2, Vec4(1, 1, 1, 1));
+  Beatixel_16pt.draw(&target, text_sample.c_str(), w / 2, 0, w/2, h / 2, Vec4(1, 1, 1, 1));
+  CuteBlockhead_16pt.draw(&target, text_sample.c_str(), 0, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
+  PixelFraktur_16pt.draw(&target, text_sample.c_str(), w / 2, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
 
   return timer.tick();
 }

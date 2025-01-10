@@ -474,15 +474,31 @@ void Font::draw(sgl::Texture * target, const char * text, int x, int y, int w, i
     y_cursor = y + this->line_base;
     cursor_inited = true;
   };
-  auto cursor_to_new_line = [&](Glyph* glyph) {
+  auto cursor_to_new_line = [&](Glyph* glyph) -> bool {
     y_cursor += this->line_height;
     x_cursor = x;
-    x_dst = x_cursor;
+    x_dst = x_cursor + (glyph == NULL ? 0 : glyph->xoffset);
     y_dst = y_cursor - this->line_base + (glyph == NULL ? 0 : glyph->yoffset);
+    if (x_dst < 0) {
+      x_dst = 0;
+      x_cursor = x_dst - (glyph == NULL ? 0 : glyph->xoffset);
+    }
     line_chars = 0; /* reset line chars counter */
+    /* If a new line exceeds the height limit, we can terminate the whole process. */
+    if (y_dst + (glyph == NULL ? 0 : glyph->tex.get_height()) >= y + h)
+      return false;
+    else return true;
+  };
+  auto calculate_dst_from_cursor = [&](Glyph* glyph) {
+    x_dst = x_cursor + glyph->xoffset;
+    y_dst = y_cursor - this->line_base + glyph->yoffset;
+    if (line_chars == 0 && x_dst < 0) {
+      x_dst = 0;
+      x_cursor = x_dst - glyph->xoffset;
+    }
   };
 
-  for (size_t i = 0; i < strlen(text); i++) {
+  for (int i = 0; i < (int)strlen(text); i++) {
     /*
     When encountering a newline character ('\n'), start a new
     line immediately.
@@ -506,12 +522,7 @@ void Font::draw(sgl::Texture * target, const char * text, int x, int y, int w, i
       x_dst is less than zero (which can happen because glyph.xoffset
       may sometimes be negative), ensure x_dst is non-negative.
     */
-    x_dst = x_cursor + glyph.xoffset;
-    y_dst = y_cursor - this->line_base + glyph.yoffset;
-    if (line_chars == 0 && x_dst < 0) {
-      x_cursor -= x_dst;
-      x_dst = 0;
-    }
+    calculate_dst_from_cursor(&glyph);
     /*
     Check if the current glyph is outside the text box. If so, 
     a new line must be started. However, if the text box width 
@@ -521,8 +532,11 @@ void Font::draw(sgl::Texture * target, const char * text, int x, int y, int w, i
       ignored, and the entire text will be displayed on a single 
       line.
     */
-    if (w > 0 && x_dst + glyph.tex.get_width() >= x + w && line_chars > 0)
-      cursor_to_new_line(&glyph);
+    if (w > 0 && x_dst + glyph.tex.get_width() >= x + w && line_chars > 0){
+      if (cursor_to_new_line(&glyph) == false) {
+        return;
+      }
+    }
     /*
     Render glyph to texture.
     */
