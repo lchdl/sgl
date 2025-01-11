@@ -279,6 +279,20 @@ replace_all(std::string& str,
     start_pos += to.length();
   }
 }
+inline void
+replace_all(std::wstring& str,
+  const std::wstring& from,
+  const std::wstring& to) {
+  if (from.empty())
+    return;
+  size_t start_pos = 0;
+  while ((start_pos = str.find(from, start_pos))
+    != std::string::npos)
+  {
+    str.replace(start_pos, from.length(), to);
+    start_pos += to.length();
+  }
+}
 
 /**
 Split a standard string using a string delimiter.
@@ -299,16 +313,284 @@ split(std::string& s, const std::string& delimiter) {
   return tokens;
 }
 
+/**
+Reads a text file as a string.
+Note: This function assumes the entire file is encoded in 
+standard ASCII encoding.
+**/
 inline std::string
 read_file_as_string(const char* file) {
   if (!file_exists(file)) {
     printf("File \"%s\" not exist.\n", file);
     return std::string("");
   }
-  std::ifstream t(file);
-  std::string s((std::istreambuf_iterator<char>(t)),
+  std::ifstream f(file);
+  std::string s((std::istreambuf_iterator<char>(f)),
     std::istreambuf_iterator<char>());
   return s;
+}
+
+#define SGL_INCREMENT_IT_PTR(it)            (++(*it))
+#define SGL_PTR_DIFF(it, out)               (size_t)(it - out)
+#define SGL_STRING_OP_MASK8(oc)             ((uint8_t)(0xff & (oc)))
+#define SGL_STRING_OP_MASK16(oc)            ((uint16_t)(0xffff & (oc)))
+#define SGL_STRING_OP_LEAD_SURROGATE_MIN    0xd800u
+#define SGL_STRING_OP_LEAD_SURROGATE_MAX    0xdbffu
+#define SGL_STRING_OP_TRAIL_SURROGATE_MIN   0xdc00u
+#define SGL_STRING_OP_LEAD_OFFSET           (SGL_STRING_OP_LEAD_SURROGATE_MIN - (0x10000 >> 10))
+#define SGL_STRING_OP_IS_LEAD_SURROGATE(cp) ((cp) >= SGL_STRING_OP_LEAD_SURROGATE_MIN && (cp) <= SGL_STRING_OP_LEAD_SURROGATE_MAX)
+#define SGL_STRING_OP_SURROGATE_OFFSET      (0x10000u - (SGL_STRING_OP_LEAD_SURROGATE_MIN << 10) - SGL_STRING_OP_TRAIL_SURROGATE_MIN)
+
+/*
+Code adapted from:
+https://github.com/tapika/cutf/blob/master/cutf.cpp.
+
+Converts utf-8 string to wide version.
+If out == NULL, then estimate how much buffer space is needed.
+Returns target string length. Length includes extra NUL ('\0')
+terminating character.
+*/
+inline size_t 
+_utf8_to_wchar(const char* s, size_t in_size, wchar_t* out, size_t out_size) {
+  uint8_t* start = (uint8_t*)s;
+  if (in_size == SIZE_MAX)
+    in_size = strlen(s);
+
+  uint8_t* end = start + in_size;
+
+  auto sequence_length = [&](uint8_t* lead_it) -> size_t {
+    uint8_t lead = SGL_STRING_OP_MASK8(*lead_it);
+    if (lead < 0x80) return 1;
+    else if ((lead >> 5) == 0x6) return 2;
+    else if ((lead >> 4) == 0xe) return 3;
+    else if ((lead >> 3) == 0x1e) return 4;
+    return 0;
+  };
+
+  auto next = [&](uint8_t** it, size_t* remain) -> uint32_t {
+    uint32_t cp = SGL_STRING_OP_MASK8(**it);
+    size_t length = sequence_length(*it);
+
+    if (remain)
+      *remain -= length;
+
+    switch (length) {
+    case 1:
+      break;
+    case 2:
+      SGL_INCREMENT_IT_PTR(it);
+      cp = ((cp << 6) & 0x7ff) + ((**it) & 0x3f);
+      break;
+    case 3:
+      SGL_INCREMENT_IT_PTR(it);
+      cp = ((cp << 12) & 0xffff) + ((SGL_STRING_OP_MASK8(**it) << 6) & 0xfff);
+      SGL_INCREMENT_IT_PTR(it);
+      cp += (**it) & 0x3f;
+      break;
+    case 4:
+      SGL_INCREMENT_IT_PTR(it);
+      cp = ((cp << 18) & 0x1fffff) + ((SGL_STRING_OP_MASK8(**it) << 12) & 0x3ffff);
+      SGL_INCREMENT_IT_PTR(it);
+      cp += (SGL_STRING_OP_MASK8(**it) << 6) & 0xfff;
+      SGL_INCREMENT_IT_PTR(it);
+      cp += (**it) & 0x3f;
+      break;
+    }
+    SGL_INCREMENT_IT_PTR(it);
+    return cp;
+  };
+  auto distance = [&](uint8_t* first, uint8_t* last) -> size_t {
+    size_t dist;
+    for (dist = 0; first < last; ++dist) {
+      next(&first, nullptr);
+    }
+    return dist;
+  };
+  auto convert_8to16 = [&](uint8_t* start, uint8_t* end, uint16_t* out, size_t outsize) -> size_t {
+    uint16_t* it = out;
+    while (start < end) {
+      uint32_t cp = next(&start, &outsize);
+      if (cp > 0xffff) { /* make a surrogate pair */
+        *(it++) = (uint16_t)((cp >> 10) + SGL_STRING_OP_LEAD_OFFSET);
+        *(it++) = (uint16_t)((cp & 0x3ff) + SGL_STRING_OP_TRAIL_SURROGATE_MIN);
+      }
+      else {
+        *(it++) = (uint16_t)(cp);
+      }
+    }
+
+    if (outsize != 0)
+      *it = 0; /* Zero termination */
+
+    it++;
+    return SGL_PTR_DIFF(it, out);
+  };
+  auto convert_8to32 = [&](uint8_t* start, uint8_t* end, uint32_t* out, size_t outsize) -> size_t {
+    uint32_t* it = out;
+
+    for (; start < end; ++it)
+      *it = next(&start, &outsize);
+
+    *it = 0; /* Zero termination */
+
+    return SGL_PTR_DIFF(it, out);
+  };
+
+  size_t destLen = distance(start, end);
+
+  /* Insufficient buffer size */
+  if (destLen > out_size) {
+    if (out_size != 0)
+      *out = 0;
+    return destLen + 1; /* zero termination */
+  }
+
+  if (sizeof(wchar_t) == 2)
+    convert_8to16(start, end, (uint16_t*)out, out_size);
+  else
+    convert_8to32(start, end, (uint32_t*)out, out_size);
+
+  return destLen + 1; /* zero termination */
+}
+
+/*
+Code adapted from:
+https://github.com/tapika/cutf/blob/master/cutf.cpp.
+
+Converts wide string to utf-8 string.
+If out == NULL, then estimate how much buffer space is needed.
+Returns filled buffer length (not string length). Length includes 
+extra NUL ('\0') terminating character.
+*/
+inline size_t 
+_wchar_to_utf8(const wchar_t* s, size_t in_size, char* out, size_t out_size)
+{
+  const wchar_t* start = s;
+  if (in_size == SIZE_MAX)
+    in_size = wcslen(s);
+
+  const wchar_t* end = start + in_size;
+
+  auto codepoint_length = [](uint32_t cp) -> size_t {
+    if (cp < 0x80) return 1;
+    else if (cp < 0x800) return 2;
+    else if (cp < 0x10000) return 3;
+    else return 4;
+  };
+  auto append = [&](uint32_t cp, uint8_t* result, size_t* remain) -> uint8_t* {
+    size_t charlen = codepoint_length(cp);
+    /*
+    If we ran out of buffer size, then we don't fill it anymore, 
+    but continue iterating to get correct length
+    */
+    if (*remain < charlen) {
+      *remain = 0;
+      return result + charlen;
+    }
+    if (cp < 0x80) {
+      /* one octet */
+      *(result++) = (uint8_t)(cp);
+    }
+    else if (cp < 0x800) {
+      /* two octets */
+      *(result++) = (uint8_t)((cp >> 6) | 0xc0);
+      *(result++) = (uint8_t)((cp & 0x3f) | 0x80);
+    }
+    else if (cp < 0x10000) {
+      /* three octets */
+      *(result++) = (uint8_t)((cp >> 12) | 0xe0);
+      *(result++) = (uint8_t)(((cp >> 6) & 0x3f) | 0x80);
+      *(result++) = (uint8_t)((cp & 0x3f) | 0x80);
+    }
+    else {
+      /* four octets */
+      *(result++) = (uint8_t)((cp >> 18) | 0xf0);
+      *(result++) = (uint8_t)(((cp >> 12) & 0x3f) | 0x80);
+      *(result++) = (uint8_t)(((cp >> 6) & 0x3f) | 0x80);
+      *(result++) = (uint8_t)((cp & 0x3f) | 0x80);
+    }
+    return result;
+  };
+
+  auto convert_16to8 = [&](uint16_t* start, uint16_t* end, uint8_t* out, size_t outsize) -> size_t {
+    uint8_t* it = out;
+    while (start != end) {
+      uint32_t cp = SGL_STRING_OP_MASK16(*start);
+      ++start;
+      /* Take care of surrogate pairs first */
+      if (SGL_STRING_OP_IS_LEAD_SURROGATE(cp)) {
+        uint32_t trail_surrogate = SGL_STRING_OP_MASK16(*start);
+        ++start;
+        cp = (cp << 10) + trail_surrogate + SGL_STRING_OP_SURROGATE_OFFSET;
+      }
+      it = append(cp, it, &outsize);
+    }
+
+    if (outsize != 0)
+      *it = 0; /* Zero terminate */
+
+    it++;
+    return SGL_PTR_DIFF(it, out);
+  };
+  auto convert_32to8 = [&](uint32_t* start, uint32_t* end, uint8_t* out, size_t outsize) -> size_t {
+    uint8_t* it = out;
+    for (; start != end; ++start)
+      it = append(*start, it, &outsize);
+
+    if (outsize != 0)
+      *it = 0; /* Zero terminate */
+
+    it++;
+    return SGL_PTR_DIFF(it, out);
+  };
+
+  if (sizeof(wchar_t) == 2)
+    return convert_16to8((uint16_t*)start, (uint16_t*)end, (uint8_t*)out, out_size);
+  else
+    return convert_32to8((uint32_t*)start, (uint32_t*)end, (uint8_t*)out, out_size);
+}
+
+/**
+Convert UTF-8 string (char*) to wide string (wchar_t*).
+**/
+inline std::wstring
+utf8string_to_wstring(const std::string& in) {
+  size_t out_size = _utf8_to_wchar(in.c_str(), SIZE_MAX, NULL, 0);
+  wchar_t* wsz = (wchar_t*)malloc(sizeof(wchar_t) * out_size);
+  _utf8_to_wchar(in.c_str(), SIZE_MAX, wsz, out_size);
+  std::wstring ws = std::wstring(wsz);
+  free(wsz);
+  return ws;
+}
+
+/**
+Convert wide string (wchar_t*) to UTF-8 string (char*).
+**/
+inline std::string
+wstring_to_utf8string(const std::wstring& in) {
+  size_t out_size = _wchar_to_utf8(in.c_str(), SIZE_MAX, NULL, 0);
+  char* sz = (char*)malloc(sizeof(char) * out_size);
+  _wchar_to_utf8(in.c_str(), SIZE_MAX, sz, out_size);
+  std::string s = std::string(sz);
+  free(sz);
+  return s;
+}
+
+/**
+Reads a text file (encoded in UTF-8 format) as a wide string.
+**/
+inline std::wstring
+read_file_as_wstring(const char* file) {
+  if (!file_exists(file)) {
+    printf("File \"%s\" not exist.\n", file);
+    return std::wstring(L"");
+  }
+
+  std::ifstream f(file);
+  std::string s((std::istreambuf_iterator<char>(f)),
+    std::istreambuf_iterator<char>());
+
+  return sgl::utf8string_to_wstring(s);
 }
 
 /**

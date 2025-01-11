@@ -21,9 +21,11 @@ third party tool "Bitmap Font Generator" by AngelCode. The tool
 can be downloaded from https://www.angelcode.com/products/bmfont/,
 which can generate tiled bitmap font glyphs from TrueType fonts.
 
-Some fonts are downloaded from
-https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/.
-This website provides lots of good pixelated fonts.
+Fonts used by this library are downloaded from
+  * https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/,
+    which offers a variety of high-quality pixelated fonts.
+  * https://int10h.org/oldschool-pc-fonts/download/,
+    providing a selection of classic old-school PC fonts.
 */
 class Font {
 public:
@@ -49,10 +51,8 @@ public:
   bool load(const char* path);
   void unload();
 
-  /* render a single line of text */
-  void draw(sgl::Texture* target, const char* text, int x, int y, const Vec4& color);
-  /* render text to a text region defined with (x, y, w, h). */
-  void draw(sgl::Texture* target, const char* text, int x, int y, int w, int h, const Vec4& color);
+  void draw(sgl::Texture* target, const std::wstring & text, int x, int y, const Vec4& color);
+  void draw(sgl::Texture* target, const std::wstring & text, int x, int y, int w, int h, const Vec4& color);
 
   void set_line_height(int new_height);
 
@@ -66,7 +66,6 @@ protected:
 };
 
 /* draw primitives onto texture directly */
-
 void draw_pixel(sgl::Texture* target, int x, int y, const Vec4& color);
 void draw_line(sgl::Texture* target, int x1, int y1, int x2, int y2, const Vec4& color);
 void draw_circle(sgl::Texture* target, int x, int y, int r, const Vec4& color);
@@ -77,8 +76,7 @@ void draw_bezier(sgl::Texture* target, const Vec2& p0, const Vec2& p1, const Vec
 void draw_bezier2(sgl::Texture* target, const Vec2& p1, const Vec2& p1_tangent, const Vec2& p2, const Vec2& p2_tangent, const Vec4& color, int nsegs);
 
 /* font rendering */
-
-/* draw a single line of text onto target texture */
-void draw_text(sgl::Texture* target, sgl::Font* font, const char* text, int x_base, int y_base);
+void draw_text(sgl::Texture* target, sgl::Font* font, const std::wstring& text, int x, int y, const Vec4& color);
+void draw_text(sgl::Texture* target, sgl::Font* font, const std::wstring& text, int x, int y, int w, int h, const Vec4& color);
 
 };
