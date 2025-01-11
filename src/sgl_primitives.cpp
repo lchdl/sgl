@@ -394,6 +394,16 @@ void draw_bezier2(sgl::Texture * target, const Vec2 & p1, const Vec2 & p1_tangen
   draw_bezier(target, P0, P1, P2, P3, color, nsegs);
 }
 
+void draw_text(sgl::Texture * target, sgl::Font * font, const std::wstring & text, int x, int y, const Vec4& color)
+{
+  font->draw(target, text, x, y, color);
+}
+
+void draw_text(sgl::Texture * target, sgl::Font * font, const std::wstring & text, int x, int y, int w, int h, const Vec4 & color)
+{
+  font->draw(target, text, x, y, w, h, color);
+}
+
 
 bool Font::load(const char * path)
 {
@@ -424,7 +434,7 @@ void Font::unload()
   face_name = "";
 }
 
-void Font::draw(sgl::Texture * target, const char * text, int x, int y, int w, int h, const Vec4 & color)
+void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, int w, int h, const Vec4 & color)
 {
   if (target == NULL || target->get_width() <= 0 || target->get_height() <= 0 ||
     target->get_bytes_per_pixel() != 4) return; /* only supports 32 bit texture */
@@ -432,7 +442,7 @@ void Font::draw(sgl::Texture * target, const char * text, int x, int y, int w, i
     printf("Invalid texture format. Bitmap glyph can only be drawn onto texture with RGBA8888 or BGRA8888 format.\n");
     return;
   }
-  if (strlen(text) == 0)
+  if (text.size() == 0)
     return;
 
   uint32_t* pixels = (uint32_t*)target->get_pixel_data();
@@ -498,7 +508,7 @@ void Font::draw(sgl::Texture * target, const char * text, int x, int y, int w, i
     }
   };
 
-  for (int i = 0; i < (int)strlen(text); i++) {
+  for (size_t i = 0; i < text.size(); i++) {
     /*
     When encountering a newline character ('\n'), start a new
     line immediately.
@@ -546,7 +556,7 @@ void Font::draw(sgl::Texture * target, const char * text, int x, int y, int w, i
   }
 }
 
-void Font::draw(sgl::Texture * target, const char * text, int x, int y, const Vec4& color)
+void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, const Vec4& color)
 {
   draw(target, text, x, y, 0, 0, color);
 }
