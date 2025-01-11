@@ -113,20 +113,20 @@ double render_frame() {
   timer.tick();
 
   if (demo_page == 0) {
-    HP_100LX_6x8_8pt.draw(&target, text_os437, 0, 0, w, h / 2, Vec4(1, 1, 1, 1));
-    IBM_CGAthin_8x8_8pt.draw(&target, text_os437, 0, h / 2, w, h / 2, Vec4(1, 1, 1, 1));
+    HP_100LX_6x8_8pt.draw_text(&target, text_os437, 0, 0, w, h / 2, Vec4(1, 1, 1, 1));
+    IBM_CGAthin_8x8_8pt.draw_text(&target, text_os437, 0, h / 2, w, h / 2, Vec4(1, 1, 1, 1));
   }
   else if (demo_page == 1) {
-    HP_100LX_6x8_8pt.draw(&target, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
+    HP_100LX_6x8_8pt.draw_text(&target, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
   }
   else if (demo_page == 2) {
-    Arial_11pt.draw(&target, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
+    Arial_11pt.draw_text(&target, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
   }
   else if (demo_page == 3) {
-    MiniHerz_16pt.draw(&target, text_intro, 0, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    Beatixel_16pt.draw(&target, text_intro, w / 2, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    CuteBlockhead_16pt.draw(&target, text_intro, 0, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    PixelFraktur_16pt.draw(&target, text_intro, w / 2, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    MiniHerz_16pt.draw_text(&target, text_intro, 0, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    Beatixel_16pt.draw_text(&target, text_intro, w / 2, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    CuteBlockhead_16pt.draw_text(&target, text_intro, 0, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    PixelFraktur_16pt.draw_text(&target, text_intro, w / 2, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
   }
 
   return timer.tick();

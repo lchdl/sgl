@@ -396,14 +396,23 @@ void draw_bezier2(sgl::Texture * target, const Vec2 & p1, const Vec2 & p1_tangen
 
 void draw_text(sgl::Texture * target, sgl::Font * font, const std::wstring & text, int x, int y, const Vec4& color)
 {
-  font->draw(target, text, x, y, color);
+  font->draw_text(target, text, x, y, color);
 }
 
 void draw_text(sgl::Texture * target, sgl::Font * font, const std::wstring & text, int x, int y, int w, int h, const Vec4 & color)
 {
-  font->draw(target, text, x, y, w, h, color);
+  font->draw_text(target, text, x, y, w, h, color);
 }
 
+IVec2 get_text_extent_point(sgl::Font * font, const std::wstring & text)
+{
+  return font->get_text_extent_point(text);
+}
+
+IVec2 get_text_extent_point(sgl::Font * font, const std::wstring & text, int w, int h)
+{
+  return font->get_text_extent_point(text, w, h);
+}
 
 bool Font::load(const char * path)
 {
@@ -435,27 +444,32 @@ void Font::unload()
   face_name = "";
 }
 
-void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, int w, int h, const Vec4 & color)
+IVec2 Font::draw_text(sgl::Texture * target, const std::wstring & text, int x, int y, int w, int h, const Vec4 & color)
 {
-  if (target == NULL || target->get_width() <= 0 || target->get_height() <= 0 ||
-    target->get_bytes_per_pixel() != 4) return; /* only supports 32 bit texture */
-  if (target->get_pixel_format() != PixelFormat_BGRA8888 && target->get_pixel_format() != PixelFormat_RGBA8888) {
-    printf("Invalid texture format. Bitmap glyph can only be drawn onto texture with RGBA8888 or BGRA8888 format.\n");
-    return;
+  if (target != NULL) {
+    if (target->get_width() <= 0 || target->get_height() <= 0 || target->get_bytes_per_pixel() != 4) {
+      printf("Invalid texture bit depth or size configuration.\n");
+      return IVec2(0, 0);
+    }
+    if (target->get_pixel_format() != PixelFormat_BGRA8888 && target->get_pixel_format() != PixelFormat_RGBA8888) {
+      printf("Invalid texture format. Bitmap glyph can only be drawn onto texture with RGBA8888 or BGRA8888 format.\n");
+      return IVec2(0, 0);
+    }
   }
   if (text.size() == 0)
-    return;
+    return IVec2(x, y);
 
-  uint32_t* pixels = (uint32_t*)target->get_pixel_data();
   uint8_t R, G, B, A;
   uint32_t packed_color;
   convert_Vec4_color_to_RGBA_uint8(color, R, G, B, A);
-  pack_RGBA8888_to_uint32(R, G, B, A, target->get_pixel_format(), packed_color);
+  if (target != NULL)
+    pack_RGBA8888_to_uint32(R, G, B, A, target->get_pixel_format(), packed_color);
 
   /* define an auxiliary function for blitting a single glyph onto target texture */
   auto blit_glyph_to_target = [](const Glyph& glyph, sgl::Texture* target,
     int x_dst, int y_dst, const uint32_t& packed_color) -> void
   {
+    if (target == NULL) return;
     int w_src = glyph.tex.get_width(), h_src = glyph.tex.get_height();
     int w_dst = target->get_width(), h_dst = target->get_height();
     uint8_t* glyph_data = (uint8_t*)glyph.tex.get_pixel_data();
@@ -475,7 +489,11 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
   int x_cursor = 0, y_cursor = 0;
   bool cursor_inited = false;
   uint32_t line_chars = 0; /* number of blitted chars in current line */
-  int x_dst, y_dst;
+  /*
+  (x_dst, y_dst) represents the upper-left corner position of the glyph 
+  when it is about to be blitted onto the target texture.
+  */
+  int x_dst, y_dst; 
 
   /* 
   Auxiliary function for manipulating cursor position.
@@ -554,7 +572,7 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
     if (requires_new_line) {
       bool already_exceeds_height_limit = move_cursor_to_new_line(&glyph);
       if (already_exceeds_height_limit)
-        return; /* early quit since the text is out of the text box. */
+        return IVec2(x_cursor, y_cursor); /* early quit since the text is out of the text box. */
     }
     /*
     Render glyph to texture.
@@ -563,11 +581,13 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
     line_chars++;
     x_cursor += glyph.xadvance;
   }
+
+  return IVec2(x_cursor, y_cursor);
 }
 
-void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, const Vec4& color)
+IVec2 Font::draw_text(sgl::Texture * target, const std::wstring & text, int x, int y, const Vec4& color)
 {
-  draw(target, text, x, y, 0, 0, color);
+  return draw_text(target, text, x, y, 0, 0, color);
 }
 
 Font::Font()
@@ -745,6 +765,15 @@ void Font::set_line_height(int new_height)
   this->line_height = new_height;
 }
 
+IVec2 Font::get_text_extent_point(const std::wstring & text)
+{
+  return this->draw_text(NULL, text, 0, 0, Vec4(1, 1, 1, 1));
+}
+
+IVec2 Font::get_text_extent_point(const std::wstring & text, int w, int h)
+{
+  return this->draw_text(NULL, text, 0, 0, w, h, Vec4(1, 1, 1, 1));
+}
 
 };
 

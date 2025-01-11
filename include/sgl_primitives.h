@@ -49,7 +49,7 @@ public:
 
 protected:
   std::map<uint32_t, Glyph> charmap;
-  std::map<std::pair<uint32_t, uint32_t>, int32_t> kernings; /* (cur_charcode, prev_charcode) -> kerning */
+  std::map<std::pair<uint32_t, uint32_t>, int32_t> kernings; /* (cur_charcode, prev_charcode) -> kerning amount */
   int32_t font_size, line_height, line_base;
   uint8_t is_bold, is_italic;
   std::string face_name;
@@ -58,8 +58,21 @@ public:
   bool load(const char* path);
   void unload();
 
-  void draw(sgl::Texture* target, const std::wstring & text, int x, int y, const Vec4& color);
-  void draw(sgl::Texture* target, const std::wstring & text, int x, int y, int w, int h, const Vec4& color);
+  /*
+  Render text onto texture.
+  When target == NULL, the function calculates the text extent instead of rendering
+  text onto a target. It returns the final cursor position (x, y). Users can ignore
+  the return value if they only need to render text onto textures.
+  */
+  IVec2 draw_text(sgl::Texture* target, const std::wstring & text, int x, int y, const Vec4& color);
+  IVec2 draw_text(sgl::Texture* target, const std::wstring & text, int x, int y, int w, int h, const Vec4& color);
+
+  /*
+  Computes the width and height of the specified string of text.
+  w and h represents the width and height of the text box.
+  */
+  IVec2 get_text_extent_point(const std::wstring & text);
+  IVec2 get_text_extent_point(const std::wstring & text, int w, int h);
 
   void set_line_height(int new_height);
 
@@ -85,5 +98,7 @@ void draw_bezier2(sgl::Texture* target, const Vec2& p1, const Vec2& p1_tangent, 
 /* font rendering */
 void draw_text(sgl::Texture* target, sgl::Font* font, const std::wstring& text, int x, int y, const Vec4& color);
 void draw_text(sgl::Texture* target, sgl::Font* font, const std::wstring& text, int x, int y, int w, int h, const Vec4& color);
+IVec2 get_text_extent_point(sgl::Font* font, const std::wstring & text);
+IVec2 get_text_extent_point(sgl::Font* font, const std::wstring & text, int w, int h);
 
 };

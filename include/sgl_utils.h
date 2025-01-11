@@ -61,6 +61,15 @@ inline void print(const Vec3 &v) {
 inline void print(const Vec4 &v) {
   printf("(%.4f, %.4f, %.4f, %.4f)\n", v.x, v.y, v.z, v.w);
 };
+inline void print(const IVec2 &v) {
+  printf("(%d, %d)\n", v.x, v.y);
+};
+inline void print(const IVec3 &v) {
+  printf("(%d, %d, %d)\n", v.x, v.y, v.z);
+};
+inline void print(const IVec4 &v) {
+  printf("(%d, %d, %d, %d)\n", v.x, v.y, v.z, v.w);
+};
 
 inline void print(const std::string &prefix, const Vec2 &v) {
   printf("%s (%.4f, %.4f)\n", prefix.c_str(), v.x, v.y);
