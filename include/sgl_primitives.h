@@ -26,19 +26,25 @@ Fonts used by this library are downloaded from
     which offers a variety of high-quality pixelated fonts.
   * https://int10h.org/oldschool-pc-fonts/download/,
     providing a selection of classic old-school PC fonts.
+  * https://www.dafont.com/bitmap.php,
+    which features a collection of high-quality bitmap fonts.
 */
 class Font {
 public:
   struct Glyph {
-    uint32_t unicode;
-    int8_t xoffset, yoffset, xadvance;
-    sgl::Texture tex;
     /*
-    See 
+    See
     https://www.angelcode.com/products/bmfont/doc/render_text.html
     for the definition of the above data members and how to display
     a character glyph onto texture properly.
+
+    NOTE: If a glyph does not contain any valid pixels (all black), 
+          the 'is_empty' member will be set to 1; otherwise, it will 
+          be set to 0.
     */
+    uint32_t unicode;
+    int8_t xoffset, yoffset, xadvance, is_empty;
+    sgl::Texture tex;
   };
 
 protected:

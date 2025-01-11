@@ -473,18 +473,13 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
   /* render a single line text */
   int x_cursor = 0, y_cursor = 0;
   bool cursor_inited = false;
-  int line_chars = 0; /* number of blitted chars in current line */
+  uint32_t line_chars = 0; /* number of blitted chars in current line */
   int x_dst, y_dst;
 
   /* 
-  Auxiliary functions for manipulating cursor position.
+  Auxiliary function for manipulating cursor position.
   */
-  auto cursor_init = [&]() {
-    x_cursor = x;
-    y_cursor = y + this->line_base;
-    cursor_inited = true;
-  };
-  auto cursor_to_new_line = [&](Glyph* glyph) -> bool {
+  auto move_cursor_to_new_line = [&](Glyph* glyph) -> bool {
     y_cursor += this->line_height;
     x_cursor = x;
     x_dst = x_cursor + (glyph == NULL ? 0 : glyph->xoffset);
@@ -496,16 +491,8 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
     line_chars = 0; /* reset line chars counter */
     /* If a new line exceeds the height limit, we can terminate the whole process. */
     if (y_dst + (glyph == NULL ? 0 : glyph->tex.get_height()) >= y + h)
-      return false;
-    else return true;
-  };
-  auto calculate_dst_from_cursor = [&](Glyph* glyph) {
-    x_dst = x_cursor + glyph->xoffset;
-    y_dst = y_cursor - this->line_base + glyph->yoffset;
-    if (line_chars == 0 && x_dst < 0) {
-      x_dst = 0;
-      x_cursor = x_dst - glyph->xoffset;
-    }
+      return true;
+    else return false;
   };
 
   for (size_t i = 0; i < text.size(); i++) {
@@ -514,7 +501,7 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
     line immediately.
     */
     if ((uint32_t)text[i] == (uint32_t)'\n') {
-      cursor_to_new_line(NULL);
+      move_cursor_to_new_line(NULL);
       continue;
     }
     /*
@@ -523,8 +510,11 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
     if (this->charmap.find((uint32_t)text[i]) == this->charmap.end())
       continue;
     Glyph& glyph = this->charmap[(uint32_t)text[i]];
-    if (!cursor_inited)
-      cursor_init();
+    if (!cursor_inited) {
+      x_cursor = x;
+      y_cursor = y + this->line_base;
+      cursor_inited = true;
+    }
     /*
     Calculate the default blit destination position.
     Note the following adjustment:
@@ -532,7 +522,8 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
       x_dst is less than zero (which can happen because glyph.xoffset
       may sometimes be negative), ensure x_dst is non-negative.
     */
-    calculate_dst_from_cursor(&glyph);
+    x_dst = x_cursor + glyph.xoffset;
+    y_dst = y_cursor - this->line_base + glyph.yoffset;
     /*
     Check if the current glyph is outside the text box. If so, 
     a new line must be started. However, if the text box width 
@@ -542,10 +533,17 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
       ignored, and the entire text will be displayed on a single 
       line.
     */
-    if (w > 0 && x_dst + glyph.tex.get_width() >= x + w && line_chars > 0){
-      if (cursor_to_new_line(&glyph) == false) {
-        return;
-      }
+    bool requires_new_line;
+    if (w <= 0 || line_chars == 0 || glyph.is_empty)
+      requires_new_line = false;
+    else if (x_dst + glyph.tex.get_width() > x + w)
+      requires_new_line = true;
+    else
+      requires_new_line = false;
+    if (requires_new_line) {
+      bool already_exceeds_height_limit = move_cursor_to_new_line(&glyph);
+      if (already_exceeds_height_limit)
+        return; /* early quit since the text is out of the text box. */
     }
     /*
     Render glyph to texture.
@@ -560,8 +558,6 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
 {
   draw(target, text, x, y, 0, 0, color);
 }
-
-
 
 Font::Font()
 {
@@ -701,8 +697,19 @@ bool Font::_load_from_BitmapFontGenerator(const char * path)
       else {
         printf("[Line #%d] Invalid glyph size config (w<=0 or h<=0).\n", lineno);
       }
-      /* all things done, now blit texture data to glyph and add glyph to charmap */
+      /* now blit texture data to glyph */
       sgl::blit_texture(&page_id2tex[glyph_page_id], &new_glyph.tex, x, y, w, h, 0, 0);
+      /* check if this glyph is all black (empty glyph), we will use this information
+      when drawing the text. */
+      uint8_t* glyph_data_ptr = (uint8_t*)new_glyph.tex.get_pixel_data();
+      new_glyph.is_empty = 1;
+      for (size_t ipx = 0; ipx < w * h; ipx++) {
+        if (glyph_data_ptr[ipx] > 0) {
+          new_glyph.is_empty = 0;
+          break;
+        }
+      }
+      /* finally, add glyph to charmap */
       this->charmap.insert_or_assign(new_glyph.unicode, new_glyph);
     }
   }

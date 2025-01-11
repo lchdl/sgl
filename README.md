@@ -27,7 +27,7 @@ The overall design of the rasterization pipeline is shown below.
 ## Demos and tests
 | Demo or test name |  Demo showcase  | Description |
 |:------------------|:---------------:|:------------|
-| `test_hello_world.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.cpp`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
+| `test_hello_world.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_hello_world.png) | A simple hello world demo. Demonstrating the <b>basic functionalities</b> of the rasterization pipeline (implemented in `sgl_pipeline.h`), including: perspective projection, basic texturing, custom vertex & fragment shaders. |
 | `test_skeletal_anim.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_bone_anim.gif) | Skeletal animation & Assimp md5mesh import demo (model: <b>boblamp</b>, <b>1027 triangles</b>). Including orthographic / perspective projection. |
 | `test_sprite_render.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_sprite_render.png) | A simple demo for rendering multiple 2D sprites onto a texture with just a few lines of code. The chess sprites used in this demo were downloaded from [here](https://dani-maccari.itch.io/pixel-chess). |
 | `test_normal_mapping.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_normal_mapping.png) | Demonstration of normal mapping techniques and nearest/linear texture sampling. |
@@ -134,18 +134,16 @@ The overall design of the rasterization pipeline is shown below.
 
 ### Features and TODOs
 #### Features
-* Flexible vertex format supoort
-* Customized vertex & fragment shader support
+* Flexible vertex format
+* Fully customized vertex & fragment shader
 * md5 (*.md5mesh, *.md5anim) format import & parsing
-* <b>Skeletal animation</b> support
+* Skeletal animation
 * Wireframe rendering
 * Perspective / orthographic projection
+* Text rendering
 #### TODOs (lots of things...)
 * Shadow mapping
-* Reflection effect
-  - Stencil buffer
-  - Alpha blending
-* Text rendering
-* Phong shading
+* Stencil buffer
+* Alpha blending
+* Ray tracing
 * Texture baking
-  - Ray tracing

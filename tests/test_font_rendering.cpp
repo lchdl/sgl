@@ -94,7 +94,7 @@ void init_render() {
   sgl::replace_all(text_intro, L"\n", L" ");
 
   Arial_11pt.load("assets/tests/fonts/Arial/11pt_Regular.fnt");
-
+  
   MiniHerz_16pt.load("assets/tests/fonts/MiniHerz/16pt_Regular.fnt");
   Beatixel_16pt.load("assets/tests/fonts/Beatixel/16pt_Regular.fnt");
   CuteBlockhead_16pt.load("assets/tests/fonts/CuteBlockhead/16pt_Regular.fnt");
@@ -113,10 +113,8 @@ double render_frame() {
   timer.tick();
 
   if (demo_page == 0) {
-    HP_100LX_6x8_8pt.draw(&target, text_os437, 0, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    IBM_CGA_8x8_8pt.draw(&target, text_os437, w / 2, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    IBM_CGAthin_8x8_8pt.draw(&target, text_os437, 0, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    IBM_EGA_8x14_16pt.draw(&target, text_os437, w / 2, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    HP_100LX_6x8_8pt.draw(&target, text_os437, 0, 0, w, h / 2, Vec4(1, 1, 1, 1));
+    IBM_CGAthin_8x8_8pt.draw(&target, text_os437, 0, h / 2, w, h / 2, Vec4(1, 1, 1, 1));
   }
   else if (demo_page == 1) {
     HP_100LX_6x8_8pt.draw(&target, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
