@@ -16,12 +16,13 @@
 #include <string.h>
 #endif
 
-#include <cctype>
 #include <stdio.h>
+#include <cctype>
 #include <vector>
 #include <string>
-#include <filesystem>
 #include <map>
+#include <utility>
+#include <filesystem>
 #include <fstream>
 #include <streambuf>
 
@@ -37,6 +38,17 @@ inline void debugbreak(){
   __debugbreak();
 }
 #endif
+
+#define SGL_INCREMENT_IT_PTR(it)            (++(*it))
+#define SGL_PTR_DIFF(it, out)               (size_t)(it - out)
+#define SGL_STRING_OP_MASK8(oc)             ((uint8_t)(0xff & (oc)))
+#define SGL_STRING_OP_MASK16(oc)            ((uint16_t)(0xffff & (oc)))
+#define SGL_STRING_OP_LEAD_SURROGATE_MIN    0xd800u
+#define SGL_STRING_OP_LEAD_SURROGATE_MAX    0xdbffu
+#define SGL_STRING_OP_TRAIL_SURROGATE_MIN   0xdc00u
+#define SGL_STRING_OP_LEAD_OFFSET           (SGL_STRING_OP_LEAD_SURROGATE_MIN - (0x10000 >> 10))
+#define SGL_STRING_OP_IS_LEAD_SURROGATE(cp) ((cp) >= SGL_STRING_OP_LEAD_SURROGATE_MIN && (cp) <= SGL_STRING_OP_LEAD_SURROGATE_MAX)
+#define SGL_STRING_OP_SURROGATE_OFFSET      (0x10000u - (SGL_STRING_OP_LEAD_SURROGATE_MIN << 10) - SGL_STRING_OP_TRAIL_SURROGATE_MIN)
 
 namespace sgl {
 
@@ -315,8 +327,8 @@ split(std::string& s, const std::string& delimiter) {
 
 /**
 Reads a text file as a string.
-Note: This function assumes the entire file is encoded in 
-standard ASCII encoding.
+Note: This function reads the entire file as a raw string 
+without making any assumptions about its encoding.
 **/
 inline std::string
 read_file_as_string(const char* file) {
@@ -329,17 +341,6 @@ read_file_as_string(const char* file) {
     std::istreambuf_iterator<char>());
   return s;
 }
-
-#define SGL_INCREMENT_IT_PTR(it)            (++(*it))
-#define SGL_PTR_DIFF(it, out)               (size_t)(it - out)
-#define SGL_STRING_OP_MASK8(oc)             ((uint8_t)(0xff & (oc)))
-#define SGL_STRING_OP_MASK16(oc)            ((uint16_t)(0xffff & (oc)))
-#define SGL_STRING_OP_LEAD_SURROGATE_MIN    0xd800u
-#define SGL_STRING_OP_LEAD_SURROGATE_MAX    0xdbffu
-#define SGL_STRING_OP_TRAIL_SURROGATE_MIN   0xdc00u
-#define SGL_STRING_OP_LEAD_OFFSET           (SGL_STRING_OP_LEAD_SURROGATE_MIN - (0x10000 >> 10))
-#define SGL_STRING_OP_IS_LEAD_SURROGATE(cp) ((cp) >= SGL_STRING_OP_LEAD_SURROGATE_MIN && (cp) <= SGL_STRING_OP_LEAD_SURROGATE_MAX)
-#define SGL_STRING_OP_SURROGATE_OFFSET      (0x10000u - (SGL_STRING_OP_LEAD_SURROGATE_MIN << 10) - SGL_STRING_OP_TRAIL_SURROGATE_MIN)
 
 /*
 Code adapted from:
@@ -597,13 +598,13 @@ read_file_as_wstring(const char* file) {
 Truncate a string.
 **/
 inline std::string 
-truncate(std::string str, size_t width, bool show_ellipsis = true)
+truncate_string(std::string str, size_t length, bool show_ellipsis = true)
 {
-  if (str.length() > width)
+  if (str.length() > length)
     if (show_ellipsis)
-      return str.substr(0, width) + "...";
+      return str.substr(0, length) + "...";
     else
-      return str.substr(0, width);
+      return str.substr(0, length);
   return str;
 }
 

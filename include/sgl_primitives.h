@@ -49,6 +49,7 @@ public:
 
 protected:
   std::map<uint32_t, Glyph> charmap;
+  std::map<std::pair<uint32_t, uint32_t>, int32_t> kernings; /* (cur_charcode, prev_charcode) -> kerning */
   int32_t font_size, line_height, line_base;
   uint8_t is_bold, is_italic;
   std::string face_name;

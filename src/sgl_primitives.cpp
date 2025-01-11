@@ -426,6 +426,7 @@ bool Font::load(const char * path)
 void Font::unload()
 {
   charmap.clear();
+  kernings.clear();
   line_height = 0;
   line_base = 0;
   is_bold = 0;
@@ -517,11 +518,21 @@ void Font::draw(sgl::Texture * target, const std::wstring & text, int x, int y, 
     }
     /*
     Calculate the default blit destination position.
-    Note the following adjustment:
-      * If this is the first character of the current line and
-      x_dst is less than zero (which can happen because glyph.xoffset
-      may sometimes be negative), ensure x_dst is non-negative.
+    Note the following adjustments:
+      * If this is the first character of the current line and x_dst 
+      is less than zero (which can happen because glyph.xoffset may 
+      sometimes be negative), ensure x_dst is non-negative.
+      * If this is not the first character of the current line, the 
+      kerning between the current and previous character must be 
+      considered.
     */
+    std::pair<uint32_t, uint32_t> kerning_pair;
+    if (i > 0)
+      kerning_pair = std::make_pair((uint32_t)text[i], (uint32_t)text[i - 1]);
+    if (line_chars > 0 && this->kernings.find(kerning_pair) != this->kernings.end()) {
+      int32_t kerning_amount = this->kernings[kerning_pair];
+      x_cursor += kerning_amount;
+    }
     x_dst = x_cursor + glyph.xoffset;
     y_dst = y_cursor - this->line_base + glyph.yoffset;
     /*
@@ -711,6 +722,18 @@ bool Font::_load_from_BitmapFontGenerator(const char * path)
       }
       /* finally, add glyph to charmap */
       this->charmap.insert_or_assign(new_glyph.unicode, new_glyph);
+    }
+    else if (tokens[0] == "kerning") {
+      uint32_t first, second;
+      int32_t amount;
+      for (int itok = 1; itok < tokens.size(); itok++) {
+        read_config(tokens[itok], name, value);
+        if (name == "first") first = (uint32_t)atoi(value.c_str());
+        else if (name == "second") second = (uint32_t)atoi(value.c_str());
+        else if (name == "amount") amount = (int32_t)atoi(value.c_str());
+      }
+      std::pair<uint32_t,uint32_t> kerning_pair = std::make_pair(second, first);
+      this->kernings.insert_or_assign(kerning_pair, amount);
     }
   }
   fclose(fp);
