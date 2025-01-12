@@ -8,28 +8,31 @@ bool keystate[SDL_NUM_SCANCODES];
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
 
-int w = 640, h = 480;
+const int w = 640, h = 480;
 
-sgl::Texture target;
+sgl::Texture tex_640x480;
+sgl::Texture tex_320x240;
 
 sgl::Font Arial_11pt;
-
 sgl::Font MiniHerz_16pt;
 sgl::Font Beatixel_16pt;
 sgl::Font CuteBlockhead_16pt;
-sgl::Font PixelFraktur_16pt;
-
+sgl::Font GrapeSoda_16pt;
 sgl::Font HP_100LX_6x8_8pt;
 sgl::Font IBM_CGA_8x8_8pt;
 sgl::Font IBM_CGAthin_8x8_8pt;
 sgl::Font IBM_EGA_8x14_16pt;
-
+sgl::Font Superscript_16pt;
+sgl::Font Boutique_7pt;
+sgl::Font Boutique_9pt;
+sgl::Font Vonwaon_12pt;
 std::wstring text_intro;
 std::wstring text_os437;
+std::wstring text_chinese;
 
-int demo_page = 0;
-const int total_demos = 4;
-double T_frame = 0.0;
+int demo_page = 1;
+const int total_demos = 8;
+double T_frame = 0.0, T_global = 0.0;
 int frameid = 0;
 
 std::string dtos(double v, int precision) {
@@ -58,7 +61,7 @@ void init_env(int argc, char* argv[]) {
   /* set current working directory */
   set_cwd(gd(argv[0]));
 }
-
+ 
 void destroy_env() {
   SDL_DestroyWindow(pWindow);
   SDL_Quit();
@@ -76,57 +79,113 @@ void process_key(SDL_KeyboardEvent *key) {
   keystate[scancode] = is_press ? true : false;
 
   /* custom key handling */
-  if (is_press) {
-    demo_page = (demo_page + 1) % total_demos;
-    target.clear(Vec4(0, 0, 0, 1));
+  if (is_press && (keycode == SDLK_LEFT || keycode == SDLK_RIGHT)) {
+    tex_640x480.clear(Vec4(0, 0, 0, 1));
     T_frame = 0.0;
     frameid = 0;
+    if (keycode == SDLK_LEFT) {
+      demo_page--;
+      if (demo_page < 1) demo_page = total_demos;
+    }
+    else if (keycode == SDLK_RIGHT) {
+      demo_page++;
+      if (demo_page > total_demos) demo_page = 1;
+    }
   }
 }
 
 void init_render() {
   /* setup resources */
-  target = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  target.clear(Vec4(0, 0, 0, 1));
+  tex_640x480 = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  tex_640x480.clear(Vec4(0, 0, 0, 1));
+  tex_320x240 = sgl::create_texture(w / 2, h / 2, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  tex_320x240.clear(Vec4(0, 0, 0, 1));
 
-  text_intro = sgl::read_file_as_wstring("assets/tests/texts/introduction_to_Deep_Learning.txt");
-  text_os437 = sgl::read_file_as_wstring("assets/tests/texts/old_school_437_charset_demo.txt");
+  text_intro = sgl::read_file_as_wstring("assets/standard/texts/introduction_to_Deep_Learning.txt");
+  text_os437 = sgl::read_file_as_wstring("assets/standard/texts/old_school_437_charset_demo.txt");
+  text_chinese = sgl::read_file_as_wstring("assets/standard/texts/chinese_long_text_sample.txt");
   sgl::replace_all(text_intro, L"\n", L" ");
+  sgl::replace_all(text_chinese, L"\n", L"");
+  sgl::replace_all(text_chinese, L"£¬", L"");
+  sgl::replace_all(text_chinese, L"¡£", L"");
+  sgl::replace_all(text_chinese, L"£»", L"");
+  sgl::replace_all(text_chinese, L"¡¢", L"");
+  text_chinese = sgl::repeat_string<std::wstring>(text_chinese, 2);
 
-  Arial_11pt.load("assets/tests/fonts/Arial/11pt_Regular.fnt");
-  
-  MiniHerz_16pt.load("assets/tests/fonts/MiniHerz/16pt_Regular.fnt");
-  Beatixel_16pt.load("assets/tests/fonts/Beatixel/16pt_Regular.fnt");
-  CuteBlockhead_16pt.load("assets/tests/fonts/CuteBlockhead/16pt_Regular.fnt");
-  PixelFraktur_16pt.load("assets/tests/fonts/PixelFraktur/16pt_Regular.fnt");
-  
-  HP_100LX_6x8_8pt.load("assets/tests/fonts/HP_100LX_6x8/8pt_Regular.fnt");
-  IBM_CGA_8x8_8pt.load("assets/tests/fonts/IBM_CGA_8x8/8pt_Regular.fnt");
-  IBM_CGAthin_8x8_8pt.load("assets/tests/fonts/IBM_CGAthin_8x8/8pt_Regular.fnt");
-  IBM_EGA_8x14_16pt.load("assets/tests/fonts/IBM_EGA_8x14/16pt_Regular.fnt");
+  Arial_11pt.load("assets/standard/fonts/Arial/11pt_Regular.fnt");
+  MiniHerz_16pt.load("assets/standard/fonts/MiniHerz/16pt_Regular.fnt");
+  Beatixel_16pt.load("assets/standard/fonts/Beatixel/16pt_Regular.fnt");
+  CuteBlockhead_16pt.load("assets/standard/fonts/CuteBlockhead/16pt_Regular.fnt");
+  GrapeSoda_16pt.load("assets/standard/fonts/GrapeSoda/16pt_Regular.fnt");
+  HP_100LX_6x8_8pt.load("assets/standard/fonts/HP_100LX_6x8/8pt_Regular.fnt");
+  IBM_CGA_8x8_8pt.load("assets/standard/fonts/IBM_CGA_8x8/8pt_Regular.fnt");
+  IBM_CGAthin_8x8_8pt.load("assets/standard/fonts/IBM_CGAthin_8x8/8pt_Regular.fnt");
+  IBM_EGA_8x14_16pt.load("assets/standard/fonts/IBM_EGA_8x14/16pt_Regular.fnt");
+  Superscript_16pt.load("assets/standard/fonts/Superscript/16pt_Regular.fnt");
+  Boutique_7pt.load("assets/standard/fonts/Boutique_7pt/8pt_Regular.fnt");
+  Boutique_9pt.load("assets/standard/fonts/Boutique_9pt/11pt_Regular.fnt");
+  Vonwaon_12pt.load("assets/standard/fonts/Vonwaon_12pt/13pt_Regular.fnt");
 
-  printf("Press any key to switch between different demos.\n");
+  printf("Press left/right arrow ('<-'/'->') to switch between different demos.\n");
+}
+
+void demoinfo(const char* msg) {
+  std::wstring message = L"Demo [" + std::to_wstring(demo_page) + L"/" + std::to_wstring(total_demos) + L"]: " + utf8string_to_wstring(msg);
+  auto to_solid_block = [](const std::wstring& wstring) -> std::wstring {
+    std::wstring new_string;
+    new_string.resize(wstring.size(), L'\x2588'); /* solid block */
+    return new_string;
+  };
+  Vec4 bg_color = Vec4(176, 176, 176, 255) / 255.0;
+  Vec4 fg_color = Vec4(0, 0, 255, 255) / 255.0;
+  HP_100LX_6x8_8pt.draw_text(&tex_640x480, to_solid_block(message), 0, h - 8, bg_color);
+  HP_100LX_6x8_8pt.draw_text(&tex_640x480, message, 0, h - 8, fg_color);
 }
 
 double render_frame() {
+  
+  tex_640x480.clear(Vec4(0, 0, 0, 1));
+
   sgl::Timer timer;
   timer.tick();
 
-  if (demo_page == 0) {
-    HP_100LX_6x8_8pt.draw_text(&target, text_os437, 0, 0, w, h / 2, Vec4(1, 1, 1, 1));
-    IBM_CGAthin_8x8_8pt.draw_text(&target, text_os437, 0, h / 2, w, h / 2, Vec4(1, 1, 1, 1));
-  }
-  else if (demo_page == 1) {
-    HP_100LX_6x8_8pt.draw_text(&target, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
+  if (demo_page == 1) {
+    HP_100LX_6x8_8pt.draw_text(&tex_640x480, text_os437, 0, 0, w, h / 2, Vec4(1, 1, 1, 1));
+    IBM_CGAthin_8x8_8pt.draw_text(&tex_640x480, text_os437, 0, h / 2, w, h / 2, Vec4(1, 1, 1, 1));
+    demoinfo("A simple text user interface demo featuring two monospaced fonts.");
   }
   else if (demo_page == 2) {
-    Arial_11pt.draw_text(&target, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
+    HP_100LX_6x8_8pt.draw_text(&tex_640x480, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
+    demoinfo("Using a small monospaced font to fill the entire screen for testing text rendering performance.");
   }
   else if (demo_page == 3) {
-    MiniHerz_16pt.draw_text(&target, text_intro, 0, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    Beatixel_16pt.draw_text(&target, text_intro, w / 2, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    CuteBlockhead_16pt.draw_text(&target, text_intro, 0, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
-    PixelFraktur_16pt.draw_text(&target, text_intro, w / 2, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    Arial_11pt.draw_text(&tex_640x480, text_intro, 0, 0, w, h, Vec4(1, 1, 1, 1));
+    demoinfo("Test for rendering unevenly spaced fonts (Character kerning, negative offsets, etc.).");
+  }
+  else if (demo_page == 4) {
+    MiniHerz_16pt.draw_text(&tex_640x480, text_intro, 0, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    Beatixel_16pt.draw_text(&tex_640x480, text_intro, w / 2, 0, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    CuteBlockhead_16pt.draw_text(&tex_640x480, text_intro, 0, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    GrapeSoda_16pt.draw_text(&tex_640x480, text_intro, w / 2, h / 2, w / 2, h / 2, Vec4(1, 1, 1, 1));
+    demoinfo("Test for rendering artistic-style fonts (MiniHerz, Beatixel, CuteBlockhead, GrapeSoda).");
+  }
+  else if (demo_page == 5) {
+    Boutique_7pt.draw_text(&tex_640x480, text_chinese, 0, 0, w, h, Vec4(1, 1, 1, 1));
+    demoinfo("Chinese character display demo (7pt).");
+  }
+  else if (demo_page == 6) {
+    Boutique_9pt.draw_text(&tex_640x480, text_chinese, 0, 0, w, h, Vec4(1, 1, 1, 1));
+    demoinfo("Chinese character display demo (9pt).");
+  }
+  else if (demo_page == 7) {
+    Vonwaon_12pt.draw_text(&tex_640x480, text_chinese, 0, 0, w, h, Vec4(1, 1, 1, 1));
+    demoinfo("Chinese character display demo (12pt).");
+  }
+  else if (demo_page == 8) {
+    Superscript_16pt.draw_text(&tex_320x240, text_intro, 1, 1, w / 2, h / 2, Vec4(64, 64, 64) / 255.0);
+    Superscript_16pt.draw_text(&tex_320x240, text_intro, 0, 0, w / 2, h / 2, Vec4(192, 192, 192) / 255.0);
+    sgl::blit_texture_scaled(&tex_320x240, &tex_640x480, 0, 0, w / 2, h / 2, 0, 0, w, h);
+    demoinfo("Another text display demo (2x zoomed display).");
   }
 
   return timer.tick();
@@ -140,6 +199,7 @@ int main(int argc, char* argv[]) {
 
   /* Start main loop */
   SDL_Event e;
+  sgl::Timer timer;
 
   while (true) {
     /* window message handling */
@@ -150,10 +210,11 @@ int main(int argc, char* argv[]) {
       process_key(&e.key);
 
     /* render & timing */
+    T_global = timer.elapsed();
     T_frame += render_frame();
     frameid++;
 
-    sgl::SDL2::sgl_texture_to_SDL2_surface(&target, pWindowSurface);
+    sgl::SDL2::sgl_texture_to_SDL2_surface(&tex_640x480, pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
     std::string title = std::string("SGL | ") + dtos(T_frame / frameid * 1000.0, 2) + "ms | FPS=" + std::to_string(int(frameid / T_frame));
     SDL_SetWindowTitle(pWindow, title.c_str());

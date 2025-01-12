@@ -10,7 +10,7 @@ SDL_Surface* pWindowSurface;
 
 int w = 800, h = 600;
 
-sgl::Texture target;
+sgl::Texture tex_640x480;
 sgl::Texture chess, chess_mask;
 
 std::string dtos(double v, int precision) {
@@ -64,30 +64,30 @@ void process_key(SDL_KeyboardEvent *key) {
 
 void init_render() {
   /* setup resources */
-  target = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  target.clear(Vec4(0, 0, 0, 1));
-  chess = sgl::load_texture("assets/tests/textures/chess.png", PixelFormat_BGRA8888);
-  chess_mask = sgl::load_texture("assets/tests/textures/chess_mask.png", PixelFormat_UInt8);
+  tex_640x480 = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  tex_640x480.clear(Vec4(0, 0, 0, 1));
+  chess = sgl::load_texture("assets/standard/textures/chess.png", PixelFormat_BGRA8888);
+  chess_mask = sgl::load_texture("assets/standard/textures/chess_mask.png", PixelFormat_UInt8);
 }
 
 double render_frame(double T) {
   sgl::Timer timer;
   timer.tick();
 
-  sgl::draw_pixel(&target, 10, 20, Vec4(1, 1, 1, 1));
-  sgl::draw_pixel(&target, 20, 10, Vec4(1, 0.5, 0.2, 1));
-  sgl::draw_line(&target, 40, 60, 120, 80, Vec4(1, 1, 1, 1));
-  sgl::draw_line(&target, 40, 60, 900, 80, Vec4(1, 1, 1, 1));
-  sgl::draw_line(&target, 60, 40, 70, 200, Vec4(0, 1, 1, 1));
-  sgl::draw_line(&target, 60, 40, 70, 860, Vec4(0, 1, 1, 1));
-  sgl::draw_circle(&target, 300, 200, 150, Vec4(1, 0, 1, 1));
-  sgl::draw_circle(&target, 300, 220, 26, Vec4(1, 0, 1, 1));
-  sgl::draw_ellipse(&target, 200, 300, 100, 20, sgl::PI / 4, Vec4(1, 1, 0, 1), 128);
-  sgl::draw_rectangle(&target, 100, 150, 50, 80, Vec4(0, 0.2, 1.0, 1.0));
-  sgl::draw_rectangle(&target, 150, 180, 100, 60, 1.0, Vec4(1, 1, 0, 1));
-  sgl::draw_bezier(&target, Vec2(50, 50), Vec2(100, 50), Vec2(50, 100), Vec2(100, 100), Vec4(1, 0, 0, 1), 64);
+  sgl::draw_pixel(&tex_640x480, 10, 20, Vec4(1, 1, 1, 1));
+  sgl::draw_pixel(&tex_640x480, 20, 10, Vec4(1, 0.5, 0.2, 1));
+  sgl::draw_line(&tex_640x480, 40, 60, 120, 80, Vec4(1, 1, 1, 1));
+  sgl::draw_line(&tex_640x480, 40, 60, 900, 80, Vec4(1, 1, 1, 1));
+  sgl::draw_line(&tex_640x480, 60, 40, 70, 200, Vec4(0, 1, 1, 1));
+  sgl::draw_line(&tex_640x480, 60, 40, 70, 860, Vec4(0, 1, 1, 1));
+  sgl::draw_circle(&tex_640x480, 300, 200, 150, Vec4(1, 0, 1, 1));
+  sgl::draw_circle(&tex_640x480, 300, 220, 26, Vec4(1, 0, 1, 1));
+  sgl::draw_ellipse(&tex_640x480, 200, 300, 100, 20, sgl::PI / 4, Vec4(1, 1, 0, 1), 128);
+  sgl::draw_rectangle(&tex_640x480, 100, 150, 50, 80, Vec4(0, 0.2, 1.0, 1.0));
+  sgl::draw_rectangle(&tex_640x480, 150, 180, 100, 60, 1.0, Vec4(1, 1, 0, 1));
+  sgl::draw_bezier(&tex_640x480, Vec2(50, 50), Vec2(100, 50), Vec2(50, 100), Vec2(100, 100), Vec4(1, 0, 0, 1), 64);
 
-  sgl::blit_texture(&chess, &target, 0, 0, 96, 32, 100, 150, &chess_mask);
+  sgl::blit_texture(&chess, &tex_640x480, 0, 0, 96, 32, 100, 150, &chess_mask);
 
   return timer.tick();
 }
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
     T_frame += render_frame(T_global);
     frameid++;
 
-    sgl::SDL2::sgl_texture_to_SDL2_surface(&target, pWindowSurface);
+    sgl::SDL2::sgl_texture_to_SDL2_surface(&tex_640x480, pWindowSurface);
     SDL_UpdateWindowSurface(pWindow);
     std::string title = std::string("SGL | ") + dtos(T_frame / frameid * 1000.0, 2) + "ms | FPS=" + std::to_string(int(frameid / T_frame));
     SDL_SetWindowTitle(pWindow, title.c_str());

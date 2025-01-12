@@ -379,24 +379,43 @@ Vec4 texture(const Texture *texobj, const Vec2 &uv) {
   return Vec4(0, 0, 0, 0);
 }
 
-void blit_texture(sgl::Texture * source, sgl::Texture * target,
-  int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
-  sgl::Texture * src_mask)
+void blit_texture(
+  sgl::Texture * source, sgl::Texture * target,
+  int src_x, int src_y, int src_w, int src_h, 
+  int dst_x, int dst_y,
+  sgl::Texture * src_mask, sgl::Texture* dst_mask)
 {
-  if (src_mask != NULL && src_mask->get_pixel_format() != PixelFormat_UInt8) {
-    printf("blit mask texture must have pixel format uint8_t.\n");
-    return;
+  if (src_mask != NULL) {
+    if (src_mask->get_pixel_format() != PixelFormat_UInt8) {
+      printf("blit mask texture must have pixel format uint8_t.\n");
+      return;
+    }
+    if (src_mask->get_width() != source->get_width() || src_mask->get_height() != source->get_height()) {
+      printf("source texture and mask must have the same dimension.\n");
+      return;
+    }
+  }
+  if (dst_mask != NULL) {
+    if (dst_mask->get_pixel_format() != PixelFormat_UInt8) {
+      printf("blit mask texture must have pixel format uint8_t.\n");
+      return;
+    }
+    if (dst_mask->get_width() != target->get_width() || dst_mask->get_height() != target->get_height()) {
+      printf("target texture and mask must have the same dimension.\n");
+      return;
+    }
   }
   if (source->get_pixel_format() != target->get_pixel_format()) {
     sgl::Texture tex = source->to_format(target->get_pixel_format());
     if (tex.get_pixel_data() == NULL)
       return;
-    return blit_texture(&tex, target, src_x, src_y, src_w, src_h, dst_x, dst_y, src_mask);
+    return blit_texture(&tex, target, src_x, src_y, src_w, src_h, dst_x, dst_y, src_mask, dst_mask);
   }
 
   /* blit operation starts here */
   int offx = dst_x - src_x, offy = dst_y - src_y;
-  uint8_t* mask = src_mask ? (uint8_t*)src_mask->get_pixel_data() : NULL;
+  uint8_t* src_mask_data = src_mask ? (uint8_t*)src_mask->get_pixel_data() : NULL;
+  uint8_t* dst_mask_data = dst_mask ? (uint8_t*)dst_mask->get_pixel_data() : NULL;
 
   /* 1 byte copy */
   if (source->get_bytes_per_pixel() == 1) {
@@ -407,10 +426,10 @@ void blit_texture(sgl::Texture * source, sgl::Texture * target,
         int dx = sx + offx, dy = sy + offy;
         bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
         bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
-        bool allow_copy = (mask == NULL || mask[sy * source->get_width() + sx] != 0);
-        if (src_valid && dst_valid && allow_copy) {
+        bool src_allow_get = (src_mask_data == NULL || (src_valid && src_mask_data[sy * source->get_width() + sx] != 0));
+        bool dst_allow_set = (dst_mask_data == NULL || (dst_valid && dst_mask_data[dy * target->get_width() + dx] != 0));
+        if (src_allow_get && dst_allow_set)
           target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
-        }
       }
     }
   }
@@ -423,10 +442,10 @@ void blit_texture(sgl::Texture * source, sgl::Texture * target,
         int dx = sx + offx, dy = sy + offy;
         bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
         bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
-        bool allow_copy = (mask == NULL || mask[sy * source->get_width() + sx] != 0);
-        if (src_valid && dst_valid && allow_copy) {
+        bool src_allow_get = (src_mask_data == NULL || (src_valid && src_mask_data[sy * source->get_width() + sx] != 0));
+        bool dst_allow_set = (dst_mask_data == NULL || (dst_valid && dst_mask_data[dy * target->get_width() + dx] != 0));
+        if (src_allow_get && dst_allow_set)
           target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
-        }
       }
     }
   }
@@ -439,10 +458,10 @@ void blit_texture(sgl::Texture * source, sgl::Texture * target,
         int dx = sx + offx, dy = sy + offy;
         bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
         bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
-        bool allow_copy = (mask == NULL || mask[sy * source->get_width() + sx] != 0);
-        if (src_valid && dst_valid && allow_copy) {
+        bool src_allow_get = (src_mask_data == NULL || (src_valid && src_mask_data[sy * source->get_width() + sx] != 0));
+        bool dst_allow_set = (dst_mask_data == NULL || (dst_valid && dst_mask_data[dy * target->get_width() + dx] != 0));
+        if (src_allow_get && dst_allow_set)
           target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
-        }
       }
     }
   }
@@ -455,16 +474,205 @@ void blit_texture(sgl::Texture * source, sgl::Texture * target,
         int dx = sx + offx, dy = sy + offy;
         bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
         bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
-        bool allow_copy = (mask == NULL || mask[sy * source->get_width() + sx] != 0);
-        if (src_valid && dst_valid && allow_copy) {
+        bool src_allow_get = (src_mask_data == NULL || (src_valid && src_mask_data[sy * source->get_width() + sx] != 0));
+        bool dst_allow_set = (dst_mask_data == NULL || (dst_valid && dst_mask_data[dy * target->get_width() + dx] != 0));
+        if (src_allow_get && dst_allow_set)
           target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
-        }
       }
     }
   }
   else {
     printf("Unsupported bytes per pixel when trying to blit texture.\n");
   }
+}
+
+void blit_texture_scaled(
+  sgl::Texture * source, sgl::Texture * target, 
+  int src_x, int src_y, int src_w, int src_h, 
+  int dst_x, int dst_y, int dst_w, int dst_h, 
+  sgl::Texture * src_mask, sgl::Texture* dst_mask)
+{
+  /* fall back to ordinary texture blit operation (no scaling) for maximum speed */
+  if (dst_w == src_w && dst_h == src_h)
+    return blit_texture(source, target, src_x, src_y, src_w, src_h, dst_x, dst_y, src_mask, dst_mask);
+
+  if (src_mask != NULL) {
+    if (src_mask->get_pixel_format() != PixelFormat_UInt8) {
+      printf("blit mask texture must have pixel format uint8_t.\n");
+      return;
+    }
+    if (src_mask->get_width() != source->get_width() || src_mask->get_height() != source->get_height()) {
+      printf("source texture and mask must have the same dimension.\n");
+      return;
+    }
+  }
+  if (dst_mask != NULL) {
+    if (dst_mask->get_pixel_format() != PixelFormat_UInt8) {
+      printf("blit mask texture must have pixel format uint8_t.\n");
+      return;
+    }
+    if (dst_mask->get_width() != target->get_width() || dst_mask->get_height() != target->get_height()) {
+      printf("target texture and mask must have the same dimension.\n");
+      return;
+    }
+  }
+  if (source->get_pixel_format() != target->get_pixel_format()) {
+    sgl::Texture tex = source->to_format(target->get_pixel_format());
+    if (tex.get_pixel_data() == NULL)
+      return;
+    return blit_texture_scaled(&tex, target, src_x, src_y, src_w, src_h, dst_x, dst_y, dst_w, dst_h, src_mask);
+  }
+
+  /* scaled blit operation starts here */
+  Vec2 scaling_factor = Vec2((double)src_w / (double)dst_w, (double)src_h / (double)dst_h);
+  uint8_t* src_mask_data = src_mask ? (uint8_t*)src_mask->get_pixel_data() : NULL;
+  uint8_t* dst_mask_data = dst_mask ? (uint8_t*)dst_mask->get_pixel_data() : NULL;
+
+  if (source->get_bytes_per_pixel() == 1) {
+    uint8_t* source_ptr = (uint8_t*)source->get_pixel_data();
+    uint8_t* target_ptr = (uint8_t*)target->get_pixel_data();
+    for (int dy = dst_y; dy < dst_y + dst_h; dy++) {
+      for (int dx = dst_x; dx < dst_x + dst_w; dx++) {
+        int off_dy = dy - dst_y, off_dx = dx - dst_x;
+        int off_sy = (int)(scaling_factor.y * off_dy), off_sx = (int)(scaling_factor.x * off_dx);
+        int sy = src_y + off_sy, sx = src_x + off_sx;
+        bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
+        bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
+        bool src_allow_get = (src_mask_data == NULL || (src_valid && src_mask_data[sy * source->get_width() + sx] != 0));
+        bool dst_allow_set = (dst_mask_data == NULL || (dst_valid && dst_mask_data[dy * target->get_width() + dx] != 0));
+        if (src_allow_get && dst_allow_set)
+          target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
+      }
+    }
+  } 
+  else if (source->get_bytes_per_pixel() == 2) {
+    uint16_t* source_ptr = (uint16_t*)source->get_pixel_data();
+    uint16_t* target_ptr = (uint16_t*)target->get_pixel_data();
+    for (int dy = dst_y; dy < dst_y + dst_h; dy++) {
+      for (int dx = dst_x; dx < dst_x + dst_w; dx++) {
+        int off_dy = dy - dst_y, off_dx = dx - dst_x;
+        int off_sy = (int)(scaling_factor.y * off_dy), off_sx = (int)(scaling_factor.x * off_dx);
+        int sy = src_y + off_sy, sx = src_x + off_sx;
+        bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
+        bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
+        bool src_allow_get = (src_mask_data == NULL || (src_valid && src_mask_data[sy * source->get_width() + sx] != 0));
+        bool dst_allow_set = (dst_mask_data == NULL || (dst_valid && dst_mask_data[dy * target->get_width() + dx] != 0));
+        if (src_allow_get && dst_allow_set)
+          target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
+      }
+    }
+  }
+  else if (source->get_bytes_per_pixel() == 4) {
+    uint32_t* source_ptr = (uint32_t*)source->get_pixel_data();
+    uint32_t* target_ptr = (uint32_t*)target->get_pixel_data();
+    for (int dy = dst_y; dy < dst_y + dst_h; dy++) {
+      for (int dx = dst_x; dx < dst_x + dst_w; dx++) {
+        int off_dy = dy - dst_y, off_dx = dx - dst_x;
+        int off_sy = (int)(scaling_factor.y * off_dy), off_sx = (int)(scaling_factor.x * off_dx);
+        int sy = src_y + off_sy, sx = src_x + off_sx;
+        bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
+        bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
+        bool src_allow_get = (src_mask_data == NULL || (src_valid && src_mask_data[sy * source->get_width() + sx] != 0));
+        bool dst_allow_set = (dst_mask_data == NULL || (dst_valid && dst_mask_data[dy * target->get_width() + dx] != 0));
+        if (src_allow_get && dst_allow_set)
+          target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
+      }
+    }
+  }
+  else if (source->get_bytes_per_pixel() == 8) {
+    uint64_t* source_ptr = (uint64_t*)source->get_pixel_data();
+    uint64_t* target_ptr = (uint64_t*)target->get_pixel_data();
+    for (int dy = dst_y; dy < dst_y + dst_h; dy++) {
+      for (int dx = dst_x; dx < dst_x + dst_w; dx++) {
+        int off_dy = dy - dst_y, off_dx = dx - dst_x;
+        int off_sy = (int)(scaling_factor.y * off_dy), off_sx = (int)(scaling_factor.x * off_dx);
+        int sy = src_y + off_sy, sx = src_x + off_sx;
+        bool src_valid = (sx >= 0 && sx < source->get_width() && sy >= 0 && sy < source->get_height());
+        bool dst_valid = (dx >= 0 && dx < target->get_width() && dy >= 0 && dy < target->get_height());
+        bool src_allow_get = (src_mask_data == NULL || (src_valid && src_mask_data[sy * source->get_width() + sx] != 0));
+        bool dst_allow_set = (dst_mask_data == NULL || (dst_valid && dst_mask_data[dy * target->get_width() + dx] != 0));
+        if (src_allow_get && dst_allow_set)
+          target_ptr[dy * target->get_width() + dx] = source_ptr[sy * source->get_width() + sx];
+      }
+    }
+  }
+  else {
+    printf("Unsupported bytes per pixel when trying to blit texture.\n");
+  }
+}
+
+sgl::Texture resize_texture(sgl::Texture * source, double scale_x, double scale_y)
+{
+  sgl::Texture tex;
+  if (scale_x <= 0.0 || scale_y <= 0.0) {
+    printf("Invalid scaling parameter setting.\n");
+    return tex;
+  }
+  tex = sgl::create_texture((int32_t)(source->get_width() * scale_x), (int32_t)(source->get_height() * scale_y), source->get_pixel_format(), source->get_sampling_mode(), source->get_texture_usage());
+  if (tex.get_pixel_data() == NULL) {
+    printf("resize_texture failed since an empty texture is returned.\n");
+    return tex;
+  }
+  /* copy texture data */
+  Vec2 inv_scale = 1.0 / Vec2(scale_x, scale_y);
+  int dstw = tex.get_width(), dsth = tex.get_height();
+  int srcw = source->get_width(), srch = source->get_height();
+  if (tex.get_bytes_per_pixel() == 1) {
+    uint8_t* dstptr = (uint8_t*)tex.get_pixel_data();
+    uint8_t* srcptr = (uint8_t*)source->get_pixel_data();
+    for (int dsty = 0; dsty < tex.get_height(); dsty++) {
+      for (int dstx = 0; dstx < tex.get_width(); dstx++) {
+        int srcx = (int)(inv_scale.x * dstx);
+        int srcy = (int)(inv_scale.y * dsty);
+        if (srcx < 0 || srcx >= srcw || srcy < 0 || srcy >= srch)
+          continue;
+        dstptr[dsty * dstw + dstx] = srcptr[srcy * srcw + srcx];
+      }
+    }
+  }
+  else if (tex.get_bytes_per_pixel() == 2) {
+    uint16_t* dstptr = (uint16_t*)tex.get_pixel_data();
+    uint16_t* srcptr = (uint16_t*)source->get_pixel_data();
+    for (int dsty = 0; dsty < tex.get_height(); dsty++) {
+      for (int dstx = 0; dstx < tex.get_width(); dstx++) {
+        int srcx = (int)(inv_scale.x * dstx);
+        int srcy = (int)(inv_scale.y * dsty);
+        if (srcx < 0 || srcx >= srcw || srcy < 0 || srcy >= srch)
+          continue;
+        dstptr[dsty * dstw + dstx] = srcptr[srcy * srcw + srcx];
+      }
+    }
+  }
+  else if (tex.get_bytes_per_pixel() == 4) {
+    uint32_t* dstptr = (uint32_t*)tex.get_pixel_data();
+    uint32_t* srcptr = (uint32_t*)source->get_pixel_data();
+    for (int dsty = 0; dsty < tex.get_height(); dsty++) {
+      for (int dstx = 0; dstx < tex.get_width(); dstx++) {
+        int srcx = (int)(inv_scale.x * dstx);
+        int srcy = (int)(inv_scale.y * dsty);
+        if (srcx < 0 || srcx >= srcw || srcy < 0 || srcy >= srch)
+          continue;
+        dstptr[dsty * dstw + dstx] = srcptr[srcy * srcw + srcx];
+      }
+    }
+  }
+  else if (tex.get_bytes_per_pixel() == 8) {
+    uint64_t* dstptr = (uint64_t*)tex.get_pixel_data();
+    uint64_t* srcptr = (uint64_t*)source->get_pixel_data();
+    for (int dsty = 0; dsty < tex.get_height(); dsty++) {
+      for (int dstx = 0; dstx < tex.get_width(); dstx++) {
+        int srcx = (int)(inv_scale.x * dstx);
+        int srcy = (int)(inv_scale.y * dsty);
+        if (srcx < 0 || srcx >= srcw || srcy < 0 || srcy >= srch)
+          continue;
+        dstptr[dsty * dstw + dstx] = srcptr[srcy * srcw + srcx];
+      }
+    }
+  }
+  else {
+    printf("Invalid texture bpp setting.\n");
+  }
+  return tex;
 }
 
 }; /* namespace sgl */

@@ -31,6 +31,6 @@ namespaces:
 sgl         * Core software rasterization feature.
 |             (NOTE: this does not rely on any external libraries.)
 +--SDL2     * Implement communications between sgl and SDL2.
-|             For example, texture to surface conversion
+              For example, texture to surface conversion
 
 */

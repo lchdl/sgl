@@ -236,9 +236,9 @@ void init_render() {
   /* setup resources */
   frame_buffer.color = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   frame_buffer.depth = sgl::create_texture(w, h, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
-  brick.diffuse = sgl::load_texture("assets/tests/textures/brick/brick_diffuse_256.png");
-  brick.normal = sgl::load_texture("assets/tests/textures/brick/brick_normal_256.png");
-  brick.specular = sgl::load_texture("assets/tests/textures/brick/brick_specular_256.png");
+  brick.diffuse = sgl::load_texture("assets/standard/textures/brick/brick_diffuse_256.png");
+  brick.normal = sgl::load_texture("assets/standard/textures/brick/brick_normal_256.png");
+  brick.specular = sgl::load_texture("assets/standard/textures/brick/brick_specular_256.png");
   brick.diffuse.set_sampling_mode(sampling);
   brick.normal.set_sampling_mode(sampling);
   brick.specular.set_sampling_mode(sampling);
@@ -253,7 +253,7 @@ void init_render() {
   tilt_model = 0;
 
   /* load model */
-  plane.load_zip("assets/tests/models/plane.zip", "model.obj");
+  plane.load_zip("assets/standard/models/plane.zip", "model.obj");
   auto convert_vertex_format = [](const Mesh::Vertex_t& v) {
     return VS_IN(v.position, v.normal, v.texcoord, v.tangent, v.bitangent);
   };

@@ -13,6 +13,33 @@
 
 namespace sgl {
 
+/*
+The core software rasterization pipeline is implemented as a template class,
+allowing full customization by instantiating it with user-defined types. For
+an example of how to use this, refer to 'tests/test_hello_world'.
+
+Software Rasterizer Tutorial
+* The OpenGL render pipeline overview:
+  https://www.khronos.org/opengl/wiki/Rendering_Pipeline_Overview
+* The model transformation matrix in OpenGL:
+  https://learnopengl.com/Getting-started/Transformations
+* The view matrix in OpenGL:
+  http://www.songho.ca/opengl/gl_camera.html
+* The perspective matrix in OpenGL:
+  http://www.songho.ca/opengl/gl_projectionmatrix.html
+* How to clip in homogeneous space?
+  https://stackoverflow.com/questions/60910464/at-what-stage-is-clipping-performed-in-the-graphics-pipeline
+* Simple and quick way to determine if a point is in a triangle, and all 
+  things you need to know about barycentric interpolation:
+  https://fgiesen.wordpress.com/2013/02/06/the-barycentric-conspirac/
+* Perspective correct z-interpolation:
+  https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/visibility-problem-depth-buffer-depth-interpolation.html
+* Perspective correct vertex attributes interpolation:
+  https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html
+* Fragment shader predefined outputs:
+  https://www.khronos.org/opengl/wiki/Fragment_Shader
+*/
+
 enum PipelineDrawMode {
   PipelineDrawMode_Wireframe,
   PipelineDrawMode_Triangle,

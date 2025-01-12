@@ -504,6 +504,10 @@ operator/(Vec2 _a, double _b) {
   return Vec2(_a.x * inv_b, _a.y * inv_b);
 }
 inline Vec2
+operator/(double _a, Vec2 _b) {
+  return Vec2(_a / _b.x, _a / _b.y);
+}
+inline Vec2
 operator-(Vec2 _a) {
   return Vec2(-_a.x, -_a.y);
 }

@@ -11,8 +11,8 @@ SpriteRenderer renderer;
 void init_render() {
   /* create or load existing textures */
   tex = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  checker = sgl::load_texture("assets/tests/textures/checker_256.png", PixelFormat_BGRA8888);
-  chess = sgl::load_texture("assets/tests/textures/chess.png", PixelFormat_BGRA8888);
+  checker = sgl::load_texture("assets/standard/textures/checker_256.png", PixelFormat_BGRA8888);
+  chess = sgl::load_texture("assets/standard/textures/chess.png", PixelFormat_BGRA8888);
 
   /* initialize render pipeline */
   renderer.bind_render_target(&tex);

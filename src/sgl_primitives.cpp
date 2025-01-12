@@ -478,8 +478,8 @@ IVec2 Font::draw_text(sgl::Texture * target, const std::wstring & text, int x, i
       for (int x = x_dst; x < x_dst + w_src; x++) {
         int x0 = x - x_dst, y0 = y - y_dst;
         bool dst_valid = (x >= 0 && x < target->get_width() && y >= 0 && y < target->get_height());
-        bool allow_copy = (glyph_data[y0 * w_src + x0] > 0);
-        if (!dst_valid || !allow_copy) continue;
+        bool src_allow_get = (glyph_data[y0 * w_src + x0] > 0);
+        if (!dst_valid || !src_allow_get) continue;
         target_data[y * w_dst + x] = packed_color;
       }
     }
@@ -570,9 +570,10 @@ IVec2 Font::draw_text(sgl::Texture * target, const std::wstring & text, int x, i
     else
       requires_new_line = false;
     if (requires_new_line) {
-      bool already_exceeds_height_limit = move_cursor_to_new_line(&glyph);
-      if (already_exceeds_height_limit)
-        return IVec2(x_cursor, y_cursor); /* early quit since the text is out of the text box. */
+      bool cursor_exceeds_height_limit = move_cursor_to_new_line(&glyph);
+      if (cursor_exceeds_height_limit)
+        /* Exit early as the text exceeds the boundaries of the text box. */
+        return IVec2(x_cursor, y_cursor);
     }
     /*
     Render glyph to texture.
@@ -609,7 +610,7 @@ bool Font::_load_from_BitmapFontGenerator(const char * path)
   */
   FILE* fp = fopen(path, "r");
   if (fp == NULL) {
-    printf("Cannot open file.\n");
+    printf("Cannot open file \"%s\".\n", path);
     return false;
   }
 

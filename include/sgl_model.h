@@ -10,7 +10,13 @@
 #include "sgl_texture.h"
 #include "sgl_shader.h"
 
-/* Assimp: model import library */
+/* 
+Assimp: model import library
+* Assimp github page:
+  https://github.com/assimp/assimp
+* Assimp model loading tutorial:
+  https://www.youtube.com/watch?v=sP_kiODC25Q
+*/
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"

@@ -71,7 +71,7 @@ void process_key(SDL_KeyboardEvent *key) {
 
 void init_render() {
   /* setup resources */
-  textures.checker = sgl::load_texture("assets/tests/textures/checker_5x5.png", PixelFormat_BGRA8888, TextureSampling_Nearest);
+  textures.checker = sgl::load_texture("assets/standard/textures/checker_5x5.png", PixelFormat_BGRA8888, TextureSampling_Nearest);
   textures.target = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
 
   /* initialize render pipeline */

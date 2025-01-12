@@ -317,6 +317,21 @@ areas without needing complex operations.
 **/
 void blit_texture(sgl::Texture* source, sgl::Texture* target,
   int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
-  sgl::Texture* src_mask = NULL);
+  sgl::Texture* src_mask = NULL, sgl::Texture* dst_mask = NULL);
+void blit_texture_scaled(sgl::Texture* source, sgl::Texture* target,
+  int src_x, int src_y, int src_w, int src_h, 
+  int dst_x, int dst_y, int dst_w, int dst_h,
+  sgl::Texture* src_mask = NULL, sgl::Texture* dst_mask = NULL);
+
+/**
+Fast texture scaling.
+
+This function performs fast texture scaling, ignoring the texture's 
+interpolation method setting and always using nearest sampling. It
+returns the resized texture. The resized texture will retain the same 
+sampling mode, usage, and format settings as the source texture.
+**/
+sgl::Texture resize_texture(sgl::Texture* source, 
+  double scale_x, double scale_y);
 
 }; /* namespace sgl */

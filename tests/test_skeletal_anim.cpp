@@ -137,7 +137,7 @@ void init_render() {
   animator.eye.orthographic.height = 9.0;
 
   /* setup model to be rendered */
-  animator.load_model("assets/tests/models/boblamp.zip", "model.md5mesh");
+  animator.load_model("assets/standard/models/boblamp.zip", "model.md5mesh");
   animator.set_draw_mode(PipelineDrawMode_Triangle);
   
   if (num_threads > 0) {

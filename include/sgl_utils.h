@@ -617,4 +617,15 @@ truncate_string(std::string str, size_t length, bool show_ellipsis = true)
   return str;
 }
 
+/**
+Repeat a string multiple times.
+**/
+template<typename T>
+inline T repeat_string(const T& in_string, const uint32_t count) {
+  T string;
+  for (uint32_t i = 0; i < count; i++)
+    string += in_string;
+  return string;
+}
+
 }; /* namespace sgl */

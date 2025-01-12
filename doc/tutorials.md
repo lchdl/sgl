@@ -11,23 +11,7 @@ Some tutorials that I found useful on the internet.
 * How to link precompiled **static library** using CMake:
   https://stackoverflow.com/questions/14077611/how-do-i-tell-cmake-to-link-in-a-static-library-in-the-source-directory
 
-### SDL3 (Simple DirectMedia Layer 3)
-* Project main page:
-  https://wiki.libsdl.org/SDL3/FrontPage
-* **Tutorial** by LazyFoo:
-  https://lazyfoo.net/tutorials/SDL/
-* Initialize OpenGL in SDL:
-  https://raw.githubusercontent.com/Overv/Open.GL/master/ebook/Modern%20OpenGL%20Guide.pdf
-
-### Assimp
-* Assimp github page:
-  https://github.com/assimp/assimp
-* Assimp model loading tutorial:
-  https://www.youtube.com/watch?v=sP_kiODC25Q
-
 ### Git
 * Delete a remote-tracking branch locally:
   > `git branch -r -d origin/<branch_name>`. <br>
   > This will happen if you delete a branch remotely but the branch still exists locally.
-
-
