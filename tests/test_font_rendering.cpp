@@ -101,9 +101,9 @@ void init_render() {
   tex_320x240 = sgl::create_texture(w / 2, h / 2, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   tex_320x240.clear(Vec4(0, 0, 0, 1));
 
-  text_intro = sgl::read_file_as_wstring("assets/standard/texts/introduction_to_Deep_Learning.txt");
-  text_os437 = sgl::read_file_as_wstring("assets/standard/texts/old_school_437_charset_demo.txt");
-  text_chinese = sgl::read_file_as_wstring("assets/standard/texts/chinese_long_text_sample.txt");
+  text_intro = sgl::read_file_as_wstring("assets/common/texts/introduction_to_Deep_Learning.txt");
+  text_os437 = sgl::read_file_as_wstring("assets/common/texts/old_school_437_charset_demo.txt");
+  text_chinese = sgl::read_file_as_wstring("assets/common/texts/chinese_long_text_sample.txt");
   sgl::replace_all(text_intro, L"\n", L" ");
   sgl::replace_all(text_chinese, L"\n", L"");
   sgl::replace_all(text_chinese, L"£¬", L"");
@@ -112,19 +112,19 @@ void init_render() {
   sgl::replace_all(text_chinese, L"¡¢", L"");
   text_chinese = sgl::repeat_string<std::wstring>(text_chinese, 2);
 
-  Arial_11pt.load("assets/standard/fonts/Arial/11pt_Regular.fnt");
-  MiniHerz_16pt.load("assets/standard/fonts/MiniHerz/16pt_Regular.fnt");
-  Beatixel_16pt.load("assets/standard/fonts/Beatixel/16pt_Regular.fnt");
-  CuteBlockhead_16pt.load("assets/standard/fonts/CuteBlockhead/16pt_Regular.fnt");
-  GrapeSoda_16pt.load("assets/standard/fonts/GrapeSoda/16pt_Regular.fnt");
-  HP_100LX_6x8_8pt.load("assets/standard/fonts/HP_100LX_6x8/8pt_Regular.fnt");
-  IBM_CGA_8x8_8pt.load("assets/standard/fonts/IBM_CGA_8x8/8pt_Regular.fnt");
-  IBM_CGAthin_8x8_8pt.load("assets/standard/fonts/IBM_CGAthin_8x8/8pt_Regular.fnt");
-  IBM_EGA_8x14_16pt.load("assets/standard/fonts/IBM_EGA_8x14/16pt_Regular.fnt");
-  Superscript_16pt.load("assets/standard/fonts/Superscript/16pt_Regular.fnt");
-  Boutique_7pt.load("assets/standard/fonts/Boutique_7pt/8pt_Regular.fnt");
-  Boutique_9pt.load("assets/standard/fonts/Boutique_9pt/11pt_Regular.fnt");
-  Vonwaon_12pt.load("assets/standard/fonts/Vonwaon_12pt/13pt_Regular.fnt");
+  Arial_11pt.load("assets/common/fonts/Arial/11pt_Regular.fnt");
+  MiniHerz_16pt.load("assets/common/fonts/MiniHerz/16pt_Regular.fnt");
+  Beatixel_16pt.load("assets/common/fonts/Beatixel/16pt_Regular.fnt");
+  CuteBlockhead_16pt.load("assets/common/fonts/CuteBlockhead/16pt_Regular.fnt");
+  GrapeSoda_16pt.load("assets/common/fonts/GrapeSoda/16pt_Regular.fnt");
+  HP_100LX_6x8_8pt.load("assets/common/fonts/HP_100LX_6x8/8pt_Regular.fnt");
+  IBM_CGA_8x8_8pt.load("assets/common/fonts/IBM_CGA_8x8/8pt_Regular.fnt");
+  IBM_CGAthin_8x8_8pt.load("assets/common/fonts/IBM_CGAthin_8x8/8pt_Regular.fnt");
+  IBM_EGA_8x14_16pt.load("assets/common/fonts/IBM_EGA_8x14/16pt_Regular.fnt");
+  Superscript_16pt.load("assets/common/fonts/Superscript/16pt_Regular.fnt");
+  Boutique_7pt.load("assets/common/fonts/Boutique_7pt/8pt_Regular.fnt");
+  Boutique_9pt.load("assets/common/fonts/Boutique_9pt/11pt_Regular.fnt");
+  Vonwaon_12pt.load("assets/common/fonts/Vonwaon_12pt/13pt_Regular.fnt");
 
   printf("Press left/right arrow ('<-'/'->') to switch between different demos.\n");
 }
@@ -184,7 +184,7 @@ double render_frame() {
   else if (demo_page == 8) {
     Superscript_16pt.draw_text(&tex_320x240, text_intro, 1, 1, w / 2, h / 2, Vec4(64, 64, 64) / 255.0);
     Superscript_16pt.draw_text(&tex_320x240, text_intro, 0, 0, w / 2, h / 2, Vec4(192, 192, 192) / 255.0);
-    sgl::blit_texture_scaled(&tex_320x240, &tex_640x480, 0, 0, w / 2, h / 2, 0, 0, w, h);
+    sgl::blit_texture(&tex_320x240, &tex_640x480, 0, 0, w / 2, h / 2, 0, 0, w, h);
     demoinfo("Another text display demo (2x zoomed display).");
   }
 

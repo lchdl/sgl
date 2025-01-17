@@ -720,6 +720,11 @@ bool Font::_load_from_BitmapFontGenerator(const char * path)
         else if (name == "width") w = atoi(value.c_str());
         else if (name == "height") h = atoi(value.c_str());
       }
+      new_glyph.x = uint16_t(x); 
+      new_glyph.y = uint16_t(y); 
+      new_glyph.w = uint16_t(w); 
+      new_glyph.h = uint16_t(h);
+      new_glyph.page = uint8_t(glyph_page_id);
       if (page_id2tex.find(glyph_page_id) == page_id2tex.end()) {
         printf("[Line #%d] Invalid glyph page id \"%d\". The required page is still not defined before this glyph.\n", lineno, glyph_page_id);
       }

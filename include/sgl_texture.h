@@ -144,7 +144,7 @@ class Texture {
   /**
   Load an image from disk.
   **/
-  void load(const std::string &file, const PixelFormat& target_format = PixelFormat_BGRA8888, const TextureSampling& texture_sampling = TextureSampling_Nearest);
+  void load(const std::string &file, const PixelFormat& target_format = PixelFormat_BGRA8888, const TextureSampling& texture_sampling = TextureSampling_Nearest, bool flip_vertically_on_load = false);
   /**
   Clear a texture.
   **/
@@ -198,7 +198,7 @@ class Texture {
 
  public:
   Texture();
-  ~Texture();
+  virtual ~Texture();
   Texture(const Texture &texture);
   Texture &operator=(const Texture &texture);
 };
@@ -215,7 +215,7 @@ Texture create_texture(int32_t w, int32_t h, PixelFormat format, TextureSampling
   @returns: The loaded image texture. If image loading failed, an empty texture
 will be returned (pixels=NULL).
 **/
-Texture load_texture(const std::string &file, const PixelFormat& target_format = PixelFormat_BGRA8888, const TextureSampling& texture_sampling = TextureSampling_Nearest);
+Texture load_texture(const std::string &file, const PixelFormat& target_format = PixelFormat_BGRA8888, const TextureSampling& texture_sampling = TextureSampling_Nearest, bool flip_vertically_on_load = false);
 
 /**
   Common interface for sampling a texture. Designed mainly for fragment shaders.
@@ -314,11 +314,16 @@ to a destination texture or screen. The term "blit" is short for
 "bit-block transfer", which originated from older graphics hardware
 operations where pixels or blocks of memory were moved to other
 areas without needing complex operations.
+
+A more advanced feature related to blitting is sprite rendering,
+which is implemented in `sgl_pass.h`. Sprite rendering extends
+basic blitting by supporting additional operations such as scaling
+and rotation.
 **/
 void blit_texture(sgl::Texture* source, sgl::Texture* target,
   int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
   sgl::Texture* src_mask = NULL, sgl::Texture* dst_mask = NULL);
-void blit_texture_scaled(sgl::Texture* source, sgl::Texture* target,
+void blit_texture(sgl::Texture* source, sgl::Texture* target,
   int src_x, int src_y, int src_w, int src_h, 
   int dst_x, int dst_y, int dst_w, int dst_h,
   sgl::Texture* src_mask = NULL, sgl::Texture* dst_mask = NULL);

@@ -2,6 +2,11 @@
 
 namespace sgl {
 
+/*
+A global sprite renderer instance.
+*/
+SpriteRenderer sprite_renderer;
+
 Mat4x4 Pass::get_view_matrix() const {
   return sgl::get_view_matrix(eye.position, eye.look_at, eye.up_dir);
 }
@@ -196,6 +201,14 @@ inline void BaseAnimator::Shader::FS(const Uniforms & uniforms, const FS_IN& fra
   falloff = (falloff + 1) * 0.5;
   fs_outs[0] = Vec4(textured * falloff, 1.0);
   fs_outs[2] = Vec4((wn + 1.0)*0.5, 1.0);
+}
+
+void blit_texture(sgl::Texture * source, sgl::Texture * target, int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y, const Vec2 & scale, const double & rot, const Vec3 & color_mask, const SpriteOriginMode origin_mode, const Texture * src_mask)
+{
+  sprite_renderer.bind_render_target(target);
+  sprite_renderer.set_num_threads(2);
+  sprite_renderer.set_sprite_origin_mode(origin_mode);
+  sprite_renderer.draw(source, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, src_mask);
 }
 
 }; /* namespace sgl */

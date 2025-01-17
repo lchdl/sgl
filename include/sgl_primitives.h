@@ -48,6 +48,8 @@ public:
     */
     uint32_t unicode;
     int8_t xoffset, yoffset, xadvance, is_empty;
+    uint16_t x, y, w, h; /* glyph region */
+    uint8_t page;
     sgl::Texture tex;
   };
 
@@ -86,7 +88,6 @@ public:
 
 protected:
   bool _load_from_BitmapFontGenerator(const char* path);
-
 };
 
 void draw_pixel(sgl::Texture* target, int x, int y, const Vec4& color);

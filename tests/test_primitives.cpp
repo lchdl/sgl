@@ -66,8 +66,8 @@ void init_render() {
   /* setup resources */
   tex_640x480 = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   tex_640x480.clear(Vec4(0, 0, 0, 1));
-  chess = sgl::load_texture("assets/standard/textures/chess.png", PixelFormat_BGRA8888);
-  chess_mask = sgl::load_texture("assets/standard/textures/chess_mask.png", PixelFormat_UInt8);
+  chess = sgl::load_texture("assets/common/textures/chess.png", PixelFormat_BGRA8888);
+  chess_mask = sgl::load_texture("assets/common/textures/chess_mask.png", PixelFormat_UInt8);
 }
 
 double render_frame(double T) {

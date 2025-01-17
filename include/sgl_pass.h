@@ -173,7 +173,7 @@ public:
   };
   struct VS_IN : public IVertex {
     Vec3 p; /* vertex position (in model local space) */
-    Vec3 n; /* vertex normal (in model local space)*/
+    Vec3 n; /* vertex normal (in model local space) */
     Vec2 t; /* vertex texture coordinate */
     /* for skeletal animations */
     IVec4 bone_IDs; /* bones up to 4 */
@@ -184,7 +184,7 @@ public:
     Vec3 wn; /* world normal */
     Vec2 t;  /* texture coordinates */
 
-    /* The `Fragment` class need define how two fragments should be interpolated.  */
+    /* The `Fragment` class need define how two fragments should be interpolated. */
     void  operator*=(const double& scalar);
     VS_OUT operator*(const double& scalar) const;
     VS_OUT operator+(const VS_OUT& frag) const;
@@ -241,15 +241,22 @@ protected:
 
 /**
 SpriteRenderer:
-
 Draw a 2D sprite onto screen.
 **/
+enum SpriteOriginMode {
+  SpriteOriginMode_Center,      /* Origin is at the center of the sprite. */
+  SpriteOriginMode_BottomLeft,  /* Origin is at the bottom-left corner of the sprite. */
+  SpriteOriginMode_BottomRight, /* Origin is at the bottom-right corner of the sprite.  */
+  SpriteOriginMode_TopLeft,     /* Origin is at the top-left corner of the sprite. */
+  SpriteOriginMode_TopRight,    /* Origin is at the top-right corner of the sprite. */
+};
 class SpriteRenderer : public Pass {
 public:
   struct Uniforms {
     Vec3 color_mask;
     Mat4x4 transform;
     const Texture* in_texture;
+    const Texture* in_mask;
   };
   struct VS_IN : public IVertex {
     Vec2 xy, uv; /* position & texcoords */
@@ -283,10 +290,12 @@ public:
     void FS(const Uniforms& uniforms, const FS_IN& fragment_in, const Vec4& gl_FragCoord,
       FS_Outputs& fs_outs, bool& discard, double& gl_FragDepth) const {
       Vec4 tex_color = texture(uniforms.in_texture, fragment_in.uv);
-      if (tex_color.a < 0.99) {
+      if (uniforms.in_mask != NULL && texture(uniforms.in_mask, fragment_in.uv).r < 0.99)
+          discard = true;
+      if (tex_color.a < 0.99)
         discard = true;
+      if (discard)
         return;
-      }
       fs_outs[0] = Vec4(uniforms.color_mask, 1.0) * tex_color;
     }
   };
@@ -295,10 +304,11 @@ protected:
   Pipeline_t pipeline;
   Shader       shader;
   Uniforms   uniforms;
-  Pipeline_t::VertexBuffer_t vertices;
-  Pipeline_t::IndexBuffer_t   indices;
+  Vec2    vertices[4];
+  Pipeline_t::IndexBuffer_t indices;
+  SpriteOriginMode origin_mode;
 public:
-  void draw(const Texture* tex, const Vec2& pos, const Vec2& scale, const double& rot, const Vec3& color_mask) {
+  void draw(const Texture* tex, const Vec2& pos, const Vec2& scale, const double& rot, const Vec3& color_mask, const Texture* src_mask = NULL) {
     Mat4x4 scaling(
       scale.x, 0.0, 0.0, 0.0,
       0.0, scale.y, 0.0, 0.0,
@@ -314,41 +324,114 @@ public:
     Mat4x4 projection = get_orthographic_matrix(0.0, 1.0, 0.0, 
       this->pipeline.get_render_target(0)->get_width(), 
       this->pipeline.get_render_target(0)->get_height(), 0.0);
-    vertices[0].xy = Vec2(-0.5*tex->get_width(), -0.5*tex->get_height());
-    vertices[1].xy = Vec2(+0.5*tex->get_width(), -0.5*tex->get_height());
-    vertices[2].xy = Vec2(+0.5*tex->get_width(), +0.5*tex->get_height());
-    vertices[3].xy = Vec2(-0.5*tex->get_width(), +0.5*tex->get_height());
+    Pipeline_t::VertexBuffer_t vbuf;
+    Vec2 texture_size = Vec2(tex->get_width(), tex->get_height());
+    vbuf.resize(4);
+    vbuf[0].xy = texture_size * vertices[0];
+    vbuf[1].xy = texture_size * vertices[1];
+    vbuf[2].xy = texture_size * vertices[2];
+    vbuf[3].xy = texture_size * vertices[3];
+    vbuf[0].uv = Vec2(0.0, 0.0);
+    vbuf[1].uv = Vec2(1.0, 0.0);
+    vbuf[2].uv = Vec2(1.0, 1.0);
+    vbuf[3].uv = Vec2(0.0, 1.0);
     uniforms.transform = projection * model;
     uniforms.color_mask = color_mask;
     uniforms.in_texture = tex;
+    uniforms.in_mask = src_mask;
     pipeline.set_depth_test_state(false);
-    pipeline.draw(shader, vertices, indices, uniforms);
+    pipeline.draw(shader, vbuf, indices, uniforms);
+    pipeline.set_depth_test_state(true);
+  }
+  void draw(const Texture* tex, int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y, const Vec2& scale, const double& rot, const Vec3& color_mask, const Texture* src_mask = NULL) {
+    Mat4x4 scaling(
+      scale.x, 0.0, 0.0, 0.0,
+      0.0, scale.y, 0.0, 0.0,
+      0.0, 0.0, 1.0, 0.0,
+      0.0, 0.0, 0.0, 1.0);
+    Mat4x4 translation(
+      1.0, 0.0, 0.0, double(dst_x),
+      0.0, 1.0, 0.0, double(dst_y),
+      0.0, 0.0, 1.0, 0.0,
+      0.0, 0.0, 0.0, 1.0);
+    Mat4x4 rotation(quat_to_mat3x3(Quat::rot_z(rot)));
+    Mat4x4 model = translation * rotation * scaling;
+    Mat4x4 projection = get_orthographic_matrix(0.0, 1.0, 0.0,
+      this->pipeline.get_render_target(0)->get_width(),
+      this->pipeline.get_render_target(0)->get_height(), 0.0);
+    Pipeline_t::VertexBuffer_t vbuf;
+    Vec2 src_sprite_size = Vec2(src_w, src_h);
+    vbuf.resize(4);
+    vbuf[0].xy = src_sprite_size * vertices[0];
+    vbuf[1].xy = src_sprite_size * vertices[1];
+    vbuf[2].xy = src_sprite_size * vertices[2];
+    vbuf[3].xy = src_sprite_size * vertices[3];
+    double du = 1.0 / double(tex->get_width()), dv = 1.0 / double(tex->get_height());
+    double lx = du * double(src_x), rx = du * (src_x + src_w);
+    double by = dv * double(tex->get_height() - src_y - src_h), ty = dv * double(tex->get_height() - src_y);
+    vbuf[0].uv = Vec2(lx, by);
+    vbuf[1].uv = Vec2(rx, by);
+    vbuf[2].uv = Vec2(rx, ty);
+    vbuf[3].uv = Vec2(lx, ty);
+    uniforms.transform = projection * model;
+    uniforms.color_mask = color_mask;
+    uniforms.in_texture = tex;
+    uniforms.in_mask = src_mask;
+    pipeline.set_depth_test_state(false);
+    pipeline.draw(shader, vbuf, indices, uniforms);
     pipeline.set_depth_test_state(true);
   }
   void bind_render_target(Texture* target) { this->pipeline.bind_render_target(0, target); }
   void set_num_threads(int num_threads) { this->pipeline.set_num_threads(num_threads); }
+  void set_sprite_origin_mode(SpriteOriginMode mode) { 
+    this->origin_mode = mode; 
+    if (this->origin_mode == SpriteOriginMode_Center) {
+      vertices[0] = Vec2(-0.5, -0.5); vertices[1] = Vec2(+0.5, -0.5);
+      vertices[2] = Vec2(+0.5, +0.5); vertices[3] = Vec2(-0.5, +0.5);
+    }
+    else if (this->origin_mode == SpriteOriginMode_BottomLeft) {
+      vertices[0] = Vec2(+0.0, +0.0); vertices[1] = Vec2(+1.0, +0.0);
+      vertices[2] = Vec2(+1.0, +1.0); vertices[3] = Vec2(+0.0, +1.0);
+    }
+    else if (this->origin_mode == SpriteOriginMode_BottomRight) {
+      vertices[0] = Vec2(-1.0, +0.0); vertices[1] = Vec2(+0.0, +0.0);
+      vertices[2] = Vec2(+0.0, +1.0); vertices[3] = Vec2(-1.0, +1.0);
+    }
+    else if (this->origin_mode == SpriteOriginMode_TopLeft){
+      vertices[0] = Vec2(+0.0, -1.0); vertices[1] = Vec2(+1.0, -1.0);
+      vertices[2] = Vec2(+1.0, +0.0); vertices[3] = Vec2(+0.0, +0.0);
+    }
+    else if (this->origin_mode == SpriteOriginMode_TopRight) {
+      vertices[0] = Vec2(-1.0, -1.0); vertices[1] = Vec2(+0.0, -1.0);
+      vertices[2] = Vec2(+0.0, +0.0); vertices[3] = Vec2(-1.0, +0.0);
+    }
+  }
   void clear_pipeline_cache() { this->pipeline.clear_cache(); }
   void clear_render_target(const Vec4& clear_color) { this->pipeline.clear_render_targets(clear_color); }
 
-
 public:
   SpriteRenderer() {
-    vertices.resize(4);
     indices.resize(6);
-    vertices[0].uv = Vec2(0.0, 0.0);
-    vertices[1].uv = Vec2(1.0, 0.0);
-    vertices[2].uv = Vec2(1.0, 1.0);
-    vertices[3].uv = Vec2(0.0, 1.0);
     indices[0] = 0; indices[1] = 1; indices[2] = 3;
     indices[3] = 1; indices[4] = 2; indices[5] = 3;
+    this->set_sprite_origin_mode(SpriteOriginMode_Center);
   }
 
 };
 
+extern SpriteRenderer sprite_renderer;
 
-
-
-
+/**
+Performs a texture bit-block transfer (blit) with enhanced functionality,
+including support for scaling and rotation. However, this operation is 
+slightly slower compared to the basic blit functions implemented in 
+`sgl_texture.h`.
+**/
+void blit_texture(sgl::Texture* source, sgl::Texture* target,
+  int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y, 
+  const Vec2& scale, const double& rot, const Vec3& color_mask,
+  const SpriteOriginMode origin_mode = SpriteOriginMode_TopLeft, 
+  const Texture* src_mask = NULL);
 
 
 }; /* namespace sgl */

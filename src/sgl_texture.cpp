@@ -59,9 +59,10 @@ void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSa
   this->pixels = malloc(w * h * bypp);
 }
 
-void Texture::load(const std::string & file, const PixelFormat & target_format, const TextureSampling& texture_sampling)
+void Texture::load(const std::string & file, const PixelFormat & target_format, const TextureSampling& texture_sampling, bool flip_vertically_on_load)
 {
   int x, y, n;
+  stbi_set_flip_vertically_on_load(flip_vertically_on_load);
   unsigned char *data = stbi_load(file.c_str(), &x, &y, &n, 4);
   if (data == NULL) {
     const char *failure = stbi_failure_reason();
@@ -343,9 +344,9 @@ Texture create_texture(int32_t w, int32_t h, PixelFormat format, TextureSampling
   return texture;
 }
 
-Texture load_texture(const std::string &file, const PixelFormat& target_format, const TextureSampling& texture_sampling) {
+Texture load_texture(const std::string &file, const PixelFormat& target_format, const TextureSampling& texture_sampling, bool flip_vertically_on_load) {
   Texture texture;
-  texture.load(file, target_format, texture_sampling);
+  texture.load(file, target_format, texture_sampling, flip_vertically_on_load);
   return texture;
 }
 
@@ -486,7 +487,7 @@ void blit_texture(
   }
 }
 
-void blit_texture_scaled(
+void blit_texture(
   sgl::Texture * source, sgl::Texture * target, 
   int src_x, int src_y, int src_w, int src_h, 
   int dst_x, int dst_y, int dst_w, int dst_h, 
@@ -520,7 +521,7 @@ void blit_texture_scaled(
     sgl::Texture tex = source->to_format(target->get_pixel_format());
     if (tex.get_pixel_data() == NULL)
       return;
-    return blit_texture_scaled(&tex, target, src_x, src_y, src_w, src_h, dst_x, dst_y, dst_w, dst_h, src_mask);
+    return blit_texture(&tex, target, src_x, src_y, src_w, src_h, dst_x, dst_y, dst_w, dst_h, src_mask);
   }
 
   /* scaled blit operation starts here */

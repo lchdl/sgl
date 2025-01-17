@@ -365,6 +365,14 @@ struct Mat4x4 {
     for (int t = 0; t < 16; t++) 
       this->i[t] = _data[t];
   }
+  Mat4x4 transpose() {
+    return Mat4x4(
+      i11, i21, i31, i41,
+      i12, i22, i32, i42,
+      i13, i23, i33, i43,
+      i14, i24, i34, i44
+    );
+  }
   static Mat4x4 identity() {
     return Mat4x4(
         1, 0, 0, 0, 
@@ -372,12 +380,56 @@ struct Mat4x4 {
         0, 0, 1, 0, 
         0, 0, 0, 1);
   }
+  /*
+  Generates a translation matrix with translation amounts dx, dy, and dz
+  along the x, y, and z axes, respectively.
+
+  Note: The generated matrix cannot be used directly. It should be applied
+  by right-multiplying an existing matrix, such as `T * M`, where `T` is
+  the generated translation matrix.
+  */
   static Mat4x4 translate(double dx, double dy, double dz) {
     return Mat4x4(
       1, 0, 0, dx,
       0, 1, 0, dy,
       0, 0, 1, dz,
       0, 0, 0, 1);
+  }
+  /*
+  Generates a rotation matrix that rotates an object around a 3D axis
+  by a specified angle.
+
+  * Note: The generated matrix cannot be used directly. It should be 
+    applied by right-multiplying an existing matrix, such as `R * M`, 
+    where `R` is the generated rotation matrix.
+  */
+  static Mat4x4 rotate(Vec3 axis, double radians) {
+    double cos_theta = cos(radians);
+    double one_minus_cos_theta = 1.0 - cos_theta;
+    double sin_theta = sin(radians);
+    double &ux = axis.x, &uy = axis.y, &uz = axis.z;
+    return Mat4x4(
+      ux * ux * one_minus_cos_theta + cos_theta, ux * uy * one_minus_cos_theta - uz * sin_theta, ux * uz * one_minus_cos_theta + uy * sin_theta, 0.0,
+      ux * uy * one_minus_cos_theta + uz * sin_theta, uy * uy * one_minus_cos_theta + cos_theta, uy * uz * one_minus_cos_theta - ux * sin_theta, 0.0,
+      ux * uz * one_minus_cos_theta - uy * sin_theta, uy * uz * one_minus_cos_theta + ux * sin_theta, uz * uz * one_minus_cos_theta + cos_theta, 0.0,
+      0.0, 0.0, 0.0, 1.0
+    );
+  }
+  /*
+  Generates a scaling matrix with scaling factors sx, sy, and sz for
+  the x, y, and z axes, respectively.
+
+  Note: The generated matrix cannot be used directly. It should be applied
+  by right-multiplying an existing matrix, such as `S * M`, where `S` is
+  the generated scaling matrix.
+  */
+  static Mat4x4 scale(double sx, double sy, double sz) {
+    return Mat4x4(
+      sx, 0.0, 0.0, 0.0,
+      0.0, sy, 0.0, 0.0,
+      0.0, 0.0, sz, 0.0,
+      0.0, 0.0, 0.0, 1.0
+    );
   }
   inline Mat4x4 inverse() {
     double inv[16], det;
