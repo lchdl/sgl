@@ -54,7 +54,7 @@ void render_and_save_to_disk() {
   const int width = 800, height = 600;
   color_texture = sgl::create_texture(width, height, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   depth_texture = sgl::create_texture(width, height, PixelFormat_Float64, TextureSampling_Nearest, TextureUsage_DepthBuffer);
-  image_texture = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
+  image_texture = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888, TextureSampling_Nearest, true);
 
   /* Step 2: Initialize render pipeline */
   Shader shader;

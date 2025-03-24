@@ -145,7 +145,7 @@ Texture::operator=(const Texture &texture) {
 Vec4
 Texture::texture_RGBA8888_point(const Vec2 &p) const {
   /* point (nearest) sampling */
-  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+  Vec2 p0 = Vec2(p.x, p.y);
 
   p0.x = max(min(p0.x, 1.0), 0.0);
   p0.y = max(min(p0.y, 1.0), 0.0);
@@ -165,7 +165,7 @@ Texture::texture_RGBA8888_point(const Vec2 &p) const {
 Vec4 Texture::texture_BGRA8888_point(const Vec2 & p) const
 {
   /* point (nearest) sampling */
-  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+  Vec2 p0 = Vec2(p.x, p.y);
 
   p0.x = max(min(p0.x, 1.0), 0.0);
   p0.y = max(min(p0.y, 1.0), 0.0);
@@ -185,7 +185,7 @@ Vec4 Texture::texture_BGRA8888_point(const Vec2 & p) const
 Vec4 Texture::texture_float64_point(const Vec2 & p) const
 {
   /* point (nearest) sampling */
-  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+  Vec2 p0 = Vec2(p.x, p.y);
 
   p0.x = max(min(p0.x, 1.0), 0.0);
   p0.y = max(min(p0.y, 1.0), 0.0);
@@ -200,7 +200,7 @@ Vec4 Texture::texture_float64_point(const Vec2 & p) const
 
 Vec4 Texture::texture_xxxx8888_bilinear(const Vec2 & p) const
 {
-  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+  Vec2 p0 = Vec2(p.x, p.y);
 
   p0.x = max(min(p0.x, 1.0), 0.0);
   p0.y = max(min(p0.y, 1.0), 0.0);
@@ -212,7 +212,7 @@ Vec4 Texture::texture_xxxx8888_bilinear(const Vec2 & p) const
 
 Vec4 Texture::texture_float64_bilinear(const Vec2 & p) const
 {
-  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+  Vec2 p0 = Vec2(p.x, p.y);
 
   p0.x = max(min(p0.x, 1.0), 0.0);
   p0.y = max(min(p0.y, 1.0), 0.0);
@@ -225,7 +225,7 @@ Vec4 Texture::texture_float64_bilinear(const Vec2 & p) const
 Vec4 Texture::texture_uint8_point(const Vec2 & p) const
 {
   /* point (nearest) sampling */
-  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+  Vec2 p0 = Vec2(p.x, p.y);
 
   p0.x = max(min(p0.x, 1.0), 0.0);
   p0.y = max(min(p0.y, 1.0), 0.0);
@@ -241,7 +241,7 @@ Vec4 Texture::texture_uint8_point(const Vec2 & p) const
 
 Vec4 Texture::texture_uint8_bilinear(const Vec2 & p) const
 {
-  Vec2 p0 = Vec2(p.x, 1.0 - p.y); /* flip ud */
+  Vec2 p0 = Vec2(p.x, p.y);
 
   p0.x = max(min(p0.x, 1.0), 0.0);
   p0.y = max(min(p0.y, 1.0), 0.0);

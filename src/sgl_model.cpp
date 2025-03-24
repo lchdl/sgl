@@ -229,7 +229,7 @@ bool Model::load_zip(const std::string& zip_file, const std::string& model_fname
 #endif
         std::string tex_full_path = join(gd(model_file), tp);
         /* create texture object and append to mesh texture library */
-        this->materials[i_mat].diffuse_texture = load_texture(tex_full_path);
+        this->materials[i_mat].diffuse_texture = load_texture(tex_full_path, PixelFormat_BGRA8888, TextureSampling_Nearest, true);
         this->materials[i_mat].diffuse_texture_file = tex_full_path;
         if (this->materials[i_mat].diffuse_texture.get_pixel_data() == NULL) {
           printf("Texture loading error: cannot load texture \"%s\". "

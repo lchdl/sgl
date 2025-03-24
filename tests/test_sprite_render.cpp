@@ -12,11 +12,11 @@ SpriteRenderer renderer;
 void init_render() {
   /* create or load existing textures */
   tex = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  checker_256x256 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
-  checker_5x5 = sgl::load_texture("assets/common/textures/checker_5x5.png", PixelFormat_BGRA8888);
-  checker_pattern = sgl::load_texture("assets/common/textures/checker_pattern.png", PixelFormat_BGRA8888);
-  chess = sgl::load_texture("assets/common/textures/chess.png", PixelFormat_BGRA8888);
-  chess_mask = sgl::load_texture("assets/common/textures/chess_mask.png", PixelFormat_BGRA8888);
+  checker_256x256 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888, TextureSampling_Nearest, true);
+  checker_5x5 = sgl::load_texture("assets/common/textures/checker_5x5.png", PixelFormat_BGRA8888, TextureSampling_Nearest, true);
+  checker_pattern = sgl::load_texture("assets/common/textures/checker_pattern.png", PixelFormat_BGRA8888, TextureSampling_Nearest, true);
+  chess = sgl::load_texture("assets/common/textures/chess.png", PixelFormat_BGRA8888, TextureSampling_Nearest, true);
+  chess_mask = sgl::load_texture("assets/common/textures/chess_mask.png", PixelFormat_BGRA8888, TextureSampling_Nearest, true);
 
   /* initialize render pipeline */
   renderer.bind_render_target(&tex);
