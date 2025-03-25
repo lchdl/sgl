@@ -87,12 +87,27 @@ IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment)
 {
   GLint width, height;
   GLint type;
-  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    printf("Error, framebuffer is not complete!\n");
-    width = height = -1;
+  
+  if (fbo == 0) {
+    /* default framebuffer */
+    if (gl_states.current_active_window == NULL) {
+      printf("Error, OpenGL is not initialized yet.\n");
+      width = height = -1;
+    }
+    SDL_GL_GetDrawableSize(gl_states.current_active_window, &width, &height);
   }
   else {
+    /*
+    If an FBO is currently bound when this function is called,
+    we must store its ID and restore binding state after
+    querying the target FBO's dimensions to avoid disrupting
+    the rendering pipeline.
+    */
+    GLint current_fbo;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &current_fbo);
+    if (current_fbo != fbo) /* avoid rebinding the same fbo */
+      glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
     glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &type);
     if (type == GL_TEXTURE) {
       GLint tex_id = 0;
@@ -112,29 +127,17 @@ IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment)
       printf("No valid attachment found for the given FBO.\n");
       width = height = -1;
     }
+    if (current_fbo != fbo)
+      glBindFramebuffer(GL_FRAMEBUFFER, current_fbo);
   }
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   return IVec2(width, height);
 }
 
-IVec2 get_current_render_target_size()
+IVec2 get_current_render_target_size(GLenum attachment)
 {
   GLint current_fbo = -1;
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &current_fbo);
-  if (current_fbo == 0) {
-    if (gl_states.current_active_window == NULL) {
-      printf("Error, OpenGL is not initialized yet.\n");
-      return IVec2(-1, -1);
-    }
-    IVec2 size;
-    SDL_GL_GetDrawableSize(gl_states.current_active_window, &size.x, &size.y);
-    return size;
-  }
-  else {
-    return get_OpenGL_framebuffer_size(current_fbo, GL_COLOR_ATTACHMENT0);
-  }
-
-  return IVec2(-1, -1);
+  return get_OpenGL_framebuffer_size(current_fbo, attachment);
 }
 
 Texture::Texture() {
@@ -252,16 +255,20 @@ void Texture::destroy() {
   sgl::Texture::destroy();
 }
 
+bool Shader::create(const std::string & vs, const std::string & fs) {
+  return this->create(vs, fs, 0, NULL);
+}
 
-bool Shader::create(const std::string & vertexSource, const std::string & fragmentSource) {
+bool Shader::create(const std::string & vs, const std::string & fs, const int n_outs, const FragDataLocation * fs_outs)
+{
   destroy();
 
-  GLuint vertexShader = _compile_shader(GL_VERTEX_SHADER, vertexSource);
+  GLuint vertexShader = _compile_shader(GL_VERTEX_SHADER, vs);
   if (vertexShader == 0) {
     printf("Failed to compile vertex shader.\n");
     return false;
   }
-  GLuint fragmentShader = _compile_shader(GL_FRAGMENT_SHADER, fragmentSource);
+  GLuint fragmentShader = _compile_shader(GL_FRAGMENT_SHADER, fs);
   if (fragmentShader == 0) {
     glDeleteShader(vertexShader);
     printf("Failed to compile fragment shader.\n");
@@ -276,6 +283,12 @@ bool Shader::create(const std::string & vertexSource, const std::string & fragme
   }
   glAttachShader(gl_handle, vertexShader);
   glAttachShader(gl_handle, fragmentShader);
+
+  for (size_t i = 0; i < n_outs; i++) {
+    glBindFragDataLocation(gl_handle, fs_outs[i].slot, fs_outs[i].name.c_str());
+    this->fs_outs.push_back(fs_outs[i]);
+  }
+
   glLinkProgram(gl_handle);
   GLint success;
   glGetProgramiv(gl_handle, GL_LINK_STATUS, &success);
@@ -298,15 +311,23 @@ void Shader::destroy() {
     glDeleteProgram(gl_handle);
     gl_handle = 0;
   }
+  fs_outs.clear();
+  fs_outs.shrink_to_fit();
 }
 
 Shader::Shader() {
   gl_handle = 0;
 }
 
-Shader::Shader(const std::string & vertexSource, const std::string & fragmentSource) {
+Shader::Shader(const std::string & vs, const std::string & fs) {
   gl_handle = 0;
-  create(vertexSource, fragmentSource);
+  create(vs, fs);
+}
+
+Shader::Shader(const std::string & vs, const std::string & fs, const int n_outs, const FragDataLocation * fs_outs)
+{
+  gl_handle = 0;
+  create(vs, fs, n_outs, fs_outs);
 }
 
 Shader::~Shader() {
@@ -331,6 +352,10 @@ GLint Shader::get_uniform_location(const std::string & name) const {
     printf("Warning: Uniform '%s' not found or not active.\n", name.c_str());
   }
   return location;
+}
+
+GLint Shader::get_frag_data_location(const std::string & name) const {
+  return glGetFragDataLocation(this->gl_handle, name.c_str());
 }
 
 bool Shader::set_uniform_1f(const std::string & name, GLfloat v0) const {
@@ -522,6 +547,17 @@ bool Shader::set_texture_sampler_2D(const std::string& name, const sgl::OpenGL::
   return true;
 }
 
+bool Shader::set_texture_sampler_2D(const std::string & name, const GLuint tex_handle, GLuint slot) const
+{
+  if (int(slot) >= gl_states.max_texture_image_units) {
+    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_states.max_texture_image_units);
+    return false;
+  }
+  glActiveTexture(GL_TEXTURE0 + slot);
+  glBindTexture(GL_TEXTURE_2D, tex_handle);
+  return true;
+}
+
 GLuint Shader::_compile_shader(GLenum type, const std::string & source) {
   GLuint shader = glCreateShader(type);
   if (shader == 0) {
@@ -629,6 +665,12 @@ bool Font::load(const char* path) {
           page_fname = value;
         }
       }
+      if (page_id != 0) {
+        printf("Error, font rendering does not support glyph stored in multiple pages.\n");
+        fclose(fp);
+        unload();
+        return false;
+      }
       std::string texdir = gd(path);
       std::string texfile = sgl::join(texdir, page_fname);
       sgl::OpenGL::Texture tex;
@@ -636,27 +678,62 @@ bool Font::load(const char* path) {
         printf("Cannot open file \"%s\", file not exist.\n", texfile.c_str());
       }
       else {
-        tex = sgl::load_texture(texfile, PixelFormat_BGRA8888, TextureSampling_Nearest);
+        font_tex = sgl::load_texture(texfile, PixelFormat_BGRA8888, TextureSampling_Nearest, true);
       }
-      this->page_id2tex.insert_or_assign(page_id, tex);
     }
   }
   
-  /* transfer to GPU */
-  for (auto it = this->page_id2tex.begin(); it != this->page_id2tex.end(); ++it) {
-    uint8_t page = it->first;
-    sgl::OpenGL::Texture& texture = it->second;
-    texture.to(DeviceType_GPU);
+  font_tex.to(DeviceType_GPU);
+
+  /* create VBO and shader for rendering */
+  int sizeof_indices = sizeof(int) * 6 * Font::RenderBatchSize;
+  int* indices = (int*)malloc(sizeof_indices);
+  for (int i = 0; i < Font::RenderBatchSize; i++) {
+    indices[i * 6 + 0] = 0 + i * 4;
+    indices[i * 6 + 1] = 1 + i * 4;
+    indices[i * 6 + 2] = 3 + i * 4;
+    indices[i * 6 + 3] = 1 + i * 4;
+    indices[i * 6 + 4] = 2 + i * 4;
+    indices[i * 6 + 5] = 3 + i * 4;
   }
+  vbuf.create_and_fill(16 * sizeof(float) * Font::RenderBatchSize, NULL, GL_DYNAMIC_DRAW, sizeof_indices, indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
+  free(indices);
+  
+  Shader::FragDataLocation fs_outs[] = {
+    {"FragColor", 0},
+  };
+  shader.create(R"(
+    #version 330 core
+    layout(location = 0) in vec2 inPosition;
+    layout(location = 1) in vec2 inTexCoord;
+    out vec2 TexCoord;
+    void main() {
+      gl_Position = vec4(inPosition, 0.0, 1.0);
+      TexCoord = inTexCoord;
+    }
+    )"
+    , R"(
+    #version 330 core
+    layout(location = 0) out vec4 FragColor;
+    in vec2 TexCoord;
+    uniform sampler2D tex0;
+    uniform vec3 ColorMask;
+    void main() {
+      vec4 color = texture(tex0, TexCoord);
+      FragColor = vec4(1.0, 1.0, 1.0, color.r) * vec4(ColorMask, 1.0);
+    }
+    )"
+    , sizeof(fs_outs) / sizeof(Shader::FragDataLocation), fs_outs
+  );
 
-  /* initialize shader */
-
-
+  fclose(fp);
   return true;
 }
 
 void Font::unload() {
-  this->page_id2tex.clear();
+  this->font_tex.destroy();
+  this->vbuf.destroy();
+  this->shader.destroy();
   sgl::Font::unload();
 }
 
@@ -668,6 +745,168 @@ Font::~Font() {
 
 void Font::set_line_height(int new_height) {
   sgl::Font::set_line_height(new_height);
+}
+
+IVec2 Font::draw_text(const std::wstring & text, int x, int y, const Vec4 & color)
+{
+  return draw_text(text, x, y, 0, 0, color);
+}
+
+IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, const Vec4 & color)
+{
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_BLEND);
+  glDisable(GL_DEPTH_TEST);
+
+  if (text.size() == 0)
+    return IVec2(x, y);
+
+  const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
+  float g_du = 1.0f / float(rsize.x), g_dv = 1.0f / float(rsize.y);
+  float t_du = 1.0f / float(font_tex.get_width()), t_dv = 1.0f / float(font_tex.get_height());
+
+  shader.use();
+  shader.set_uniform_3f("ColorMask", float(color.r), float(color.g), float(color.b));
+  shader.set_texture_sampler_2D("tex0", font_tex, 0);
+
+  /* render a single line text */
+  int x_cursor = 0, y_cursor = 0;
+  bool cursor_inited = false;
+  uint32_t line_chars = 0; /* number of blitted chars in current line */
+  /*
+  (x_dst, y_dst) represents the upper-left corner position of the glyph
+  when it is about to be blitted onto the target texture.
+  */
+  int x_dst, y_dst;
+
+  /* Auxiliary function for manipulating cursor position. */
+  auto move_cursor_to_new_line = [&](Glyph* glyph) -> bool {
+    y_cursor += this->line_height;
+    x_cursor = x;
+    x_dst = x_cursor + (glyph == NULL ? 0 : glyph->xoffset);
+    y_dst = y_cursor - this->line_base + (glyph == NULL ? 0 : glyph->yoffset);
+    if (x_dst < 0) {
+      x_dst = 0;
+      x_cursor = x_dst - (glyph == NULL ? 0 : glyph->xoffset);
+    }
+    line_chars = 0; /* reset line chars counter */
+    /* If a new line exceeds the height limit, we can terminate the whole process. */
+    if (y_dst + (glyph == NULL ? 0 : glyph->tex.get_height()) >= y + h)
+      return true;
+    else return false;
+  };
+
+  /* glyph minibatch buffering */
+  int sizeof_bufdata = 16 * sizeof(float) * Font::RenderBatchSize;
+  uint8_t* bufdata = (uint8_t*)malloc(sizeof_bufdata);
+  memset(bufdata, sizeof_bufdata, 0);
+  int n_output_chars = 0;
+
+  for (size_t i = 0; i < text.size(); i++) {
+    /*
+    When encountering a newline character ('\n'), start a new
+    line immediately.
+    */
+    if ((uint32_t)text[i] == (uint32_t)'\n') {
+      move_cursor_to_new_line(NULL);
+      continue;
+    }
+    /*
+    Load glyph.
+    */
+    if (this->charmap.find((uint32_t)text[i]) == this->charmap.end())
+      continue;
+    Glyph& glyph = this->charmap[(uint32_t)text[i]];
+    if (!cursor_inited) {
+      x_cursor = x;
+      y_cursor = y + this->line_base;
+      cursor_inited = true;
+    }
+    /*
+    Calculate the default blit destination position.
+    Note the following adjustments:
+      * If this is the first character of the current line and x_dst
+      is less than zero (which can happen because glyph.xoffset may
+      sometimes be negative), ensure x_dst is non-negative.
+      * If this is not the first character of the current line, the
+      kerning between the current and previous character must be
+      considered.
+    */
+    std::pair<uint32_t, uint32_t> kerning_pair;
+    if (i > 0)
+      kerning_pair = std::make_pair((uint32_t)text[i], (uint32_t)text[i - 1]);
+    if (line_chars > 0 && this->kernings.find(kerning_pair) != this->kernings.end()) {
+      int32_t kerning_amount = this->kernings[kerning_pair];
+      x_cursor += kerning_amount;
+    }
+    x_dst = x_cursor + glyph.xoffset;
+    y_dst = y_cursor - this->line_base + glyph.yoffset;
+    /*
+    Check if the current glyph is outside the text box. If so,
+    a new line must be started. However, if the text box width
+    is too small, the glyph must be displayed regardless.
+    Note:
+      * If w is less than or equal to 0, the text box region is
+      ignored, and the entire text will be displayed on a single
+      line.
+    */
+    bool requires_new_line;
+    if (w <= 0 || line_chars == 0 || glyph.is_empty)
+      requires_new_line = false;
+    else if (x_dst + glyph.tex.get_width() > x + w)
+      requires_new_line = true;
+    else
+      requires_new_line = false;
+    if (requires_new_line) {
+      bool cursor_exceeds_height_limit = move_cursor_to_new_line(&glyph);
+      if (cursor_exceeds_height_limit)
+        /* Exit early as the text exceeds the boundaries of the text box. */
+        return IVec2(x_cursor, y_cursor);
+    }
+    /*
+    Render glyph to texture.
+    NOTE: we pack multiple glyphs to a minibatch to improve render speed.
+    */
+    {
+      float t_xl = t_du * float(glyph.x);
+      float t_xr = t_du * float(glyph.x + glyph.w);
+      float t_yb = t_dv * float(font_tex.get_height() - glyph.y - glyph.h);
+      float t_yt = t_dv * float(font_tex.get_height() - glyph.y);
+
+      float g_xl = 2.0f * float(x_dst) * g_du - 1.0f;
+      float g_xr = 2.0f * float(x_dst + glyph.w) * g_du - 1.0f;
+      float g_yb = 1.0f - 2.0f * float(y_dst + glyph.h) * g_dv;
+      float g_yt = 1.0f - 2.0f * float(y_dst) * g_dv;
+
+      float vertices[16] = {
+        /* We directly compute NDC here */
+        g_xl, g_yb, t_xl, t_yb,
+        g_xr, g_yb, t_xr, t_yb,
+        g_xr, g_yt, t_xr, t_yt,
+        g_xl, g_yt, t_xl, t_yt,
+      };
+
+      const int sizeof_vertices = 16 * sizeof(float);
+      memcpy(bufdata + sizeof_vertices * (n_output_chars % Font::RenderBatchSize), vertices, sizeof_vertices);
+      n_output_chars++;
+      if (n_output_chars % Font::RenderBatchSize == 0) {
+        /* flush */
+        vbuf.subdata_VBO(0, sizeof_bufdata, bufdata);
+        vbuf.draw_elements(GL_TRIANGLES, 6 * Font::RenderBatchSize, GL_UNSIGNED_INT, NULL);
+      }
+    }
+    line_chars++;
+    x_cursor += glyph.xadvance;
+  }
+
+  {
+    /* flush remained chars */
+    vbuf.subdata_VBO(0, sizeof_bufdata, bufdata);
+    vbuf.draw_elements(GL_TRIANGLES, 6 * (n_output_chars % Font::RenderBatchSize), GL_UNSIGNED_INT, NULL);
+  }
+
+  free(bufdata);
+  return IVec2(x_cursor, y_cursor);
 }
 
 IVec2 Font::get_text_extent_point(const std::wstring & text) {
@@ -683,57 +922,6 @@ void SpriteRenderer::destroy() {
   this->vbuf.destroy();
 }
 
-void SpriteRenderer::set_sprite_origin_mode(SpriteOriginMode mode) {
-  float vbuf_data[24];
-  this->origin_mode = mode;
-  if (this->origin_mode == SpriteOriginMode_Center) {
-    float vertices[16] = {
-      -0.5f, -0.5f, +0.0f, +0.0f,
-      +0.5f, -0.5f, +1.0f, +0.0f,
-      +0.5f, +0.5f, +1.0f, +1.0f,
-      -0.5f, +0.5f, +0.0f, +1.0f,
-    };
-    memcpy(vbuf_data, vertices, sizeof(vertices));
-  }
-  else if (this->origin_mode == SpriteOriginMode_BottomLeft) {
-    float vertices[16] = {
-      +0.0f, +0.0f, +0.0f, +0.0f,
-      +1.0f, +0.0f, +1.0f, +0.0f,
-      +1.0f, +1.0f, +1.0f, +1.0f,
-      +0.0f, +1.0f, +0.0f, +1.0f,
-    };
-    memcpy(vbuf_data, vertices, sizeof(vertices));
-  }
-  else if (this->origin_mode == SpriteOriginMode_BottomRight) {
-    float vertices[16] = {
-      -1.0f, +0.0f, +0.0f, +0.0f,
-      +0.0f, +0.0f, +1.0f, +0.0f,
-      +0.0f, +1.0f, +1.0f, +1.0f,
-      -1.0f, +1.0f, +0.0f, +1.0f,
-    };
-    memcpy(vbuf_data, vertices, sizeof(vertices));
-  }
-  else if (this->origin_mode == SpriteOriginMode_TopLeft) {
-    float vertices[16] = {
-      +0.0f, -1.0f, +0.0f, +0.0f,
-      +1.0f, -1.0f, +1.0f, +0.0f,
-      +1.0f, +0.0f, +1.0f, +1.0f,
-      +0.0f, +0.0f, +0.0f, +1.0f,
-    };
-    memcpy(vbuf_data, vertices, sizeof(vertices));
-  }
-  else if (this->origin_mode == SpriteOriginMode_TopRight) {
-    float vertices[16] = {
-      -1.0f, -1.0f, +0.0f, +0.0f,
-      +0.0f, -1.0f, +1.0f, +0.0f,
-      +0.0f, +0.0f, +1.0f, +1.0f,
-      -1.0f, +0.0f, +0.0f, +1.0f,
-    };
-    memcpy(vbuf_data, vertices, sizeof(vertices));
-  }
-  this->vbuf.subdata_VBO(0, sizeof(vbuf_data), vbuf_data);
-}
-
 SpriteRenderer::SpriteRenderer() {}
 
 SpriteRenderer::~SpriteRenderer() {
@@ -742,35 +930,27 @@ SpriteRenderer::~SpriteRenderer() {
 
 void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int target_h, int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y, const Vec2 & scale, const double & rot, const Vec3 & color_mask, const sgl::SpriteOriginMode origin_mode)
 {
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_BLEND);
+  glDisable(GL_DEPTH_TEST);
+
   if (source->get_device() != DeviceType_GPU) {
     printf("Error, texture is not transferred to GPU.\n");
     return;
   }
-  Mat4x4 scaling(
-    scale.x, 0.0, 0.0, 0.0,
-    0.0, scale.y, 0.0, 0.0,
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0);
-  Mat4x4 translation(
-    1.0, 0.0, 0.0, double(dst_x),
-    0.0, 1.0, 0.0, double(dst_y),
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0);
-  Mat4x4 rotation(quat_to_mat3x3(Quat::rot_z(rot)));
-  Mat4x4 model = translation * rotation * scaling;
-  Mat4x4 projection = sgl::get_orthographic_matrix(0.0, 1.0, 0.0, target_w, target_h, 0.0);
-  Mat4x4 transform = projection * model;
 
-  Vec2 src_sprite_size = Vec2(src_w, src_h);
-  double du = 1.0 / double(source->get_width()), dv = 1.0 / double(source->get_height());
-  float lx = float(du) * float(src_x), rx = float(du) * float(src_x + src_w);
-  float by = float(dv) * float(source->get_height() - src_y - src_h), ty = float(dv) * float(source->get_height() - src_y);
+  float du = 1.0f / float(source->get_width()), dv = 1.0f / float(source->get_height());
+  float lx = du * float(src_x);
+  float rx = du * float(src_x + src_w);
+  float by = dv * float(source->get_height() - src_y - src_h);
+  float ty = dv * float(source->get_height() - src_y);
 
   this->shader.use();
-  this->shader.set_uniform_2f("src_sprite_size", float(src_w), float(src_h));
-  this->shader.set_uniform_matrix_4fv("transform", 1, GL_TRUE, &transform);
-  this->shader.set_uniform_3f("color_mask", float(color_mask.r), float(color_mask.g), float(color_mask.b));
-  this->shader.set_texture_sampler_2D("texture1", *source, 0);
+  this->shader.set_uniform_3f("ColorMask", float(color_mask.r), float(color_mask.g), float(color_mask.b));
+  this->shader.set_texture_sampler_2D("tex0", *source, 0);
+  this->shader.set_uniform_4f("Transform", float(scale.x), float(scale.y), float(dst_x), float(target_h - dst_y)); /* Note the "target_h - dst_y" adjustment, as the Y-axis in screen space differs from the one defined in OpenGL's NDC (Normalized Device Coordinates). */
+  this->shader.set_uniform_4i("TextureDims", src_w, src_h, target_w, target_h);
+  this->shader.set_uniform_1f("Rotation", float(rot));
 
   if (origin_mode == SpriteOriginMode_Center) {
     float vertices[16] = {
@@ -822,40 +1002,73 @@ void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int targe
 
 void SpriteRenderer::initialize()
 {
-  shader.create(
-    "#version 330 core\n"
-    "layout(location = 0) in vec3 aPosition;\n"
-    "layout(location = 1) in vec2 aTexCoord;\n"
-    "uniform mat4x4 transform;\n"
-    "uniform vec2 src_sprite_size; /* size of the sprite (can be cropped) */\n"
-    "out vec2 TexCoord;\n"
-    "void main()\n"
-    "{\n"
-    "  gl_Position = transform * vec4(src_sprite_size * aPosition.xy, 0.0, 1.0);\n"
-    "  TexCoord = aTexCoord;\n"
-    "}\n"
-    ,
-    "#version 330 core\n"
-    "in vec2 TexCoord;\n"
-    "uniform sampler2D texture1;\n"
-    "uniform vec3 color_mask;\n"
-    "void main()\n"
-    "{\n"
-    "  gl_FragColor = texture(texture1, TexCoord) * vec4(color_mask, 1.0);\n"
-    "}\n"
+  Shader::FragDataLocation fs_outs[] = {
+    {"FragColor", 0},
+  };
+  shader.create(R"(
+    #version 330 core
+    layout(location = 0) in vec2 inPosition;
+    layout(location = 1) in vec2 inTexCoord;
+    uniform ivec4 TextureDims; /* (Sw, Sh, Tw, Th) */
+    uniform vec4 Transform;    /* (Sx, Sy, dx, dy) */
+    uniform float Rotation;
+    out vec2 TexCoord;
+    mat4x4 rot_z(float angle) {
+      float c = cos(angle);
+      float s = sin(angle);
+      return mat4x4(
+        c, s, 0.0, 0.0,
+        -s, c, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0);
+    }
+    mat4x4 trans(float dx, float dy, float dz) {
+      return mat4x4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        dx, dy, dz, 1.0);
+    }
+    mat4x4 scale(float sx, float sy, float sz) {
+      return mat4x4(
+        sx, 0.0, 0.0, 0.0,
+        0.0, sy, 0.0, 0.0,
+        0.0, 0.0, sz, 0.0,
+        0.0, 0.0, 0.0, 1.0);
+    }
+    mat4x4 ortho(float n, float f, float l, float r, float t, float b) {
+      return mat4x4(
+        2.0/(r-l), 0.0, 0.0, 0.0,
+        0.0, 2.0/(t-b), 0.0, 0.0,
+        0.0, 0.0, -2.0/(f-n), 0.0,
+        -(r+l)/(r-l), -(t+b)/(t-b), -(f+n)/(f-n), 1.0
+      );
+    }
+    void main() {
+      mat4x4 mTranslate = trans(Transform.z, Transform.w, 0.0);
+      mat4x4 mRotate = rot_z(Rotation);
+      mat4x4 mScale = scale(Transform.x, Transform.y, 1.0);
+      mat4x4 mModel = mTranslate * mRotate * mScale;
+      mat4x4 mProjection = ortho(0.0, 1.0, 0.0, float(TextureDims.z), float(TextureDims.w), 0.0);
+      gl_Position = mProjection * mModel * vec4(float(TextureDims.x) * inPosition.x, float(TextureDims.y) * inPosition.y, 0.0, 1.0);
+      TexCoord = inTexCoord;
+    }
+    )"    
+    , R"(
+    #version 330 core
+    layout(location = 0) out vec4 FragColor;
+    in vec2 TexCoord;
+    uniform sampler2D tex0;
+    uniform vec3 ColorMask;
+    void main() {
+      vec4 color = texture(tex0, TexCoord); 
+      FragColor = color * vec4(ColorMask, 1.0);
+    }
+    )"
+    , sizeof(fs_outs) / sizeof(Shader::FragDataLocation), fs_outs
   );
-  float vertices[] = {
-    /* dummy data, just a placeholder */
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-  };
-  int indices[] = {
-    0, 1, 3,
-    1, 2, 3,
-  };
-  vbuf.create_and_fill(sizeof(vertices), NULL, GL_DYNAMIC_DRAW, sizeof(indices), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
+  int indices[] = { 0, 1, 3, 1, 2, 3 };
+  vbuf.create_and_fill(16 * sizeof(float), NULL, GL_DYNAMIC_DRAW, 6 * sizeof(indices), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
 }
 
 void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
@@ -863,8 +1076,6 @@ void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
   const Vec2& scale, const double& rot, const Vec3& color_mask,
   const sgl::SpriteOriginMode origin_mode)
 {
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_BLEND);
   gl_states.sprite_renderer.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode);
 }
 
@@ -889,7 +1100,10 @@ bool FrameBuffer::make() {
   glGenFramebuffers(1, &fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
+  GLenum draw_buffers[8];
+
   int w = -1, h = -1;
+  int num_draw_buffers = 0;
   for (int i = 0; i < 8; i++) {
     if (i >= gl_states.max_color_attachments) break;
     if (color_slots[i] == NULL) continue;
@@ -905,7 +1119,11 @@ bool FrameBuffer::make() {
         return false;
       }
     }
+    draw_buffers[num_draw_buffers] = GL_COLOR_ATTACHMENT0 + i;
+    num_draw_buffers++;
   }
+
+  glDrawBuffers(num_draw_buffers, draw_buffers);
 
   /* generate a depth stencil texture and attach it to framebuffer */
   glGenTextures(1, &depth_stencil_texid);
@@ -923,25 +1141,26 @@ bool FrameBuffer::make() {
   }
 
   /* compile shader for blit framebuffer */
-  blit_shader.create(
-    "#version 330 core\n"
-    "layout(location = 0) in vec2 inPosition;\n"
-    "layout(location = 1) in vec2 inTexCoords;\n"
-    "out vec2 TexCoords;\n"
-    "void main()\n"
-    "{\n"
-    "  gl_Position = vec4(inPosition.x, inPosition.y, 0.0, 1.0);\n"
-    "  TexCoords = inTexCoords;\n"
-    "}\n"
-    ,
-    "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "in vec2 TexCoords;\n"
-    "uniform sampler2D texture1;\n"
-    "void main()\n"
-    "{\n"
-    "  FragColor = texture(texture1, TexCoords);\n"
-    "}\n"
+  blit_shader.create(R"(
+    #version 330 core
+    layout(location = 0) in vec2 inPosition;
+    layout(location = 1) in vec2 inTexCoords;
+    out vec2 TexCoords;
+    void main()
+    {
+      gl_Position = vec4(inPosition.x, inPosition.y, 0.0, 1.0);
+      TexCoords = inTexCoords;
+    }
+    )", R"(
+    #version 330 core
+    out vec4 FragColor;
+    in vec2 TexCoords;
+    uniform sampler2D texture1;
+    void main()
+    {
+      FragColor = texture(texture1, TexCoords);
+    }
+    )"
   );
   float quad_verts[] = { 
     /* vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates. */
@@ -985,11 +1204,30 @@ void FrameBuffer::unbind() {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void FrameBuffer::blit_color_attachment_to_main_framebuffer(int slot) {
-  glBindFramebuffer(GL_FRAMEBUFFER, 0); /* select main framebuffer */
+GLuint FrameBuffer::get_GL_handle() const { 
+  return fbo;
+}
+
+void FrameBuffer::blit_color_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h) {
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, this->fbo);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); /* select main framebuffer */
   glDisable(GL_DEPTH_TEST);
   blit_shader.use();
   blit_shader.set_texture_sampler_2D("texture1", *color_slots[slot], 0);
+  IVec2 size = sgl::OpenGL::get_OpenGL_framebuffer_size(0);
+  float iW = 1.0f / float(size.x), iH = 1.0f / float(size.y);
+  float xl = 2 * dst_x * iW - 1.0f, xr = 2 * (dst_x + dst_w) * iW - 1.0f;
+  float yt = 1.0f - 2 * dst_y * iH, yb = 1.0f - 2 * (dst_y + dst_h) * iH;
+  float quad_verts[] = {
+    /* positions   texCoords */
+    xl, yb, 0.0f, 0.0f,
+    xr, yb, 1.0f, 0.0f,
+    xl, yt, 0.0f, 1.0f,
+    xl, yt, 0.0f, 1.0f,
+    xr, yb, 1.0f, 0.0f,
+    xr, yt, 1.0f, 1.0f,
+  };
+  quad_vbuf.subdata_VBO(0, sizeof(quad_verts), quad_verts);
   quad_vbuf.draw_arrays(GL_TRIANGLES, 0, 6);
 }
 

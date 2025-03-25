@@ -14,6 +14,8 @@ const int w = 480, h = 480;
 double T_frame = 0.0, T_global = 0.0;
 int frameid = 0;
 
+std::wstring long_text;
+
 struct {
   OpenGL::Shader shader;
   OpenGL::Texture tex1, tex2, chess;
@@ -21,6 +23,8 @@ struct {
 
   OpenGL::FrameBuffer framebuffer;
   OpenGL::Texture color_attachment;
+
+  OpenGL::Font font;
 } gl;
 
 std::string dtos(double v, int precision) {
@@ -136,6 +140,15 @@ void init_render() {
   gl.color_attachment.to(DeviceType_GPU);
   gl.framebuffer.setup_color_attachment(&gl.color_attachment, 0);
   gl.framebuffer.make();
+
+  gl.font.load("assets/common/fonts/Boutique_7pt/8pt_Regular.fnt");
+  long_text = sgl::read_file_as_wstring("assets/common/texts/chinese_long_text_sample.txt");
+  sgl::replace_all(long_text, L"\n", L"");
+  sgl::replace_all(long_text, L"£¬", L"");
+  sgl::replace_all(long_text, L"¡£", L"");
+  sgl::replace_all(long_text, L"£»", L"");
+  sgl::replace_all(long_text, L"¡¢", L"");
+  long_text = sgl::repeat_string<std::wstring>(long_text, 2);
 }
 
 void render_procedure(double T) {
@@ -143,6 +156,9 @@ void render_procedure(double T) {
   glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   glEnable(GL_DEPTH_TEST);
+
+  const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
+  const int w = rsize.x, h = rsize.y;
 
   Mat4x4 model = Mat4x4::rotate(normalize(Vec3(1, 2, 3)), degrees_to_radians(T * 30.0));
   Mat4x4 view = sgl::get_view_matrix(Vec3(1.5, 1.5, 1.5), Vec3(0, 0, 0), Vec3(0, 1, 0));
@@ -157,12 +173,12 @@ void render_procedure(double T) {
   gl.vbuf.draw_arrays(GL_TRIANGLES, 0, 36);
 
   /* Directly use this API to render a sprite to the screen without requiring any additional operations. */
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 81, 6, 14, 26, w / 2, h / 2 + 200, Vec2(2.0, 2.0), T, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_Center);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 65, 8, 14, 24, w / 2, h / 2 - 200, Vec2(2.0, 2.0), -T, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_Center);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 1, 16, 14, 16, 0, h, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopLeft);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 17, 12, 14, 20, 0, 0, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomLeft);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 33, 13, 14, 19, w, 0, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomRight);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 49, 11, 14, 21, w, h, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopRight);
+  sgl::OpenGL::blit_texture(&gl.chess, w, h, 81, 6, 14, 26, w / 2, h / 2 - 200, Vec2(2.0, 2.0), T, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_Center);
+  sgl::OpenGL::blit_texture(&gl.chess, w, h, 65, 8, 14, 24, w / 2, h / 2 + 200, Vec2(2.0, 2.0), -T, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_Center);
+  sgl::OpenGL::blit_texture(&gl.chess, w, h, 1, 16, 14, 16, 0, 0, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopLeft);
+  sgl::OpenGL::blit_texture(&gl.chess, w, h, 17, 12, 14, 20, 0, h, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomLeft);
+  sgl::OpenGL::blit_texture(&gl.chess, w, h, 33, 13, 14, 19, w, h, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomRight);
+  sgl::OpenGL::blit_texture(&gl.chess, w, h, 49, 11, 14, 21, w, 0, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopRight);
 }
 
 double render_frame(double T) {
@@ -170,8 +186,11 @@ double render_frame(double T) {
   timer.tick();
 
   gl.framebuffer.bind();
-  render_procedure(T);
-  gl.framebuffer.blit_color_attachment_to_main_framebuffer(0);
+  {
+    render_procedure(T);
+    //gl.font.draw_text(long_text, 0, 0, w, h, Vec4(1, 1, 1));
+  }
+  gl.framebuffer.blit_color_attachment_to_main_framebuffer(0, 0, 0, w, h);
 
   return timer.tick();
 }

@@ -85,7 +85,7 @@ public:
     flat qualifier used in OpenGL, see
     https://stackoverflow.com/questions/27581271/flat-qualifier-in-glsl.
     */
-    void  operator*=(const double& scalar) {
+    void operator*=(const double& scalar) {
       this->gl_Position *= scalar;
       /* Provide implementation for other attributes here. */
     }

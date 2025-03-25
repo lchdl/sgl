@@ -116,7 +116,6 @@ typedef Pipeline<Uniforms, VS_IN, FS_IN, Shader> Pipeline_t;
 int w = 320, h = 240;
 int num_threads = 2;
 int tilt_model = 0;
-//TextureSampling sampling = TextureSampling_Nearest;
 TextureSampling sampling = TextureSampling_Bilinear;
 
 bool keystate[SDL_NUM_SCANCODES];

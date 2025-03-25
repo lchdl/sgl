@@ -132,6 +132,8 @@ class Texture {
   TextureSampling sampling; 
   /* some special textures have their own usage (such as depth buffers..) */
   TextureUsage usage;
+  /* store comments for debugging */
+  std::string comment;
 
  public:
   /**
@@ -180,6 +182,8 @@ class Texture {
   PixelFormat      get_pixel_format() const { return this->format; }
   TextureUsage    get_texture_usage() const { return this->usage; }
   void            set_texture_usage(TextureUsage usage) { this->usage = usage; }
+  void                  set_comment(const std::string& comment) { this->comment = comment; }
+  std::string           get_comment() const { return this->comment; }
 
   /**
   Convert texture to another format.

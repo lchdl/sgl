@@ -65,6 +65,9 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
 
 /**
 Retrieves the size (width and height) of an OpenGL framebuffer object (FBO).
+NOTE: Call this function before any gl* draw calls, as it may bind the
+target framebuffer and reset some internal states, such as already bound
+texture objects.
 **/
 IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment = GL_COLOR_ATTACHMENT0);
 
@@ -77,8 +80,11 @@ This involves the following steps:
 * Otherwise, if a framebuffer object (FBO) is bound, the function 
   retrieves the size of the framebuffer instead.
 * If any error occurs during the process, a vector (-1, -1) is returned.
+NOTE: Call this function before any gl* draw calls, as it may bind the 
+target framebuffer and reset some internal states, such as already bound 
+texture objects.
 **/
-IVec2 get_current_render_target_size();
+IVec2 get_current_render_target_size(GLenum attachment = GL_COLOR_ATTACHMENT0);
 
 class Texture : public sgl::Texture {
 public:
@@ -133,10 +139,18 @@ public:
 
 class Shader {
 public:
-  bool create(const std::string& vertex_source, const std::string& fragment_source);
+  struct FragDataLocation {
+    /* layout (location = `slot`) out `name`; */
+    std::string name;
+    GLuint slot;
+  };
+public:
+  bool create(const std::string& vs, const std::string& fs);
+  bool create(const std::string& vs, const std::string& fs, const int n_outs, const FragDataLocation* fs_outs); /* for multiple render targets (MRT) */
   void use() const;
   GLuint get_GL_handle() const;
   GLint get_uniform_location(const std::string& name) const;
+  GLint get_frag_data_location(const std::string& name) const;
 
   bool set_uniform_1f(const std::string& name, GLfloat v0) const;
   bool set_uniform_2f(const std::string& name, GLfloat v0, GLfloat v1) const;
@@ -167,11 +181,13 @@ public:
     different texture slots.
   */
   bool set_texture_sampler_2D(const std::string& name, const sgl::OpenGL::Texture& texture, GLuint slot) const;
+  bool set_texture_sampler_2D(const std::string& name, const GLuint tex_handle, GLuint slot) const;
 
   void destroy();
 
   Shader();
-  Shader(const std::string& vertexSource, const std::string& fragmentSource);
+  Shader(const std::string& vs, const std::string& fs);
+  Shader(const std::string& vs, const std::string& fs, const int n_outs, const FragDataLocation* fs_outs); /* for multiple render targets (MRT) */
   /* disable copy */
   Shader(const Shader&) = delete;
   Shader& operator=(const Shader&) = delete;
@@ -182,6 +198,7 @@ protected:
 
 protected:
   GLuint gl_handle;
+  std::vector<FragDataLocation> fs_outs;
 };
 
 struct VertexFormat { static void define_format() {} };
@@ -191,6 +208,11 @@ struct VertexFormat_2f2f : public VertexFormat { static void define_format(); };
 
 template <typename VertexFormat_t>
 class VertexBuffer {
+  /*
+  The VertexBuffer class encapsulates an OpenGL Vertex Array Object (VAO), 
+  a Vertex Buffer Object (VBO), and an Element Array Buffer (IBO). Being a 
+  template class, it can adapt to various vertex data layouts.
+  */
 public:
   void create_empty();
   void create_and_reserve(const int vertex_buffer_bytes, GLenum vertex_buffer_usage, const int index_buffer_bytes, GLenum index_buffer_usage);
@@ -247,11 +269,12 @@ public:
   void destroy(); /* destroy framebuffer and return resources to system */
   void bind();    /* bind the framebuffer */
   void unbind();  /* unbind the framebuffer (bind default framebuffer) */
-
+  GLuint get_GL_handle() const;
 public:
   /* auxiliary functions */
   /* Blits (copies) a color component from a framebuffer attachment to the main framebuffer, automatically stretching to fill the full screen if dimensions differ. */
-  void blit_color_attachment_to_main_framebuffer(int slot);
+  void blit_color_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h);
+
 public:
   FrameBuffer();
   virtual ~FrameBuffer();
@@ -260,7 +283,7 @@ protected:
   GLuint fbo;
   GLuint depth_stencil_texid;
   /* member variables for blitting framebuffer's content to main framebuffer (0) */
-  sgl::OpenGL::Shader blit_shader; 
+  sgl::OpenGL::Shader blit_shader;
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> quad_vbuf;
 };
 
@@ -268,31 +291,24 @@ class SpriteRenderer {
 protected:
   sgl::OpenGL::Shader shader;
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> vbuf;
-  SpriteOriginMode origin_mode;
 public:
   void initialize();
   void destroy();
-  void set_sprite_origin_mode(SpriteOriginMode mode);
 
   SpriteRenderer();
   virtual ~SpriteRenderer();
 public:
   /**
   Renders a portion or the entirety of a sprite onto the screen.
-
-  @param source: The source sprite to be rendered.
-  @param target_w, target_h: The width and height of the render target 
-                             (NOT the size of the destination sprite).
-  @param src_x: The x-coordinate of the source sprite region to render.
-  @param src_y: The y-coordinate of the source sprite region to render.
-  @param src_w: The width of the source sprite region to render.
-  @param src_h: The height of the source sprite region to render.
-  @param dst_x: The x-coordinate of the destination location relative to the sprite origin.
-  @param dst_y: The y-coordinate of the destination location relative to the sprite origin.
-  @param scale: The scaling factor (x, y) to apply to the sprite.
-  @param rot: The rotation angle (in degrees) to apply to the sprite.
-  @param color_mask: A Vec3 representing the premultiplied color to apply to the sprite.
-  @param origin_mode: The origin mode for rendering (see enum SpriteOriginMode for details).
+  Parameters:
+    source: The source sprite to be rendered.
+    target_w, target_h: The width and height of the render target (NOT the size of the destination sprite).
+    src_x, src_y, src_w, src_h: The source sprite region to render.
+    dst_x, dst_y: The destination location relative to the sprite origin.
+    scale: The scaling factor (x, y) to apply to the sprite.
+    rot: The rotation angle (in degrees) to apply to the sprite.
+    color_mask: A Vec3 representing the premultiplied color to apply to the sprite.
+    origin_mode: The origin mode for rendering (see enum SpriteOriginMode for details).
   **/
   void draw(sgl::OpenGL::Texture* source, int target_w, int target_h,
     int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
@@ -308,8 +324,10 @@ void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
   const Vec2& scale, const double& rot, const Vec3& color_mask,
   const sgl::SpriteOriginMode origin_mode = SpriteOriginMode_TopLeft);
 
-class Font : protected sgl::Font {
-
+class Font : protected sgl::Font 
+{
+public:
+  static const int RenderBatchSize = 16;
 public:
   bool load(const char* path);
   void unload();
@@ -328,7 +346,9 @@ public:
   virtual ~Font();
 
 protected:
-  std::map<uint8_t, sgl::OpenGL::Texture> page_id2tex;
+  sgl::OpenGL::Texture font_tex;
+  sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> vbuf;
+  sgl::OpenGL::Shader shader;
 
 };
 
@@ -345,6 +365,10 @@ struct GL_states {
     current_active_window = NULL;
   }
 };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 template<typename VertexFormat_t>
 inline void VertexBuffer<VertexFormat_t>::create_empty() {
@@ -412,7 +436,6 @@ inline void VertexBuffer<VertexFormat_t>::subdata_VBO(GLintptr offset, GLsizeipt
 template<typename VertexFormat_t>
 inline void VertexBuffer<VertexFormat_t>::subdata_IBO(GLintptr offset, GLsizeiptr size, const void * data)
 {
-  //glBindVertexArray(VAO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
   glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, offset, size, data);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
