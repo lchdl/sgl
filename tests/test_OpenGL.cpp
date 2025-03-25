@@ -18,6 +18,9 @@ struct {
   OpenGL::Shader shader;
   OpenGL::Texture tex1, tex2, chess;
   OpenGL::VertexBuffer<OpenGL::VertexFormat_3f2f> vbuf;
+
+  OpenGL::FrameBuffer framebuffer;
+  OpenGL::Texture color_attachment;
 } gl;
 
 std::string dtos(double v, int precision) {
@@ -114,8 +117,7 @@ void init_render() {
     -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
   };
 
-  gl.vbuf.create();
-  gl.vbuf.alloc_buffer(sizeof(vertices), vertices, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
+  gl.vbuf.create_and_fill(sizeof(vertices), vertices, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
   
   gl.shader.create(
     sgl::read_file_as_string("assets/common/shaders/test.vert"),
@@ -129,14 +131,17 @@ void init_render() {
   gl.tex2.to(DeviceType_GPU);
   gl.chess.to(DeviceType_GPU);
 
+  /* init framebuffer here */
+  gl.color_attachment.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  gl.color_attachment.to(DeviceType_GPU);
+  gl.framebuffer.setup_color_attachment(&gl.color_attachment, 0);
+  gl.framebuffer.make();
 }
 
-double render_frame(double T) {
-  sgl::Timer timer;
-  timer.tick();
-
+void render_procedure(double T) {
+  /* render to currently active framebuffer */
   glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   glEnable(GL_DEPTH_TEST);
 
   Mat4x4 model = Mat4x4::rotate(normalize(Vec3(1, 2, 3)), degrees_to_radians(T * 30.0));
@@ -158,6 +163,15 @@ double render_frame(double T) {
   sgl::OpenGL::blit_texture(&gl.chess, w, h, 17, 12, 14, 20, 0, 0, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomLeft);
   sgl::OpenGL::blit_texture(&gl.chess, w, h, 33, 13, 14, 19, w, 0, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomRight);
   sgl::OpenGL::blit_texture(&gl.chess, w, h, 49, 11, 14, 21, w, h, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopRight);
+}
+
+double render_frame(double T) {
+  sgl::Timer timer;
+  timer.tick();
+
+  gl.framebuffer.bind();
+  render_procedure(T);
+  gl.framebuffer.blit_color_attachment_to_main_framebuffer(0);
 
   return timer.tick();
 }

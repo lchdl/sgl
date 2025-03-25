@@ -76,6 +76,7 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
   Initialize OpenGL states.
   */
   glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gl_states.max_texture_image_units);
+  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &gl_states.max_color_attachments);
   gl_states.current_active_window = window;
   gl_states.sprite_renderer.initialize();
 
@@ -313,6 +314,10 @@ Shader::~Shader() {
 }
 
 void Shader::use() const {
+  if (this->gl_handle == 0) {
+    printf("Error, shader handle is invalid.\n");
+    return;
+  }
   glUseProgram(gl_handle);
 }
 
@@ -726,7 +731,7 @@ void SpriteRenderer::set_sprite_origin_mode(SpriteOriginMode mode) {
     };
     memcpy(vbuf_data, vertices, sizeof(vertices));
   }
-  this->vbuf.vertex_buffer_subdata(0, sizeof(vbuf_data), vbuf_data);
+  this->vbuf.subdata_VBO(0, sizeof(vbuf_data), vbuf_data);
 }
 
 SpriteRenderer::SpriteRenderer() {}
@@ -774,7 +779,7 @@ void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int targe
       +0.5f, +0.5f, rx, ty,
       -0.5f, +0.5f, lx, ty,
     };
-    this->vbuf.vertex_buffer_subdata(0, sizeof(vertices), vertices);
+    this->vbuf.subdata_VBO(0, sizeof(vertices), vertices);
   }
   else if (origin_mode == SpriteOriginMode_BottomLeft) {
     float vertices[16] = {
@@ -783,7 +788,7 @@ void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int targe
       +1.0f, +1.0f, rx, ty,
       +0.0f, +1.0f, lx, ty,
     };
-    this->vbuf.vertex_buffer_subdata(0, sizeof(vertices), vertices);
+    this->vbuf.subdata_VBO(0, sizeof(vertices), vertices);
   }
   else if (origin_mode == SpriteOriginMode_BottomRight) {
     float vertices[16] = {
@@ -792,7 +797,7 @@ void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int targe
       +0.0f, +1.0f, rx, ty,
       -1.0f, +1.0f, lx, ty,
     };
-    this->vbuf.vertex_buffer_subdata(0, sizeof(vertices), vertices);
+    this->vbuf.subdata_VBO(0, sizeof(vertices), vertices);
   }
   else if (origin_mode == SpriteOriginMode_TopLeft) {
     float vertices[16] = {
@@ -801,7 +806,7 @@ void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int targe
       +1.0f, +0.0f, rx, ty,
       +0.0f, +0.0f, lx, ty,
     };
-    this->vbuf.vertex_buffer_subdata(0, sizeof(vertices), vertices);
+    this->vbuf.subdata_VBO(0, sizeof(vertices), vertices);
   }
   else if (origin_mode == SpriteOriginMode_TopRight) {
     float vertices[16] = {
@@ -810,7 +815,7 @@ void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int targe
       +0.0f, +0.0f, rx, ty,
       -1.0f, +0.0f, lx, ty,
     };
-    this->vbuf.vertex_buffer_subdata(0, sizeof(vertices), vertices);
+    this->vbuf.subdata_VBO(0, sizeof(vertices), vertices);
   }
   this->vbuf.draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
 }
@@ -850,8 +855,7 @@ void SpriteRenderer::initialize()
     0, 1, 3,
     1, 2, 3,
   };
-  vbuf.create();
-  vbuf.alloc_buffer(sizeof(vertices), NULL, GL_DYNAMIC_DRAW, sizeof(indices), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
+  vbuf.create_and_fill(sizeof(vertices), NULL, GL_DYNAMIC_DRAW, sizeof(indices), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
 }
 
 void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
@@ -862,6 +866,142 @@ void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
   gl_states.sprite_renderer.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode);
+}
+
+void FrameBuffer::setup_color_attachment(sgl::OpenGL::Texture * tex, int slot) {
+  if (slot < 0 || slot >= 8 || slot >= gl_states.max_color_attachments) {
+    printf("Error, invalid slot id.\n");
+    return;
+  }
+  if (tex->get_device() != DeviceType_GPU) {
+    printf("Error, texture not in GPU.\n");
+    return;
+  }
+  this->color_slots[slot] = tex;
+}
+
+bool FrameBuffer::make() {
+  if (fbo != 0) {
+    printf("Error, framebuffer is already initialized, call destroy() before make().\n");
+    return false;
+  }
+
+  glGenFramebuffers(1, &fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+  int w = -1, h = -1;
+  for (int i = 0; i < 8; i++) {
+    if (i >= gl_states.max_color_attachments) break;
+    if (color_slots[i] == NULL) continue;
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, color_slots[i]->get_GL_handle(), 0);
+    if (w < 0 || h < 0) {
+      w = color_slots[i]->get_width();
+      h = color_slots[i]->get_height();
+    }
+    else {
+      if (w != color_slots[i]->get_width() || h != color_slots[i]->get_height()) {
+        printf("Error: Color texture size mismatch detected.\n");
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        return false;
+      }
+    }
+  }
+
+  /* generate a depth stencil texture and attach it to framebuffer */
+  glGenTextures(1, &depth_stencil_texid);
+  glBindTexture(GL_TEXTURE_2D, depth_stencil_texid);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, w, h, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depth_stencil_texid, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  /* check framebuffer completeness and return */
+  GLenum fbo_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (fbo_status != GL_FRAMEBUFFER_COMPLETE) {
+    printf("Framebuffer not complete! Error code = %d\n", fbo_status);
+  }
+
+  /* compile shader for blit framebuffer */
+  blit_shader.create(
+    "#version 330 core\n"
+    "layout(location = 0) in vec2 inPosition;\n"
+    "layout(location = 1) in vec2 inTexCoords;\n"
+    "out vec2 TexCoords;\n"
+    "void main()\n"
+    "{\n"
+    "  gl_Position = vec4(inPosition.x, inPosition.y, 0.0, 1.0);\n"
+    "  TexCoords = inTexCoords;\n"
+    "}\n"
+    ,
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+    "in vec2 TexCoords;\n"
+    "uniform sampler2D texture1;\n"
+    "void main()\n"
+    "{\n"
+    "  FragColor = texture(texture1, TexCoords);\n"
+    "}\n"
+  );
+  float quad_verts[] = { 
+    /* vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates. */
+    /* positions   texCoords */
+    -1.0f, +1.0f,  0.0f, 1.0f,
+    -1.0f, -1.0f,  0.0f, 0.0f,
+    +1.0f, -1.0f,  1.0f, 0.0f,
+    -1.0f, +1.0f,  0.0f, 1.0f,
+    +1.0f, -1.0f,  1.0f, 0.0f,
+    +1.0f, +1.0f,  1.0f, 1.0f,
+  };
+  quad_vbuf.create_and_fill(sizeof(quad_verts), quad_verts, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
+
+  return fbo_status == GL_FRAMEBUFFER_COMPLETE && blit_shader.get_GL_handle() != 0 && quad_vbuf.get_VAO_GL_handle() != 0;
+}
+
+void FrameBuffer::destroy() {
+  if (fbo != 0) {
+    glDeleteFramebuffers(1, &fbo);
+    fbo = 0;
+  }
+  if (depth_stencil_texid != 0) {
+    glDeleteTextures(1, &depth_stencil_texid);
+    depth_stencil_texid = 0;
+  }
+  for (int i = 0; i < 8; i++)
+    color_slots[i] = NULL;
+  blit_shader.destroy();
+  quad_vbuf.destroy();
+}
+
+void FrameBuffer::bind() {
+  if (fbo == 0) {
+    printf("Error, cannot bind framebuffer since it is invalid.\n");
+    return;
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+}
+
+void FrameBuffer::unbind() {
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void FrameBuffer::blit_color_attachment_to_main_framebuffer(int slot) {
+  glBindFramebuffer(GL_FRAMEBUFFER, 0); /* select main framebuffer */
+  glDisable(GL_DEPTH_TEST);
+  blit_shader.use();
+  blit_shader.set_texture_sampler_2D("texture1", *color_slots[slot], 0);
+  quad_vbuf.draw_arrays(GL_TRIANGLES, 0, 6);
+}
+
+FrameBuffer::FrameBuffer() {
+  for (int i = 0; i < 8; i++)
+    color_slots[i] = NULL;
+  fbo = 0;
+  depth_stencil_texid = 0;
+}
+
+FrameBuffer::~FrameBuffer() {
+  destroy();
 }
 
 }; /* namespace OpenGL */

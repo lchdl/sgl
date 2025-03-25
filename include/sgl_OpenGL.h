@@ -192,23 +192,11 @@ struct VertexFormat_2f2f : public VertexFormat { static void define_format(); };
 template <typename VertexFormat_t>
 class VertexBuffer {
 public:
-  void create();
-  void create(const int vertex_buffer_bytes, GLenum vertex_buffer_usage, const int index_buffer_bytes, GLenum index_buffer_usage);
-  /**
-  Fills the vertex buffer with vertex and index data.
-  * Notes:
-    - If vertex_buffer_bytes is set to 0, vertex buffer filling will be skipped.
-    - If index_buffer_bytes is set to 0, index buffer filling will be skipped.
-  **/
-  void alloc_buffer(
-    const GLsizei vertex_buffer_bytes, const void* vertex_data, GLenum vertex_buffer_usage,
-    const GLsizei index_buffer_bytes, const void* index_data, GLenum index_buffer_usage);
-  void vertex_buffer_subdata(
-    GLintptr offset, GLsizeiptr size, const void* data
-  );
-  void index_buffer_subdata(
-    GLintptr offset, GLsizeiptr size, const void* data
-  );
+  void create_empty();
+  void create_and_reserve(const int vertex_buffer_bytes, GLenum vertex_buffer_usage, const int index_buffer_bytes, GLenum index_buffer_usage);
+  void create_and_fill(const GLsizei vertex_buffer_bytes, const void* vertex_data, GLenum vertex_buffer_usage, const GLsizei index_buffer_bytes, const void* index_data, GLenum index_buffer_usage);
+  void subdata_VBO(GLintptr offset, GLsizeiptr size, const void* data); /* updates vertex array buffer (VBO) */
+  void subdata_IBO(GLintptr offset, GLsizeiptr size, const void* data); /* updates element array buffer (IBO/EBO) */
   void draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices);
   void draw_arrays(GLenum mode, GLint first, GLsizei count);
   void destroy();
@@ -217,11 +205,63 @@ public:
   virtual ~VertexBuffer();
 
 protected:
+  /**
+  Fills the vertex buffer with vertex and index data.
+  * Notes:
+    - If vertex_buffer_bytes is set to 0, vertex buffer filling will be skipped.
+    - If index_buffer_bytes is set to 0, index buffer filling will be skipped.
+  **/
+  void _realloc_and_fill(
+    const GLsizei vertex_buffer_bytes, const void* vertex_data, GLenum vertex_buffer_usage,
+    const GLsizei index_buffer_bytes, const void* index_data, GLenum index_buffer_usage);
+
+public:
+  GLuint get_VAO_GL_handle() const;
+  GLuint get_VBO_GL_handle() const;
+  GLuint get_IBO_GL_handle() const;
+
+protected:
   GLuint VAO, VBO, IBO;
 };
 
 class FrameBuffer {
+  /*
+  The framebuffer currently only accepts color textures while handling depth 
+  and stencil buffers internally without exposing them. This design decision 
+  was made for several reasons:
+  1. Depth and stencil buffers are used less frequently than color textures, 
+     and exposing them would unnecessarily complicate library maintenance.
+  2. The framebuffer primarily serves as an encapsulation of OpenGL framebuffer 
+     objects. In OpenGL, depth buffers typically use 24-bit or float32 formats.
+     However, in SGL, we store depth buffers in float64 format to match modern 
+     CPU defaults. Supporting float32 would require additional effort without 
+     providing significant benefits, as there's no compelling need to create 
+     a float32 format solely for OpenGL compatibility.
+  Consequently, we provide specialized methods only for transferring depth and 
+  stencil buffer data when needed, while maintaining these buffers internally 
+  within the framebuffer instance.
+  */
+public:
+  void setup_color_attachment(sgl::OpenGL::Texture* tex, int slot); /* link color texture to framebuffer color texture slot */
+  bool make();    /* assemble framebuffer, must done before binding */
+  void destroy(); /* destroy framebuffer and return resources to system */
+  void bind();    /* bind the framebuffer */
+  void unbind();  /* unbind the framebuffer (bind default framebuffer) */
 
+public:
+  /* auxiliary functions */
+  /* Blits (copies) a color component from a framebuffer attachment to the main framebuffer, automatically stretching to fill the full screen if dimensions differ. */
+  void blit_color_attachment_to_main_framebuffer(int slot);
+public:
+  FrameBuffer();
+  virtual ~FrameBuffer();
+protected:
+  sgl::OpenGL::Texture* color_slots[8];
+  GLuint fbo;
+  GLuint depth_stencil_texid;
+  /* member variables for blitting framebuffer's content to main framebuffer (0) */
+  sgl::OpenGL::Shader blit_shader; 
+  sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> quad_vbuf;
 };
 
 class SpriteRenderer {
@@ -295,19 +335,19 @@ protected:
 /* the initialization process will also initialize the following states */
 struct GL_states {
   GLint max_texture_image_units;     /* maximum number of textures that can be bound to a fragment shader */
+  GLint max_color_attachments;
   SDL_Window* current_active_window; /* an `active` window refers to the window that currently holds the active OpenGL context. */
   SpriteRenderer sprite_renderer;
 
   GL_states() {
     max_texture_image_units = -1;
+    max_color_attachments = -1;
     current_active_window = NULL;
   }
 };
 
-extern struct GL_states gl_states;
-
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::create() {
+inline void VertexBuffer<VertexFormat_t>::create_empty() {
   destroy();
 
   glGenVertexArrays(1, &VAO);
@@ -323,16 +363,25 @@ inline void VertexBuffer<VertexFormat_t>::create() {
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::create(const int vertex_buffer_bytes, GLenum vertex_buffer_usage, const int index_buffer_bytes, GLenum index_buffer_usage)
+inline void VertexBuffer<VertexFormat_t>::create_and_reserve(const int vertex_buffer_bytes, GLenum vertex_buffer_usage, const int index_buffer_bytes, GLenum index_buffer_usage)
 {
   destroy();
 
-  this->create();
-  this->alloc_buffer(vertex_buffer_bytes, NULL, vertex_buffer_usage, index_buffer_bytes, NULL, index_buffer_usage);
+  this->create_empty();
+  this->_realloc_and_fill(vertex_buffer_bytes, NULL, vertex_buffer_usage, index_buffer_bytes, NULL, index_buffer_usage);
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::alloc_buffer(const GLsizei vertex_buffer_bytes, const void * vertex_data, GLenum vertex_buffer_usage, const GLsizei index_buffer_bytes, const void * index_data, GLenum index_buffer_usage)
+inline void VertexBuffer<VertexFormat_t>::create_and_fill(const GLsizei vertex_buffer_bytes, const void * vertex_data, GLenum vertex_buffer_usage, const GLsizei index_buffer_bytes, const void * index_data, GLenum index_buffer_usage)
+{
+  destroy();
+  
+  this->create_empty();
+  this->_realloc_and_fill(vertex_buffer_bytes, vertex_data, vertex_buffer_usage, index_buffer_bytes, index_data, index_buffer_usage);
+}
+
+template<typename VertexFormat_t>
+inline void VertexBuffer<VertexFormat_t>::_realloc_and_fill(const GLsizei vertex_buffer_bytes, const void * vertex_data, GLenum vertex_buffer_usage, const GLsizei index_buffer_bytes, const void * index_data, GLenum index_buffer_usage)
 {
   if (VAO == 0) {
     printf("Error, vertex buffer is not initialized, cannot fill data.\n");
@@ -353,7 +402,7 @@ inline void VertexBuffer<VertexFormat_t>::alloc_buffer(const GLsizei vertex_buff
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::vertex_buffer_subdata(GLintptr offset, GLsizeiptr size, const void * data)
+inline void VertexBuffer<VertexFormat_t>::subdata_VBO(GLintptr offset, GLsizeiptr size, const void * data)
 {
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
@@ -361,7 +410,7 @@ inline void VertexBuffer<VertexFormat_t>::vertex_buffer_subdata(GLintptr offset,
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::index_buffer_subdata(GLintptr offset, GLsizeiptr size, const void * data)
+inline void VertexBuffer<VertexFormat_t>::subdata_IBO(GLintptr offset, GLsizeiptr size, const void * data)
 {
   //glBindVertexArray(VAO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
@@ -419,6 +468,15 @@ template<typename VertexFormat_t>
 inline VertexBuffer<VertexFormat_t>::~VertexBuffer() {
   destroy();
 }
+
+template<typename VertexFormat_t>
+inline GLuint VertexBuffer<VertexFormat_t>::get_VAO_GL_handle() const { return VAO; }
+
+template<typename VertexFormat_t>
+inline GLuint VertexBuffer<VertexFormat_t>::get_VBO_GL_handle() const { return VBO; }
+
+template<typename VertexFormat_t>
+inline GLuint VertexBuffer<VertexFormat_t>::get_IBO_GL_handle() const { return IBO; }
 
 }; /* namespace sgl::OpenGL */
 }; /* namespace sgl */
