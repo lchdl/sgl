@@ -24,7 +24,7 @@ struct {
   OpenGL::FrameBuffer framebuffer;
   OpenGL::Texture color_attachment;
 
-  OpenGL::Font font;
+  OpenGL::Font fonts[4];
 } gl;
 
 std::string dtos(double v, int precision) {
@@ -141,14 +141,16 @@ void init_render() {
   gl.framebuffer.setup_color_attachment(&gl.color_attachment, 0);
   gl.framebuffer.make();
 
-  gl.font.load("assets/common/fonts/Boutique_7pt/8pt_Regular.fnt");
-  long_text = sgl::read_file_as_wstring("assets/common/texts/chinese_long_text_sample.txt");
+  gl.fonts[0].load("assets/common/fonts/GrapeSoda/16pt_Regular.fnt");
+  gl.fonts[1].load("assets/common/fonts/KiwiSoda/16pt_Regular.fnt");
+  gl.fonts[2].load("assets/common/fonts/Catseye/16pt_Regular.fnt");
+  gl.fonts[3].load("assets/common/fonts/MiniHerz/16pt_Regular.fnt");
+  long_text = sgl::read_file_as_wstring("assets/common/texts/the_novel_of_ancient_Rome.txt");
   sgl::replace_all(long_text, L"\n", L"");
   sgl::replace_all(long_text, L"£¬", L"");
   sgl::replace_all(long_text, L"¡£", L"");
   sgl::replace_all(long_text, L"£»", L"");
   sgl::replace_all(long_text, L"¡¢", L"");
-  long_text = sgl::repeat_string<std::wstring>(long_text, 2);
 }
 
 void render_procedure(double T) {
@@ -188,7 +190,10 @@ double render_frame(double T) {
   gl.framebuffer.bind();
   {
     render_procedure(T);
-    //gl.font.draw_text(long_text, 0, 0, w, h, Vec4(1, 1, 1));
+    gl.fonts[0].draw_text(long_text, 30, 30, 120, 120, Vec4(1, 1, 1));
+    gl.fonts[1].draw_text(long_text, w-150, 30, 120, 120, Vec4(1, 1, 1));
+    gl.fonts[2].draw_text(long_text, 30, h-150, 120, 120, Vec4(1, 1, 1));
+    gl.fonts[3].draw_text(long_text, w-150, h-150, 120, 120, Vec4(1, 1, 1));
   }
   gl.framebuffer.blit_color_attachment_to_main_framebuffer(0, 0, 0, w, h);
 
