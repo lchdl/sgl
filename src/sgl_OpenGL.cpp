@@ -607,6 +607,9 @@ void VertexFormat_2f2f::define_format()
 }
 
 bool Font::load(const char* path) {
+
+  unload();
+
   if(!sgl::Font::load(path)) 
     return false;
 
@@ -726,6 +729,10 @@ bool Font::load(const char* path) {
     , sizeof(fs_outs) / sizeof(Shader::FragDataLocation), fs_outs
   );
 
+  int sizeof_bufdata = 16 * sizeof(float) * Font::RenderBatchSize;
+  this->batch_buffer_data = (uint8_t*)malloc(sizeof_bufdata);
+  memset(this->batch_buffer_data, sizeof_bufdata, 0);
+
   fclose(fp);
   return true;
 }
@@ -734,10 +741,16 @@ void Font::unload() {
   this->font_tex.destroy();
   this->vbuf.destroy();
   this->shader.destroy();
+  if (this->batch_buffer_data) {
+    free(batch_buffer_data);
+    batch_buffer_data = NULL;
+  }
   sgl::Font::unload();
 }
 
-Font::Font() {}
+Font::Font() {
+  batch_buffer_data = NULL;
+}
 
 Font::~Font() {
   this->unload();
@@ -798,8 +811,6 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
 
   /* glyph minibatch buffering */
   int sizeof_bufdata = 16 * sizeof(float) * Font::RenderBatchSize;
-  uint8_t* bufdata = (uint8_t*)malloc(sizeof_bufdata);
-  memset(bufdata, sizeof_bufdata, 0);
   int n_output_chars = 0;
 
   for (size_t i = 0; i < text.size(); i++) {
@@ -859,9 +870,13 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
       requires_new_line = false;
     if (requires_new_line) {
       bool cursor_exceeds_height_limit = move_cursor_to_new_line(&glyph);
-      if (cursor_exceeds_height_limit)
+      if (cursor_exceeds_height_limit) {
         /* Exit early as the text exceeds the boundaries of the text box. */
+        /* but don't forget to flush remained chars */
+        vbuf.subdata_VBO(0, sizeof_bufdata, this->batch_buffer_data);
+        vbuf.draw_elements(GL_TRIANGLES, 6 * (n_output_chars % Font::RenderBatchSize), GL_UNSIGNED_INT, NULL);
         return IVec2(x_cursor, y_cursor);
+      }
     }
     /*
     Render glyph to texture.
@@ -887,11 +902,11 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
       };
 
       const int sizeof_vertices = 16 * sizeof(float);
-      memcpy(bufdata + sizeof_vertices * (n_output_chars % Font::RenderBatchSize), vertices, sizeof_vertices);
+      memcpy(this->batch_buffer_data + sizeof_vertices * (n_output_chars % Font::RenderBatchSize), vertices, sizeof_vertices);
       n_output_chars++;
       if (n_output_chars % Font::RenderBatchSize == 0) {
         /* flush */
-        vbuf.subdata_VBO(0, sizeof_bufdata, bufdata);
+        vbuf.subdata_VBO(0, sizeof_bufdata, this->batch_buffer_data);
         vbuf.draw_elements(GL_TRIANGLES, 6 * Font::RenderBatchSize, GL_UNSIGNED_INT, NULL);
       }
     }
@@ -899,13 +914,10 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
     x_cursor += glyph.xadvance;
   }
 
-  {
-    /* flush remained chars */
-    vbuf.subdata_VBO(0, sizeof_bufdata, bufdata);
-    vbuf.draw_elements(GL_TRIANGLES, 6 * (n_output_chars % Font::RenderBatchSize), GL_UNSIGNED_INT, NULL);
-  }
+  /* flush remained chars */
+  vbuf.subdata_VBO(0, sizeof_bufdata, this->batch_buffer_data);
+  vbuf.draw_elements(GL_TRIANGLES, 6 * (n_output_chars % Font::RenderBatchSize), GL_UNSIGNED_INT, NULL);
 
-  free(bufdata);
   return IVec2(x_cursor, y_cursor);
 }
 

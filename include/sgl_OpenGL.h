@@ -214,7 +214,6 @@ class VertexBuffer {
   template class, it can adapt to various vertex data layouts.
   */
 public:
-  void create_empty();
   void create_and_reserve(const int vertex_buffer_bytes, GLenum vertex_buffer_usage, const int index_buffer_bytes, GLenum index_buffer_usage);
   void create_and_fill(const GLsizei vertex_buffer_bytes, const void* vertex_data, GLenum vertex_buffer_usage, const GLsizei index_buffer_bytes, const void* index_data, GLenum index_buffer_usage);
   void subdata_VBO(GLintptr offset, GLsizeiptr size, const void* data); /* updates vertex array buffer (VBO) */
@@ -227,6 +226,7 @@ public:
   virtual ~VertexBuffer();
 
 protected:
+  void _create_empty();
   /**
   Fills the vertex buffer with vertex and index data.
   * Notes:
@@ -349,6 +349,7 @@ protected:
   sgl::OpenGL::Texture font_tex;
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> vbuf;
   sgl::OpenGL::Shader shader;
+  uint8_t* batch_buffer_data;
 
 };
 
@@ -371,7 +372,7 @@ struct GL_states {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::create_empty() {
+inline void VertexBuffer<VertexFormat_t>::_create_empty() {
   destroy();
 
   glGenVertexArrays(1, &VAO);
@@ -391,7 +392,7 @@ inline void VertexBuffer<VertexFormat_t>::create_and_reserve(const int vertex_bu
 {
   destroy();
 
-  this->create_empty();
+  this->_create_empty();
   this->_realloc_and_fill(vertex_buffer_bytes, NULL, vertex_buffer_usage, index_buffer_bytes, NULL, index_buffer_usage);
 }
 
@@ -400,7 +401,7 @@ inline void VertexBuffer<VertexFormat_t>::create_and_fill(const GLsizei vertex_b
 {
   destroy();
   
-  this->create_empty();
+  this->_create_empty();
   this->_realloc_and_fill(vertex_buffer_bytes, vertex_data, vertex_buffer_usage, index_buffer_bytes, index_data, index_buffer_usage);
 }
 
