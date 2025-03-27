@@ -261,11 +261,11 @@ get_view_matrix(Vec3 eye, Vec3 look_at, Vec3 up)
 inline Mat4x4 
 get_perspective_matrix(double aspect_ratio, double near, double far, double field_of_view) {
   /* aspect_ratio = w/h */
-  double inv_aspect = double(1.0) / aspect_ratio;
+  double inv_aspect = 1.0 / aspect_ratio;
   double& n = near; /* near */
   double& f = far; /* far */
   double& fov = field_of_view;
-  double l = -tan(fov / double(2.0)) * n; /* left */
+  double l = -tan(fov / 2.0) * n; /* left */
   double r = -l; /* right */
   double t = inv_aspect * r; /* top */
   double b = -t; /* bottom */

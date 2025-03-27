@@ -33,6 +33,7 @@ The overall design of the rasterization pipeline is shown below.
 | `test_normal_mapping.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_normal_mapping.png) | Demonstration of normal mapping techniques and nearest/linear texture sampling. |
 | `test_font_rendering.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_font_rendering.png) | Stylized font rendering with decent rasterization performance. |
 | `test_opengl.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_opengl.png) | A simple OpenGL demo showcasing font rendering, framebuffer objects, sprite rendering, and mesh rendering. |
+| `test_opengl_MRT.cpp` | ![](https://github.com/lchdl/sgl/blob/develop/assets/readme/test_opengl_MRT.png) | OpenGL Multiple Render Targets (MRT) demonstration. |
 
 ### Performance benchmarking
 | Demo or test name | Description |

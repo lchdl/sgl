@@ -104,7 +104,7 @@ IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment)
     the rendering pipeline.
     */
     GLint current_fbo;
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &current_fbo);
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &current_fbo);
     if (current_fbo != fbo) /* avoid rebinding the same fbo */
       glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
@@ -136,8 +136,15 @@ IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment)
 IVec2 get_current_render_target_size(GLenum attachment)
 {
   GLint current_fbo = -1;
-  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &current_fbo);
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &current_fbo);
   return get_OpenGL_framebuffer_size(current_fbo, attachment);
+}
+
+GLuint get_current_framebuffer()
+{
+  GLint current_fbo = -1;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &current_fbo);
+  return GLuint(current_fbo);
 }
 
 Texture::Texture() {
@@ -224,9 +231,37 @@ bool Texture::to(sgl::DeviceType device)
       printf("Cannot download texture data using an invalid OpenGL texture handle.\n");
       return false;
     }
-    /* TODO: add support for transfering GPU data to CPU. */
+    if (this->format == PixelFormat_BGRA8888 || this->format == PixelFormat_RGBA8888) {
+      glBindTexture(GL_TEXTURE_2D, gl_handle);
+      size_t dataSize = w * h * 4 * sizeof(uint8_t);
+      if (this->format == PixelFormat_BGRA8888)
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+      else if (this->format == PixelFormat_RGBA8888)
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);      
+      glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    /* TODO: add support for other formats downloading */
+    else {
+      printf("Error, unsupported pixel format.\n");
+      return false;
+    }
+    this->device = DeviceType_CPU;
+    return true;
+  }
+  else {
+    printf("Unsupported device transfer.\n");
+    return false;
   }
   return false;
+}
+
+bool Texture::save_png(const std::string& path) const {
+  /* perform additional check before saving */
+  if (this->device != DeviceType_CPU) {
+    printf("Error, texture is not on CPU host memory.\n");
+    return false;
+  }
+  return sgl::Texture::save_png(path);
 }
 
 sgl::DeviceType Texture::get_device() const
@@ -689,9 +724,9 @@ bool Font::load(const char* path) {
   font_tex.to(DeviceType_GPU);
 
   /* create VBO and shader for rendering */
-  int sizeof_indices = sizeof(int) * 6 * Font::RenderBatchSize;
+  int sizeof_indices = sizeof(int) * 6 * Font::batch_size;
   int* indices = (int*)malloc(sizeof_indices);
-  for (int i = 0; i < Font::RenderBatchSize; i++) {
+  for (int i = 0; i < Font::batch_size; i++) {
     indices[i * 6 + 0] = 0 + i * 4;
     indices[i * 6 + 1] = 1 + i * 4;
     indices[i * 6 + 2] = 3 + i * 4;
@@ -699,7 +734,7 @@ bool Font::load(const char* path) {
     indices[i * 6 + 4] = 2 + i * 4;
     indices[i * 6 + 5] = 3 + i * 4;
   }
-  vbuf.create_and_fill(16 * sizeof(float) * Font::RenderBatchSize, NULL, GL_DYNAMIC_DRAW, sizeof_indices, indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
+  vbuf.create_and_fill(Font::batch_bufsz, NULL, GL_DYNAMIC_DRAW, sizeof_indices, indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
   free(indices);
   
   Shader::FragDataLocation fs_outs[] = {
@@ -729,9 +764,7 @@ bool Font::load(const char* path) {
     , sizeof(fs_outs) / sizeof(Shader::FragDataLocation), fs_outs
   );
 
-  int sizeof_bufdata = 16 * sizeof(float) * Font::RenderBatchSize;
-  this->batch_buffer_data = (uint8_t*)malloc(sizeof_bufdata);
-  memset(this->batch_buffer_data, sizeof_bufdata, 0);
+  this->batch_buf = (uint8_t*)malloc(Font::batch_bufsz);
 
   fclose(fp);
   return true;
@@ -741,15 +774,15 @@ void Font::unload() {
   this->font_tex.destroy();
   this->vbuf.destroy();
   this->shader.destroy();
-  if (this->batch_buffer_data) {
-    free(batch_buffer_data);
-    batch_buffer_data = NULL;
+  if (this->batch_buf) {
+    free(batch_buf);
+    batch_buf = NULL;
   }
   sgl::Font::unload();
 }
 
 Font::Font() {
-  batch_buffer_data = NULL;
+  batch_buf = NULL;
 }
 
 Font::~Font() {
@@ -809,9 +842,14 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
     else return false;
   };
 
+  /* Auxiliary function for flushing (rendering) glyph batch buffer. */
+  auto flush_batch = [&](const int count) -> void {
+    this->vbuf.subdata_VBO(0, Font::batch_bufsz, this->batch_buf);
+    this->vbuf.draw_elements(GL_TRIANGLES, 6 * count, GL_UNSIGNED_INT, NULL);
+  };
+
   /* glyph minibatch buffering */
-  int sizeof_bufdata = 16 * sizeof(float) * Font::RenderBatchSize;
-  int n_output_chars = 0;
+  int n_out_chars = 0;
 
   for (size_t i = 0; i < text.size(); i++) {
     /*
@@ -871,10 +909,11 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
     if (requires_new_line) {
       bool cursor_exceeds_height_limit = move_cursor_to_new_line(&glyph);
       if (cursor_exceeds_height_limit) {
-        /* Exit early as the text exceeds the boundaries of the text box. */
-        /* but don't forget to flush remained chars */
-        vbuf.subdata_VBO(0, sizeof_bufdata, this->batch_buffer_data);
-        vbuf.draw_elements(GL_TRIANGLES, 6 * (n_output_chars % Font::RenderBatchSize), GL_UNSIGNED_INT, NULL);
+        /* 
+        Exit early as the text exceeds the boundaries of the text box, 
+        but don't forget to flush remained chars.
+        */
+        flush_batch(n_out_chars % Font::batch_size);
         return IVec2(x_cursor, y_cursor);
       }
     }
@@ -883,40 +922,41 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
     NOTE: we pack multiple glyphs to a minibatch to improve render speed.
     */
     {
-      float t_xl = t_du * float(glyph.x);
-      float t_xr = t_du * float(glyph.x + glyph.w);
-      float t_yb = t_dv * float(font_tex.get_height() - glyph.y - glyph.h);
-      float t_yt = t_dv * float(font_tex.get_height() - glyph.y);
-
       float g_xl = 2.0f * float(x_dst) * g_du - 1.0f;
       float g_xr = 2.0f * float(x_dst + glyph.w) * g_du - 1.0f;
       float g_yb = 1.0f - 2.0f * float(y_dst + glyph.h) * g_dv;
       float g_yt = 1.0f - 2.0f * float(y_dst) * g_dv;
 
-      float vertices[16] = {
-        /* We directly compute NDC here */
+      float t_xl = t_du * float(glyph.x);
+      float t_xr = t_du * float(glyph.x + glyph.w);
+      float t_yb = t_dv * float(font_tex.get_height() - glyph.y - glyph.h);
+      float t_yt = t_dv * float(font_tex.get_height() - glyph.y);
+
+      float glyph_vbuf[16] = {
+        /*
+        We directly compute normalized device coordinates (NDC) here. The vertex 
+        shader performs minimal processing - it simply passes through the input 
+        attributes and lets them interpolate naturally to the fragment shader.
+        */
         g_xl, g_yb, t_xl, t_yb,
         g_xr, g_yb, t_xr, t_yb,
         g_xr, g_yt, t_xr, t_yt,
         g_xl, g_yt, t_xl, t_yt,
       };
 
-      const int sizeof_vertices = 16 * sizeof(float);
-      memcpy(this->batch_buffer_data + sizeof_vertices * (n_output_chars % Font::RenderBatchSize), vertices, sizeof_vertices);
-      n_output_chars++;
-      if (n_output_chars % Font::RenderBatchSize == 0) {
-        /* flush */
-        vbuf.subdata_VBO(0, sizeof_bufdata, this->batch_buffer_data);
-        vbuf.draw_elements(GL_TRIANGLES, 6 * Font::RenderBatchSize, GL_UNSIGNED_INT, NULL);
-      }
+      memcpy(this->batch_buf + sizeof(glyph_vbuf) * (n_out_chars % Font::batch_size), glyph_vbuf, sizeof(glyph_vbuf));
+      n_out_chars++;
+
+      /* flush if batch is full */
+      if (n_out_chars % Font::batch_size == 0)
+        flush_batch(Font::batch_size);
     }
     line_chars++;
     x_cursor += glyph.xadvance;
   }
 
   /* flush remained chars */
-  vbuf.subdata_VBO(0, sizeof_bufdata, this->batch_buffer_data);
-  vbuf.draw_elements(GL_TRIANGLES, 6 * (n_output_chars % Font::RenderBatchSize), GL_UNSIGNED_INT, NULL);
+  flush_batch(n_out_chars % Font::batch_size);
 
   return IVec2(x_cursor, y_cursor);
 }
@@ -1134,6 +1174,8 @@ bool FrameBuffer::make() {
     draw_buffers[num_draw_buffers] = GL_COLOR_ATTACHMENT0 + i;
     num_draw_buffers++;
   }
+  this->w = w;
+  this->h = h;
 
   glDrawBuffers(num_draw_buffers, draw_buffers);
 
@@ -1167,10 +1209,10 @@ bool FrameBuffer::make() {
     #version 330 core
     out vec4 FragColor;
     in vec2 TexCoords;
-    uniform sampler2D texture1;
+    uniform sampler2D tex0;
     void main()
     {
-      FragColor = texture(texture1, TexCoords);
+      FragColor = texture(tex0, TexCoords);
     }
     )"
   );
@@ -1202,18 +1244,51 @@ void FrameBuffer::destroy() {
     color_slots[i] = NULL;
   blit_shader.destroy();
   quad_vbuf.destroy();
+  w = h = -1;
+}
+
+int FrameBuffer::get_width() const { 
+  return this->w; 
+}
+
+int FrameBuffer::get_height() const { 
+  return this->h; 
 }
 
 void FrameBuffer::bind() {
   if (fbo == 0) {
-    printf("Error, cannot bind framebuffer since it is invalid.\n");
+    printf("Error, cannot bind framebuffer since it is invalid/incomplete.\n");
     return;
   }
+  GLuint current_fbo = sgl::OpenGL::get_current_framebuffer();
+  if (current_fbo == fbo) {
+    printf("Error, cannot bind the same framebuffer twice.\n");
+    return;
+  }
+  else if (current_fbo != 0) {
+    printf("Error, cannot bind framebuffer since some other framebuffer is already bound.\n");
+    return;
+  }
+
+  IVec2 rsize = sgl::OpenGL::get_OpenGL_framebuffer_size(fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+  glViewport(0, 0, rsize.x, rsize.y);
 }
 
 void FrameBuffer::unbind() {
+  if (fbo == 0) {
+    printf("Error, cannot unbind framebuffer since it is invalid/incomplete.\n");
+    return;
+  }
+  GLuint current_fbo = sgl::OpenGL::get_current_framebuffer();
+  if (current_fbo != fbo) {
+    printf("Error, cannot unbind framebuffer, internal handle mismatch.\n");
+    return;
+  }
+
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  IVec2 rsize = sgl::OpenGL::get_OpenGL_framebuffer_size(0);
+  glViewport(0, 0, rsize.x, rsize.y);
 }
 
 GLuint FrameBuffer::get_GL_handle() const { 
@@ -1221,12 +1296,14 @@ GLuint FrameBuffer::get_GL_handle() const {
 }
 
 void FrameBuffer::blit_color_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h) {
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, this->fbo);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); /* select main framebuffer */
-  glDisable(GL_DEPTH_TEST);
-  blit_shader.use();
-  blit_shader.set_texture_sampler_2D("texture1", *color_slots[slot], 0);
+
   IVec2 size = sgl::OpenGL::get_OpenGL_framebuffer_size(0);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0); /* select main framebuffer */
+  glDisable(GL_DEPTH_TEST);
+
+  blit_shader.use();
+  blit_shader.set_texture_sampler_2D("tex0", *color_slots[slot], 0);
   float iW = 1.0f / float(size.x), iH = 1.0f / float(size.y);
   float xl = 2 * dst_x * iW - 1.0f, xr = 2 * (dst_x + dst_w) * iW - 1.0f;
   float yt = 1.0f - 2 * dst_y * iH, yb = 1.0f - 2 * (dst_y + dst_h) * iH;
@@ -1248,6 +1325,7 @@ FrameBuffer::FrameBuffer() {
     color_slots[i] = NULL;
   fbo = 0;
   depth_stencil_texid = 0;
+  w = h = -1;
 }
 
 FrameBuffer::~FrameBuffer() {

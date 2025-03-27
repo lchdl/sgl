@@ -10,21 +10,19 @@ using namespace sgl;
 bool keystate[SDL_NUM_SCANCODES];
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
-const int w = 480, h = 480;
+const int w = 240, h = 240;
 double T_frame = 0.0, T_global = 0.0;
 int frameid = 0;
 
-std::wstring long_text;
-
 struct {
-  OpenGL::Shader shader;
-  OpenGL::Texture tex1, tex2, chess;
+  OpenGL::Shader shader_MRT;
+  OpenGL::Texture tex1, tex2;
   OpenGL::VertexBuffer<OpenGL::VertexFormat_3f2f> vbuf;
 
   OpenGL::FrameBuffer framebuffer;
-  OpenGL::Texture color_attachment;
+  OpenGL::Texture color_out0, color_out1;
 
-  OpenGL::Font fonts[4];
+  OpenGL::Font font;
 } gl;
 
 std::string dtos(double v, int precision) {
@@ -40,7 +38,7 @@ void init_env(int argc, char* argv[]) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0)
     exit(1);
   /* Create window */
-  pWindow = SDL_CreateWindow("SGL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+  pWindow = SDL_CreateWindow("SGL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w * 2, h, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
   if (pWindow == NULL)
     exit(1);
   if (!sgl::OpenGL::initialize_OpenGL(pWindow, 3, 3, true))
@@ -123,64 +121,78 @@ void init_render() {
 
   gl.vbuf.create_and_fill(sizeof(vertices), vertices, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
   
-  gl.shader.create(
-    sgl::read_file_as_string("assets/common/shaders/test.vert"),
-    sgl::read_file_as_string("assets/common/shaders/test.frag")
+  sgl::OpenGL::Shader::FragDataLocation fs_outs[] = {
+    {"FragColor", 0},
+    {"FragAlpha", 1},
+  };
+  gl.shader_MRT.create(R"(
+    #version 330 core
+    layout (location = 0) in vec3 inPosition;
+    layout (location = 1) in vec2 inTexCoord;
+    uniform mat4x4 model;
+    uniform mat4x4 view;
+    uniform mat4x4 projection;
+    out vec2 TexCoord;
+    void main()
+    {
+	    gl_Position = projection * view * model * vec4(inPosition, 1.0);
+	    TexCoord = inTexCoord;
+    }
+    )", R"(
+    #version 330 core
+    layout(location = 0) out vec4 FragColor;
+    layout(location = 1) out vec4 FragAlpha;
+    in vec2 TexCoord;
+    uniform sampler2D tex1;
+    uniform sampler2D tex2;
+    void main()
+    {
+	    FragColor = mix(texture(tex1, TexCoord), texture(tex2, TexCoord), 0.5);
+	    FragAlpha = vec4(1.0, 1.0, 1.0, 1.0);
+    }
+    )",
+    2, fs_outs
   );
 
   gl.tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
   gl.tex2 = sgl::load_texture("assets/common/textures/brick/brick_diffuse_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
-  gl.chess = sgl::load_texture("assets/common/textures/chess.png", PixelFormat_BGRA8888, TextureSampling_Nearest, true);
   gl.tex1.to(DeviceType_GPU);
   gl.tex2.to(DeviceType_GPU);
-  gl.chess.to(DeviceType_GPU);
 
-  /* init framebuffer here */
-  gl.color_attachment.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  gl.color_attachment.to(DeviceType_GPU);
-  gl.framebuffer.setup_color_attachment(&gl.color_attachment, 0);
+  gl.color_out0.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  gl.color_out0.to(DeviceType_GPU);
+  gl.color_out1.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  gl.color_out1.to(DeviceType_GPU);
+  gl.framebuffer.setup_color_attachment(&gl.color_out0, 0);
+  gl.framebuffer.setup_color_attachment(&gl.color_out1, 1);
   gl.framebuffer.make();
 
-  gl.fonts[0].load("assets/common/fonts/GrapeSoda/16pt_Regular.fnt");
-  gl.fonts[1].load("assets/common/fonts/KiwiSoda/16pt_Regular.fnt");
-  gl.fonts[2].load("assets/common/fonts/Catseye/16pt_Regular.fnt");
-  gl.fonts[3].load("assets/common/fonts/MiniHerz/16pt_Regular.fnt");
-  long_text = sgl::read_file_as_wstring("assets/common/texts/the_novel_of_ancient_Rome.txt");
-  sgl::replace_all(long_text, L"\n", L"");
-  sgl::replace_all(long_text, L"£¬", L"");
-  sgl::replace_all(long_text, L"¡£", L"");
-  sgl::replace_all(long_text, L"£»", L"");
-  sgl::replace_all(long_text, L"¡¢", L"");
+  gl.font.load("assets/common/fonts/Arial/11pt_Regular.fnt");
+
 }
 
 void render_procedure(double T) {
   /* render to currently active framebuffer */
-  glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  glEnable(GL_DEPTH_TEST);
 
   const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
   const int w = rsize.x, h = rsize.y;
 
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glEnable(GL_DEPTH_TEST);
+
   Mat4x4 model = Mat4x4::rotate(normalize(Vec3(1, 2, 3)), degrees_to_radians(T * 30.0));
-  Mat4x4 view = sgl::get_view_matrix(Vec3(1.5, 1.5, 1.5), Vec3(0, 0, 0), Vec3(0, 1, 0));
+  Mat4x4 view = sgl::get_view_matrix(Vec3(1.1, 1.1, 1.1), Vec3(0, 0, 0), Vec3(0, 1, 0));
   Mat4x4 projection = sgl::get_perspective_matrix(double(w) / double(h), 0.1, 10.0, degrees_to_radians(60.0));
 
-  gl.shader.use();
-  gl.shader.set_texture_sampler_2D("texture1", gl.tex1, 0);
-  gl.shader.set_texture_sampler_2D("texture2", gl.tex2, 1);
-  gl.shader.set_uniform_matrix_4fv("model", 1, GL_TRUE, &model);
-  gl.shader.set_uniform_matrix_4fv("view", 1, GL_TRUE, &view);
-  gl.shader.set_uniform_matrix_4fv("projection", 1, GL_TRUE, &projection);
+  gl.shader_MRT.use();
+  gl.shader_MRT.set_texture_sampler_2D("tex1", gl.tex1, 0);
+  gl.shader_MRT.set_texture_sampler_2D("tex2", gl.tex2, 1);
+  gl.shader_MRT.set_uniform_matrix_4fv("model", 1, GL_TRUE, &model);
+  gl.shader_MRT.set_uniform_matrix_4fv("view", 1, GL_TRUE, &view);
+  gl.shader_MRT.set_uniform_matrix_4fv("projection", 1, GL_TRUE, &projection);
   gl.vbuf.draw_arrays(GL_TRIANGLES, 0, 36);
 
-  /* Directly use this API to render a sprite to the screen without requiring any additional operations. */
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 81, 6, 14, 26, w / 2, h / 2 - 200, Vec2(2.0, 2.0), T, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_Center);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 65, 8, 14, 24, w / 2, h / 2 + 200, Vec2(2.0, 2.0), -T, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_Center);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 1, 16, 14, 16, 0, 0, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopLeft);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 17, 12, 14, 20, 0, h, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomLeft);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 33, 13, 14, 19, w, h, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomRight);
-  sgl::OpenGL::blit_texture(&gl.chess, w, h, 49, 11, 14, 21, w, 0, Vec2(2.0, 2.0), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopRight);
 }
 
 double render_frame(double T) {
@@ -191,14 +203,24 @@ double render_frame(double T) {
   gl.framebuffer.bind();
   {
     render_procedure(T);
-    gl.fonts[0].draw_text(long_text, 30, 30, 120, 120, Vec4(1, 1, 1));
-    gl.fonts[1].draw_text(long_text, w - 150, 30, 120, 120, Vec4(1, 1, 1));
-    gl.fonts[2].draw_text(long_text, 30, h - 150, 120, 120, Vec4(1, 1, 1));
-    gl.fonts[3].draw_text(long_text, w - 150, h - 150, 120, 120, Vec4(1, 1, 1));
   }
   gl.framebuffer.unbind();
   gl.framebuffer.blit_color_attachment_to_main_framebuffer(0, 0, 0, w, h);
- 
+  gl.framebuffer.blit_color_attachment_to_main_framebuffer(1, w, 0, w, h);
+
+  sgl::OpenGL::blit_texture(&gl.color_out0, w * 2, h, 0, 0, w, h, w, 0, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopLeft);
+  sgl::OpenGL::blit_texture(&gl.color_out1, w * 2, h, 0, 0, w, h, w, h, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomLeft);
+  sgl::OpenGL::blit_texture(&gl.tex1, w * 2, h, 0, 0, gl.tex1.get_width(), gl.tex1.get_height(), w * 2, 0, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopRight);
+  sgl::OpenGL::blit_texture(&gl.tex2, w * 2, h, 0, 0, gl.tex2.get_width(), gl.tex2.get_height(), w * 2, h, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomRight);
+
+  int text_width;
+
+  text_width = gl.font.get_text_extent_point(L"Main View").x;
+  gl.font.draw_text(L"Main View", (w - text_width) / 2, 0, Vec4(1, 1, 1));
+
+  text_width = gl.font.get_text_extent_point(L"Auxiliary View").x;
+  gl.font.draw_text(L"Auxiliary View", w + (w - text_width) / 2, 0, Vec4(1, 1, 1));
+
   return timer.tick();
 }
 

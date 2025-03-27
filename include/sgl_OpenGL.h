@@ -86,6 +86,8 @@ texture objects.
 **/
 IVec2 get_current_render_target_size(GLenum attachment = GL_COLOR_ATTACHMENT0);
 
+GLuint get_current_framebuffer();
+
 class Texture : public sgl::Texture {
 public:
   /*
@@ -125,9 +127,10 @@ protected:
   GLuint gl_handle; /* OpenGL texture handle (0=invalid) */
 
 public:
-  /* reimplement base class function */
+  /* reimplement base class functions */
   void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage);
   void destroy();
+  bool save_png(const std::string& path) const;
 
 public:
   Texture();
@@ -214,8 +217,8 @@ class VertexBuffer {
   template class, it can adapt to various vertex data layouts.
   */
 public:
-  void create_and_reserve(const int vertex_buffer_bytes, GLenum vertex_buffer_usage, const int index_buffer_bytes, GLenum index_buffer_usage);
-  void create_and_fill(const GLsizei vertex_buffer_bytes, const void* vertex_data, GLenum vertex_buffer_usage, const GLsizei index_buffer_bytes, const void* index_data, GLenum index_buffer_usage);
+  void create_and_reserve(const int vbuf_bytes, GLenum vbuf_usage, const int ibuf_bytes, GLenum ibuf_usage);
+  void create_and_fill(const GLsizei vbuf_bytes, const void* vbuf_data, GLenum vbuf_usage, const GLsizei ibuf_bytes, const void* ibuf_data, GLenum ibuf_usage);
   void subdata_VBO(GLintptr offset, GLsizeiptr size, const void* data); /* updates vertex array buffer (VBO) */
   void subdata_IBO(GLintptr offset, GLsizeiptr size, const void* data); /* updates element array buffer (IBO/EBO) */
   void draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices);
@@ -234,8 +237,8 @@ protected:
     - If index_buffer_bytes is set to 0, index buffer filling will be skipped.
   **/
   void _realloc_and_fill(
-    const GLsizei vertex_buffer_bytes, const void* vertex_data, GLenum vertex_buffer_usage,
-    const GLsizei index_buffer_bytes, const void* index_data, GLenum index_buffer_usage);
+    const GLsizei vbuf_bytes, const void* vbuf_data, GLenum vbuf_usage,
+    const GLsizei ibuf_bytes, const void* ibuf_data, GLenum ibuf_usage);
 
 public:
   GLuint get_VAO_GL_handle() const;
@@ -270,6 +273,8 @@ public:
   void bind();    /* bind the framebuffer */
   void unbind();  /* unbind the framebuffer (bind default framebuffer) */
   GLuint get_GL_handle() const;
+  int get_width() const;
+  int get_height() const;
 public:
   /* auxiliary functions */
   /* Blits (copies) a color component from a framebuffer attachment to the main framebuffer, automatically stretching to fill the full screen if dimensions differ. */
@@ -279,6 +284,7 @@ public:
   FrameBuffer();
   virtual ~FrameBuffer();
 protected:
+  int w, h;
   sgl::OpenGL::Texture* color_slots[8];
   GLuint fbo;
   GLuint depth_stencil_texid;
@@ -327,7 +333,36 @@ void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
 class Font : protected sgl::Font 
 {
 public:
-  static const int RenderBatchSize = 16;
+  /* 
+  Batch processing of glyphs significantly improves rendering performance (~8.3x). 
+  However, optimal batch size varies substantially across GPU architectures. This
+  implementation adopts a median value that balances compatibility with mainstream 
+  GPUs while maintaining performance gains, determined through empirical testing 
+  on common hardware configurations.
+
+  Benchmark results (lower is better):
+  batch_size    render time (ms)
+  -------------------------------------
+  1             4.040 (no optimization)
+  2             2.105
+  4             1.248
+  8             0.895
+  16 (1KB buf)  0.685
+  24            0.610
+  32 (2KB buf)  0.568
+  48            0.522
+  64 (4KB buf)  0.485 (best value, ~8x)
+  80            0.499
+  96            0.496
+
+  Observations:
+  - Performance plateaus after batch size 64 (4KB buffer)
+  - Larger batch sizes provide negligible performance improvements
+  - Excessive batch sizes waste heap memory without meaningful gains
+  Therefore, 64 has been selected as the optimal batch size for this implementation.
+  */
+  static const int batch_size = 64;
+  static const int batch_bufsz = Font::batch_size * 16 * sizeof(float);
 public:
   bool load(const char* path);
   void unload();
@@ -349,7 +384,7 @@ protected:
   sgl::OpenGL::Texture font_tex;
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> vbuf;
   sgl::OpenGL::Shader shader;
-  uint8_t* batch_buffer_data;
+  GLubyte* batch_buf;
 
 };
 
@@ -388,38 +423,38 @@ inline void VertexBuffer<VertexFormat_t>::_create_empty() {
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::create_and_reserve(const int vertex_buffer_bytes, GLenum vertex_buffer_usage, const int index_buffer_bytes, GLenum index_buffer_usage)
+inline void VertexBuffer<VertexFormat_t>::create_and_reserve(const int vbuf_bytes, GLenum vbuf_usage, const int ibuf_bytes, GLenum ibuf_usage)
 {
   destroy();
 
   this->_create_empty();
-  this->_realloc_and_fill(vertex_buffer_bytes, NULL, vertex_buffer_usage, index_buffer_bytes, NULL, index_buffer_usage);
+  this->_realloc_and_fill(vbuf_bytes, NULL, vbuf_usage, ibuf_bytes, NULL, ibuf_usage);
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::create_and_fill(const GLsizei vertex_buffer_bytes, const void * vertex_data, GLenum vertex_buffer_usage, const GLsizei index_buffer_bytes, const void * index_data, GLenum index_buffer_usage)
+inline void VertexBuffer<VertexFormat_t>::create_and_fill(const GLsizei vbuf_bytes, const void * vbuf_data, GLenum vbuf_usage, const GLsizei ibuf_bytes, const void * ibuf_data, GLenum ibuf_usage)
 {
   destroy();
   
   this->_create_empty();
-  this->_realloc_and_fill(vertex_buffer_bytes, vertex_data, vertex_buffer_usage, index_buffer_bytes, index_data, index_buffer_usage);
+  this->_realloc_and_fill(vbuf_bytes, vbuf_data, vbuf_usage, ibuf_bytes, ibuf_data, ibuf_usage);
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::_realloc_and_fill(const GLsizei vertex_buffer_bytes, const void * vertex_data, GLenum vertex_buffer_usage, const GLsizei index_buffer_bytes, const void * index_data, GLenum index_buffer_usage)
+inline void VertexBuffer<VertexFormat_t>::_realloc_and_fill(const GLsizei vbuf_bytes, const void * vbuf_data, GLenum vbuf_usage, const GLsizei ibuf_bytes, const void * ibuf_data, GLenum ibuf_usage)
 {
   if (VAO == 0) {
     printf("Error, vertex buffer is not initialized, cannot fill data.\n");
     return;
   }
   glBindVertexArray(VAO);
-  if (vertex_buffer_bytes > 0) {
+  if (vbuf_bytes > 0) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertex_buffer_bytes, vertex_data, vertex_buffer_usage);
+    glBufferData(GL_ARRAY_BUFFER, vbuf_bytes, vbuf_data, vbuf_usage);
   }
-  if (index_buffer_bytes > 0) {
+  if (ibuf_bytes > 0) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_buffer_bytes, index_data, index_buffer_usage);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, ibuf_bytes, ibuf_data, ibuf_usage);
   }
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);

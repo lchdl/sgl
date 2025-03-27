@@ -26,6 +26,7 @@ void test_texture_memory_leak() {
     tex0 = tex1;
     tex2 = tex3;
     tex3 = tex0;
+    
   }
   printf("test_texture_memory_leak FINISHED.\n");
 }
@@ -53,6 +54,10 @@ void test_OpenGL_texture() {
     sgl::OpenGL::Texture tex = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
     std::map<int, sgl::OpenGL::Texture> map_int2tex;
     map_int2tex.insert_or_assign(0, tex);
+    tex.to(DeviceType_GPU);
+    tex.to(DeviceType_CPU);
+    tex.to(DeviceType_GPU);
+    tex.to(DeviceType_CPU);
   }
   printf("\n");
   printf("test_OpenGL_texture FINISHED.\n");
