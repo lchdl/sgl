@@ -20,7 +20,7 @@ struct {
   OpenGL::VertexBuffer<OpenGL::VertexFormat_3f2f> vbuf;
 
   OpenGL::FrameBuffer framebuffer;
-  OpenGL::Texture color_out0, color_out1;
+  OpenGL::Texture color_out0, color_out1, color_out2, color_out3;
 
   OpenGL::Font font;
 } gl;
@@ -123,7 +123,9 @@ void init_render() {
   
   sgl::OpenGL::Shader::FragDataLocation fs_outs[] = {
     {"FragColor", 0},
-    {"FragAlpha", 1},
+    {"FragDepth", 1},
+    {"FragWorldPos", 2},
+    {"FragTexCoord", 3},
   };
   gl.shader_MRT.create(R"(
     #version 330 core
@@ -133,38 +135,52 @@ void init_render() {
     uniform mat4x4 view;
     uniform mat4x4 projection;
     out vec2 TexCoord;
+    out vec3 WorldPos;
     void main()
     {
 	    gl_Position = projection * view * model * vec4(inPosition, 1.0);
 	    TexCoord = inTexCoord;
+      WorldPos = vec3(model * vec4(inPosition, 1.0));
     }
     )", R"(
     #version 330 core
     layout(location = 0) out vec4 FragColor;
-    layout(location = 1) out vec4 FragAlpha;
+    layout(location = 1) out vec4 FragDepth;
+    layout(location = 2) out vec4 FragWorldPos;
+    layout(location = 3) out vec4 FragTexCoord;
     in vec2 TexCoord;
+    in vec3 WorldPos;
     uniform sampler2D tex1;
     uniform sampler2D tex2;
     void main()
     {
+      float d = clamp((gl_FragCoord.z - 0.9) * 10.0, 0.0, 1.0);
 	    FragColor = mix(texture(tex1, TexCoord), texture(tex2, TexCoord), 0.5);
-	    FragAlpha = vec4(1.0, 1.0, 1.0, 1.0);
+	    FragDepth = vec4(vec3(d), 1.0);
+      FragWorldPos = clamp(2.0 * vec4(WorldPos, 1.0), 0.0, 1.0);
+      FragTexCoord = vec4(TexCoord, 0.5, 1.0);
     }
     )",
-    2, fs_outs
+    4, fs_outs
   );
 
   gl.tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
   gl.tex2 = sgl::load_texture("assets/common/textures/brick/brick_diffuse_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
-  gl.tex1.to(DeviceType_GPU);
-  gl.tex2.to(DeviceType_GPU);
+  gl.tex1.to_device(DeviceType_GPU);
+  gl.tex2.to_device(DeviceType_GPU);
 
   gl.color_out0.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  gl.color_out0.to(DeviceType_GPU);
+  gl.color_out0.to_device(DeviceType_GPU);
   gl.color_out1.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  gl.color_out1.to(DeviceType_GPU);
-  gl.framebuffer.setup_color_attachment(&gl.color_out0, 0);
-  gl.framebuffer.setup_color_attachment(&gl.color_out1, 1);
+  gl.color_out1.to_device(DeviceType_GPU);
+  gl.color_out2.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  gl.color_out2.to_device(DeviceType_GPU);
+  gl.color_out3.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  gl.color_out3.to_device(DeviceType_GPU);
+  gl.framebuffer.setup_attachment(&gl.color_out0, 0);
+  gl.framebuffer.setup_attachment(&gl.color_out1, 1);
+  gl.framebuffer.setup_attachment(&gl.color_out2, 2);
+  gl.framebuffer.setup_attachment(&gl.color_out3, 3);
   gl.framebuffer.make();
 
   gl.font.load("assets/common/fonts/Arial/11pt_Regular.fnt");
@@ -205,19 +221,20 @@ double render_frame(double T) {
     render_procedure(T);
   }
   gl.framebuffer.unbind();
-  gl.framebuffer.blit_color_attachment_to_main_framebuffer(0, 0, 0, w, h);
-  gl.framebuffer.blit_color_attachment_to_main_framebuffer(1, w, 0, w, h);
+  gl.framebuffer.blit_attachment_to_main_framebuffer(0, 0, 0, w, h);
+  gl.framebuffer.blit_attachment_to_main_framebuffer(1, w, 0, w, h);
 
-  sgl::OpenGL::blit_texture(&gl.color_out0, w * 2, h, 0, 0, w, h, w, 0, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopLeft);
-  sgl::OpenGL::blit_texture(&gl.color_out1, w * 2, h, 0, 0, w, h, w, h, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomLeft);
   sgl::OpenGL::blit_texture(&gl.tex1, w * 2, h, 0, 0, gl.tex1.get_width(), gl.tex1.get_height(), w * 2, 0, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopRight);
   sgl::OpenGL::blit_texture(&gl.tex2, w * 2, h, 0, 0, gl.tex2.get_width(), gl.tex2.get_height(), w * 2, h, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomRight);
+  sgl::OpenGL::blit_texture(&gl.color_out2, w * 2, h, 0, 0, w, h, w, 0, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_TopLeft);
+  sgl::OpenGL::blit_texture(&gl.color_out3, w * 2, h, 0, 0, w, h, w, h, Vec2(0.25, 0.25), 0.0, Vec3(1.0, 1.0, 1.0), SpriteOriginMode_BottomLeft);
+
+  gl.font.draw_text(L"WorldPos", w, 0, Vec4(1, 1, 1));
+  gl.font.draw_text(L"TexCoord", w, h - 10, Vec4(1, 1, 1));
 
   int text_width;
-
   text_width = gl.font.get_text_extent_point(L"Main View").x;
   gl.font.draw_text(L"Main View", (w - text_width) / 2, 0, Vec4(1, 1, 1));
-
   text_width = gl.font.get_text_extent_point(L"Auxiliary View").x;
   gl.font.draw_text(L"Auxiliary View", w + (w - text_width) / 2, 0, Vec4(1, 1, 1));
 

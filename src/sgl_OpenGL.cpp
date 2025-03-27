@@ -5,7 +5,7 @@
 namespace sgl {
 namespace OpenGL {
 
-GL_states gl_states;
+GL_vars gl_vars;
 
 bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version, bool vsync)
 {
@@ -26,7 +26,7 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
 
   */
 
-  if (gl_states.current_active_window != NULL) {
+  if (gl_vars.current_active_window != NULL) {
     printf("Error, OpenGL is already initialized.\n");
     return false;
   }
@@ -75,10 +75,21 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
   /*
   Initialize OpenGL states.
   */
-  glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gl_states.max_texture_image_units);
-  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &gl_states.max_color_attachments);
-  gl_states.current_active_window = window;
-  gl_states.sprite_renderer.initialize();
+  glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gl_vars.max_texture_image_units);
+  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &gl_vars.max_color_attachments);
+  gl_vars.current_active_window = window;
+  gl_vars.sprite_renderer_RGBA.initialize();
+  gl_vars.sprite_renderer_R32F.initialize("", R"(
+    #version 330 core
+    layout(location = 0) out vec4 FragColor;
+    in vec2 TexCoord;
+    uniform sampler2D tex0;
+    uniform vec3 ColorMask;
+    void main() {
+      float color = texture(tex0, TexCoord).r; 
+      FragColor = vec4(vec3(color), 1.0) * vec4(ColorMask, 1.0);
+    }
+    )", 1, NULL);
 
   return success;
 }
@@ -90,11 +101,11 @@ IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment)
   
   if (fbo == 0) {
     /* default framebuffer */
-    if (gl_states.current_active_window == NULL) {
+    if (gl_vars.current_active_window == NULL) {
       printf("Error, OpenGL is not initialized yet.\n");
       width = height = -1;
     }
-    SDL_GL_GetDrawableSize(gl_states.current_active_window, &width, &height);
+    SDL_GL_GetDrawableSize(gl_vars.current_active_window, &width, &height);
   }
   else {
     /*
@@ -172,14 +183,16 @@ Texture& Texture::operator=(const Texture &texture) {
   if (this == &texture)
     return (*this);
 
-  this->gl_handle = 0;
-  this->device = DeviceType_CPU;
+  if (this->device != DeviceType_CPU) {
+    this->destroy();
+  }
+
   copy(texture);
 
   return (*this);
 }
 
-bool Texture::to(sgl::DeviceType device)
+bool Texture::to_device(sgl::DeviceType device, bool flip_vertically_on_transfer)
 {
   if (this->device == DeviceType_CPU && device == DeviceType_GPU) {
     /* Upload texture from CPU host memory to GPU VRAM. */
@@ -201,26 +214,49 @@ bool Texture::to(sgl::DeviceType device)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       }
-      if (this->format == PixelFormat_RGBA8888) {
+      glGenerateMipmap(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    
+    /* start data transfer */
+    glBindTexture(GL_TEXTURE_2D, gl_handle);
+    if (this->format == PixelFormat_RGBA8888) {
+      if (flip_vertically_on_transfer) {
+        sgl::OpenGL::Texture flipped = *this;
+        flipped.flip_vertically();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->w, this->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, flipped.pixels);
+      }
+      else {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->w, this->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, this->pixels);
       }
-      else if (this->format == PixelFormat_BGRA8888) {
+    }
+    else if (this->format == PixelFormat_BGRA8888) {
+      if (flip_vertically_on_transfer) {
+        sgl::OpenGL::Texture flipped = *this;
+        flipped.flip_vertically();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->w, this->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, flipped.pixels);
+      }
+      else {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->w, this->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, this->pixels);
       }
-      glGenerateMipmap(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    else if (this->format == PixelFormat_Float32) {
+      if (flip_vertically_on_transfer) {
+        sgl::OpenGL::Texture flipped = *this;
+        flipped.flip_vertically();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, this->w, this->h, 0, GL_RED, GL_FLOAT, flipped.pixels);
+      }
+      else {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, this->w, this->h, 0, GL_RED, GL_FLOAT, this->pixels);
+      }
     }
     else {
-      glBindTexture(GL_TEXTURE_2D, gl_handle);
-      if (this->format == PixelFormat_RGBA8888) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->w, this->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, this->pixels);
-      }
-      else if (this->format == PixelFormat_BGRA8888) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA, this->w, this->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, this->pixels);
-      }
-      glGenerateMipmap(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, 0);
+      printf("Error, cannot transfer texture to GPU due to unsupported pixel format.\n");
+      return false;
     }
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     /* texture is uploaded to GPU, change its location */
     this->device = DeviceType_GPU;
     return true;
@@ -233,11 +269,15 @@ bool Texture::to(sgl::DeviceType device)
     }
     if (this->format == PixelFormat_BGRA8888 || this->format == PixelFormat_RGBA8888) {
       glBindTexture(GL_TEXTURE_2D, gl_handle);
-      size_t dataSize = w * h * 4 * sizeof(uint8_t);
       if (this->format == PixelFormat_BGRA8888)
         glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
       else if (this->format == PixelFormat_RGBA8888)
-        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);      
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+      glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    else if (this->format == PixelFormat_Float32) {
+      glBindTexture(GL_TEXTURE_2D, gl_handle);
+      glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, pixels);
       glBindTexture(GL_TEXTURE_2D, 0);
     }
     /* TODO: add support for other formats downloading */
@@ -246,10 +286,21 @@ bool Texture::to(sgl::DeviceType device)
       return false;
     }
     this->device = DeviceType_CPU;
+    
+    if (flip_vertically_on_transfer)
+      this->flip_vertically();
+
+    return true;
+  }
+  else if (this->device == DeviceType_CPU && device == DeviceType_CPU) {
+    if (flip_vertically_on_transfer) {
+      this->flip_vertically();
+    }
+    /* otherwise we do nothing here */
     return true;
   }
   else {
-    printf("Unsupported device transfer.\n");
+    printf("Unsupported device transfer. Current device enum id: %d, target device enum id: %d.\n", this->device, device);
     return false;
   }
   return false;
@@ -262,6 +313,54 @@ bool Texture::save_png(const std::string& path) const {
     return false;
   }
   return sgl::Texture::save_png(path);
+}
+
+int32_t Texture::get_width() const { 
+  return sgl::Texture::get_width(); 
+}
+
+int32_t Texture::get_height() const { 
+  return sgl::Texture::get_height(); 
+}
+
+int32_t Texture::get_bytes_per_pixel() const { 
+  return sgl::Texture::get_bytes_per_pixel();
+}
+
+void* Texture::get_pixel_data() const { 
+  return sgl::Texture::get_pixel_data();
+}
+
+PixelFormat Texture::get_pixel_format() const { 
+  return sgl::Texture::get_pixel_format();
+}
+
+void Texture::flip_vertically() {
+  if (device != DeviceType_CPU) {
+    printf("flip_vertically() will take no effect since texture is not on CPU host memory.\n");
+    return;
+  }
+  sgl::Texture::flip_vertically();
+}
+
+Texture Texture::to_format(const PixelFormat& target_format) {
+  /*
+  If the texture object has been transferred to the GPU, we need to:
+  1. Transfer it back to CPU memory;
+  2. Release the GPU-allocated resources.
+ 
+  Reason: The texture format on the CPU side has been modified, requiring 
+  synchronization with the GPU version. However, implementing this 
+  synchronization automatically would introduce significant complexity. 
+  Therefore, we delegate this responsibility to the calling code and let 
+  users handle the synchronization explicitly.
+  */
+  if (this->device != DeviceType_CPU) {
+    this->to_device(DeviceType_CPU);
+    glDeleteTextures(1, &this->gl_handle);
+    this->gl_handle = 0;
+  }
+  return sgl::Texture::to_format(target_format);
 }
 
 sgl::DeviceType Texture::get_device() const
@@ -563,8 +662,8 @@ bool Shader::set_uniform_matrix_4fv(const std::string& name, GLsizei count, GLbo
   return true;
 }
 bool Shader::set_texture_sampler_2D(const std::string& name, const sgl::OpenGL::Texture& texture, GLuint slot) const {
-  if (int(slot) >= gl_states.max_texture_image_units) {
-    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_states.max_texture_image_units);
+  if (int(slot) >= gl_vars.max_texture_image_units) {
+    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_vars.max_texture_image_units);
     return false;
   }
   if (!this->set_uniform_1i(name, slot))
@@ -584,8 +683,8 @@ bool Shader::set_texture_sampler_2D(const std::string& name, const sgl::OpenGL::
 
 bool Shader::set_texture_sampler_2D(const std::string & name, const GLuint tex_handle, GLuint slot) const
 {
-  if (int(slot) >= gl_states.max_texture_image_units) {
-    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_states.max_texture_image_units);
+  if (int(slot) >= gl_vars.max_texture_image_units) {
+    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_vars.max_texture_image_units);
     return false;
   }
   glActiveTexture(GL_TEXTURE0 + slot);
@@ -721,7 +820,7 @@ bool Font::load(const char* path) {
     }
   }
   
-  font_tex.to(DeviceType_GPU);
+  font_tex.to_device(DeviceType_GPU);
 
   /* create VBO and shader for rendering */
   int sizeof_indices = sizeof(int) * 6 * Font::batch_size;
@@ -1052,12 +1151,9 @@ void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int targe
   this->vbuf.draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
 }
 
-void SpriteRenderer::initialize()
+void SpriteRenderer::initialize(const std::string & vs, const std::string & fs, const int n_outs, const Shader::FragDataLocation * fs_outs)
 {
-  Shader::FragDataLocation fs_outs[] = {
-    {"FragColor", 0},
-  };
-  shader.create(R"(
+  std::string _vs = (strlen(vs.c_str()) == 0) ? R"(
     #version 330 core
     layout(location = 0) in vec2 inPosition;
     layout(location = 1) in vec2 inTexCoord;
@@ -1105,8 +1201,8 @@ void SpriteRenderer::initialize()
       gl_Position = mProjection * mModel * vec4(float(TextureDims.x) * inPosition.x, float(TextureDims.y) * inPosition.y, 0.0, 1.0);
       TexCoord = inTexCoord;
     }
-    )"    
-    , R"(
+    )" : vs;
+  std::string _fs = (strlen(fs.c_str()) == 0) ? R"(
     #version 330 core
     layout(location = 0) out vec4 FragColor;
     in vec2 TexCoord;
@@ -1116,9 +1212,13 @@ void SpriteRenderer::initialize()
       vec4 color = texture(tex0, TexCoord); 
       FragColor = color * vec4(ColorMask, 1.0);
     }
-    )"
-    , sizeof(fs_outs) / sizeof(Shader::FragDataLocation), fs_outs
-  );
+    )" : fs;
+  Shader::FragDataLocation _fs_outs_default[] = {
+      {"FragColor", 0},
+  };
+  const Shader::FragDataLocation* _fs_outs = (fs_outs == NULL) ? _fs_outs_default : fs_outs;
+  int _n_outs = (fs_outs == NULL) ? sizeof(_fs_outs_default) / sizeof(Shader::FragDataLocation) : n_outs;
+  shader.create(_vs, _fs, _n_outs, _fs_outs);  
   int indices[] = { 0, 1, 3, 1, 2, 3 };
   vbuf.create_and_fill(16 * sizeof(float), NULL, GL_DYNAMIC_DRAW, 6 * sizeof(indices), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
 }
@@ -1128,11 +1228,15 @@ void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
   const Vec2& scale, const double& rot, const Vec3& color_mask,
   const sgl::SpriteOriginMode origin_mode)
 {
-  gl_states.sprite_renderer.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode);
+  PixelFormat format = source->get_pixel_format();
+  if (format == PixelFormat_BGRA8888 || format == PixelFormat_RGBA8888)
+    gl_vars.sprite_renderer_RGBA.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode);
+  else if (format == PixelFormat_Float32)
+    gl_vars.sprite_renderer_R32F.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode);
 }
 
-void FrameBuffer::setup_color_attachment(sgl::OpenGL::Texture * tex, int slot) {
-  if (slot < 0 || slot >= 8 || slot >= gl_states.max_color_attachments) {
+void FrameBuffer::setup_attachment(sgl::OpenGL::Texture * tex, int slot) {
+  if (slot < 0 || slot >= 8 || slot >= gl_vars.max_color_attachments) {
     printf("Error, invalid slot id.\n");
     return;
   }
@@ -1157,7 +1261,7 @@ bool FrameBuffer::make() {
   int w = -1, h = -1;
   int num_draw_buffers = 0;
   for (int i = 0; i < 8; i++) {
-    if (i >= gl_states.max_color_attachments) break;
+    if (i >= gl_vars.max_color_attachments) break;
     if (color_slots[i] == NULL) continue;
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, color_slots[i]->get_GL_handle(), 0);
     if (w < 0 || h < 0) {
@@ -1295,7 +1399,7 @@ GLuint FrameBuffer::get_GL_handle() const {
   return fbo;
 }
 
-void FrameBuffer::blit_color_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h) {
+void FrameBuffer::blit_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h) {
 
   IVec2 size = sgl::OpenGL::get_OpenGL_framebuffer_size(0);
 
@@ -1318,6 +1422,20 @@ void FrameBuffer::blit_color_attachment_to_main_framebuffer(int slot, int dst_x,
   };
   quad_vbuf.subdata_VBO(0, sizeof(quad_verts), quad_verts);
   quad_vbuf.draw_arrays(GL_TRIANGLES, 0, 6);
+}
+
+sgl::OpenGL::Texture FrameBuffer::extract_depth_buffer()
+{
+  sgl::OpenGL::Texture tex = sgl::create_texture(w, h, PixelFormat_Float32, TextureSampling_Nearest, TextureUsage_DepthBuffer);
+
+  this->bind();
+  {
+    float* pixel_ptr = (float*)tex.get_pixel_data();
+    glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, pixel_ptr);
+  }
+  this->unbind();
+  
+  return tex;
 }
 
 FrameBuffer::FrameBuffer() {

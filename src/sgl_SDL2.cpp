@@ -44,6 +44,20 @@ void sgl_texture_to_SDL2_surface(const Texture * texture, SDL_Surface * surface)
       }
     }
   }
+  else if (texture->get_pixel_format() == PixelFormat_Float32) {
+    float* src = (float*)texture->get_pixel_data();
+    uint8_t* dst = (uint8_t*)surface->pixels;
+    for (int y = 0; y < surface->h; y++) {
+      for (int x = 0; x < surface->w; x++) {
+        int pid = y * texture->get_width() + x;
+        uint8_t g = uint8_t(255.0f * clamp(0.0f, src[pid], 1.0f));
+        dst[pid * 4 + 2] = g;
+        dst[pid * 4 + 1] = g;
+        dst[pid * 4 + 0] = g;
+        dst[pid * 4 + 3] = 255;
+      }
+    }
+  }
   else {
     /* other types of texture formats are currently not supported */
     printf("sgl_texture_to_SDL2_surface(): "

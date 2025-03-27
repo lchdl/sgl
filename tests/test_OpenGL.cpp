@@ -131,14 +131,14 @@ void init_render() {
   gl.tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
   gl.tex2 = sgl::load_texture("assets/common/textures/brick/brick_diffuse_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
   gl.chess = sgl::load_texture("assets/common/textures/chess.png", PixelFormat_BGRA8888, TextureSampling_Nearest, true);
-  gl.tex1.to(DeviceType_GPU);
-  gl.tex2.to(DeviceType_GPU);
-  gl.chess.to(DeviceType_GPU);
+  gl.tex1.to_device(DeviceType_GPU);
+  gl.tex2.to_device(DeviceType_GPU);
+  gl.chess.to_device(DeviceType_GPU);
 
   /* init framebuffer here */
   gl.color_attachment.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  gl.color_attachment.to(DeviceType_GPU);
-  gl.framebuffer.setup_color_attachment(&gl.color_attachment, 0);
+  gl.color_attachment.to_device(DeviceType_GPU);
+  gl.framebuffer.setup_attachment(&gl.color_attachment, 0);
   gl.framebuffer.make();
 
   gl.fonts[0].load("assets/common/fonts/GrapeSoda/16pt_Regular.fnt");
@@ -147,10 +147,6 @@ void init_render() {
   gl.fonts[3].load("assets/common/fonts/MiniHerz/16pt_Regular.fnt");
   long_text = sgl::read_file_as_wstring("assets/common/texts/the_novel_of_ancient_Rome.txt");
   sgl::replace_all(long_text, L"\n", L"");
-  sgl::replace_all(long_text, L"£¬", L"");
-  sgl::replace_all(long_text, L"¡£", L"");
-  sgl::replace_all(long_text, L"£»", L"");
-  sgl::replace_all(long_text, L"¡¢", L"");
 }
 
 void render_procedure(double T) {
@@ -197,7 +193,7 @@ double render_frame(double T) {
     gl.fonts[3].draw_text(long_text, w - 150, h - 150, 120, 120, Vec4(1, 1, 1));
   }
   gl.framebuffer.unbind();
-  gl.framebuffer.blit_color_attachment_to_main_framebuffer(0, 0, 0, w, h);
+  gl.framebuffer.blit_attachment_to_main_framebuffer(0, 0, 0, w, h);
  
   return timer.tick();
 }

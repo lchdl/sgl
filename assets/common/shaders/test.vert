@@ -1,15 +1,12 @@
 #version 330 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec2 aTexCoord;
-
-uniform mat4x4 model;
-uniform mat4x4 view;
-uniform mat4x4 projection;
-
+layout (location = 0) in vec3 inPosition;
+layout (location = 1) in vec2 inTexCoord;
+uniform mat4x4 Model;
+uniform mat4x4 View;
+uniform mat4x4 Projection;
 out vec2 TexCoord;
-
 void main()
 {
-	gl_Position = projection * view * model * vec4(aPos, 1.0);
-	TexCoord = aTexCoord;
+	gl_Position = Projection * View * Model * vec4(inPosition, 1.0);
+	TexCoord = inTexCoord;
 }

@@ -26,6 +26,7 @@ void Texture::destroy() {
   this->format = PixelFormat_Unknown;
   this->sampling = TextureSampling_Nearest;
   this->usage = TextureUsage_Unknown;
+  this->bypp = 0;
 }
 
 void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage) {
@@ -45,16 +46,14 @@ void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSa
   else if (texture_format == PixelFormat_Float64) {
     this->bypp = 8;
   }
+  else if (texture_format == PixelFormat_Float32) {
+    this->bypp = 4;
+  }
   else if (texture_format == PixelFormat_UInt8) {
     this->bypp = 1;
   }
   else {
     printf("Texture create failed: unsupported / unimplemented texture format.\n");
-  }
-  if (this->usage == TextureUsage_DepthBuffer) {
-    if (this->format != PixelFormat_Float64) {
-      printf("Texture create failed: depth buffer must have format float64.");
-    }
   }
   this->pixels = malloc(w * h * bypp);
 }
@@ -80,29 +79,40 @@ void Texture::load(const std::string & file, const PixelFormat & target_format, 
 
 void Texture::clear(const Vec4& clear_color)
 {
+  int n_pixels = w * h;
   if (this->usage == TextureUsage_DepthBuffer) {
     /* depth buffer is special, when it needs to be cleared,
     it should be set to 1.0, clear_color will be ignored. */
-    int n_pixels = w * h;
-    double *data = (double *)pixels;
-    for (int i = 0; i < n_pixels; i++)
-      data[i] = 1.0;
+    if (this->format == PixelFormat_Float64) {
+      double *data = (double *)pixels;
+      for (int i = 0; i < n_pixels; i++)
+        data[i] = 1.0;
+    }
+    else if (this->format == PixelFormat_Float32) {
+      float *data = (float *)pixels;
+      for (int i = 0; i < n_pixels; i++)
+        data[i] = 1.0f;
+    }
   }
   else if (this->format == PixelFormat_Float64) {
     /* if the texture format is float64 and it is not used as
     a depth buffer, we take the first component of clear_color
     and set all the pixels in the texture to this value. */
-    int n_pixels = w * h;
     double *data = (double *)pixels;
     for (int i = 0; i < n_pixels; i++)
       data[i] = clear_color.i[0];
+  }
+  else if (this->format == PixelFormat_Float32) {
+    float *data = (float *)pixels;
+    float c = float(clear_color.i[0]);
+    for (int i = 0; i < n_pixels; i++)
+      data[i] = c;
   }
   else if (this->format == PixelFormat_BGRA8888 || this->format == PixelFormat_RGBA8888) {
     uint8_t R, G, B, A;
     uint32_t packed_32bit;
     convert_Vec4_color_to_RGBA_uint8(clear_color, R, G, B, A);
     pack_RGBA8888_to_uint32(R, G, B, A, this->format, packed_32bit);
-    int n_pixels = w * h;
     uint32_t *data = (uint32_t *)pixels;
     for (int i = 0; i < n_pixels; i++)
       data[i] = packed_32bit;
@@ -110,7 +120,6 @@ void Texture::clear(const Vec4& clear_color)
   else if (this->format == PixelFormat_UInt8) {
     /* only the red component will be used */
     uint8_t R = uint8_t(clamp(0, int(clear_color.r * 255.0), 255));
-    int n_pixels = w * h;
     uint8_t *data = (uint8_t *)pixels;
     for (int i = 0; i < n_pixels; i++)
       data[i] = R;
@@ -198,6 +207,22 @@ Vec4 Texture::texture_float64_point(const Vec2 & p) const
   return Vec4(data[pixel_id], 0.0, 0.0, 0.0);
 }
 
+Vec4 Texture::texture_float32_point(const Vec2 & p) const
+{
+  /* point (nearest) sampling */
+  Vec2 p0 = Vec2(p.x, p.y);
+
+  p0.x = max(min(p0.x, 1.0), 0.0);
+  p0.y = max(min(p0.y, 1.0), 0.0);
+  int x = min(int(p0.x * w), w - 1);
+  int y = min(int(p0.y * h), h - 1);
+
+  int pixel_id = y * w + x;
+  float *data = (float *)pixels;
+
+  return Vec4(double(data[pixel_id]), 0.0, 0.0, 0.0);
+}
+
 Vec4 Texture::texture_xxxx8888_bilinear(const Vec2 & p) const
 {
   Vec2 p0 = Vec2(p.x, p.y);
@@ -219,6 +244,18 @@ Vec4 Texture::texture_float64_bilinear(const Vec2 & p) const
 
   Vec4 output;
   sgl::bilinear_interpolation_scalar<double>((double*)this->pixels, this->w, this->h, p0, &output);
+  return output;
+}
+
+Vec4 Texture::texture_float32_bilinear(const Vec2 & p) const
+{
+  Vec2 p0 = Vec2(p.x, p.y);
+
+  p0.x = max(min(p0.x, 1.0), 0.0);
+  p0.y = max(min(p0.y, 1.0), 0.0);
+
+  Vec4 output;
+  sgl::bilinear_interpolation_scalar<float>((float*)this->pixels, this->w, this->h, p0, &output);
   return output;
 }
 
@@ -258,9 +295,9 @@ Texture Texture::to_format(const PixelFormat & target_format) const
   }
   Texture converted_texture;
   converted_texture.create(this->w, this->h, target_format, this->sampling, this->usage);
-  uint8_t* dst = (uint8_t*)converted_texture.pixels;
-  uint8_t* src = (uint8_t*)this->pixels;
   if (this->format == PixelFormat_RGBA8888 && target_format == PixelFormat_BGRA8888) {
+    uint8_t* dst = (uint8_t*)converted_texture.pixels;
+    uint8_t* src = (uint8_t*)this->pixels;
     for (int y = 0; y < this->h; y++) {
       for (int x = 0; x < this->w; x++) {
         int pid = y * this->w + x;
@@ -272,6 +309,8 @@ Texture Texture::to_format(const PixelFormat & target_format) const
     }
   }
   else if (this->format == PixelFormat_BGRA8888 && target_format == PixelFormat_RGBA8888) {
+    uint8_t* dst = (uint8_t*)converted_texture.pixels;
+    uint8_t* src = (uint8_t*)this->pixels;
     for (int y = 0; y < this->h; y++) {
       for (int x = 0; x < this->w; x++) {
         int pid = y * this->w + x;
@@ -284,6 +323,8 @@ Texture Texture::to_format(const PixelFormat & target_format) const
   }
   else if (this->format == PixelFormat_UInt8 && 
     (target_format == PixelFormat_RGBA8888 || target_format == PixelFormat_BGRA8888)) {
+    uint8_t* dst = (uint8_t*)converted_texture.pixels;
+    uint8_t* src = (uint8_t*)this->pixels;
     for (int y = 0; y < this->h; y++) {
       for (int x = 0; x < this->w; x++) {
         int pid = y * this->w + x;
@@ -296,10 +337,40 @@ Texture Texture::to_format(const PixelFormat & target_format) const
   }
   else if ((this->format == PixelFormat_RGBA8888 || this->format == PixelFormat_BGRA8888) && 
     target_format == PixelFormat_UInt8) {
+    uint8_t* dst = (uint8_t*)converted_texture.pixels;
+    uint8_t* src = (uint8_t*)this->pixels;
     for (int y = 0; y < this->h; y++) {
       for (int x = 0; x < this->w; x++) {
         int pid = y * this->w + x;
         dst[pid] = src[pid * 4];
+      }
+    }
+  }
+  else if (this->format == PixelFormat_Float64 && (target_format == PixelFormat_BGRA8888 || target_format == PixelFormat_RGBA8888)) {
+    uint8_t* dst = (uint8_t*)converted_texture.pixels;
+    double* src = (double*)this->pixels;
+    for (int y = 0; y < this->h; y++) {
+      for (int x = 0; x < this->w; x++) {
+        int pid = y * this->w + x;
+        uint8_t c = uint8_t(clamp(0, int32_t(255.0 * src[pid]), 255));
+        dst[pid * 4 + 0] = c;
+        dst[pid * 4 + 1] = c;
+        dst[pid * 4 + 2] = c;
+        dst[pid * 4 + 3] = 255;
+      }
+    }
+  }
+  else if (this->format == PixelFormat_Float32 && (target_format == PixelFormat_BGRA8888 || target_format == PixelFormat_RGBA8888)) {
+    uint8_t* dst = (uint8_t*)converted_texture.pixels;
+    float* src = (float*)this->pixels;
+    for (int y = 0; y < this->h; y++) {
+      for (int x = 0; x < this->w; x++) {
+        int pid = y * this->w + x;
+        uint8_t c = uint8_t(clamp(0, int32_t(255.0f * src[pid]), 255));
+        dst[pid * 4 + 0] = c;
+        dst[pid * 4 + 1] = c;
+        dst[pid * 4 + 2] = c;
+        dst[pid * 4 + 3] = 255;
       }
     }
   }
@@ -316,8 +387,7 @@ bool Texture::save_png(const std::string & path) const
     printf("Cannot save texture, texture object is invalid.\n");
     return false;
   }
-  if (this->bypp != 4 || this->format == PixelFormat_Float64 || 
-    this->format == PixelFormat_Unknown) {
+  if (this->bypp != 4 || this->format == PixelFormat_Float64 || this->format == PixelFormat_Float32 || this->format == PixelFormat_Unknown) {
     printf("Cannot save texture, unsupported pixel format.\n");
     return false;
   }
@@ -335,6 +405,19 @@ bool Texture::save_png(const std::string & path) const
       return true;
   }
   return false;
+}
+
+void Texture::flip_vertically()
+{
+  int row_bytes = bypp * w;
+  uint8_t* line_data = (uint8_t*)malloc(row_bytes);
+  uint8_t* pixel_data = (uint8_t*)pixels;
+  for (int row = 0; row < h / 2; row++) {
+    memcpy(line_data, pixel_data + row * row_bytes, row_bytes);
+    memcpy(pixel_data + row * row_bytes, pixel_data + (h - 1 - row) * row_bytes, row_bytes);
+    memcpy(pixel_data + (h - 1 - row) * row_bytes, line_data, row_bytes);
+  }
+  free(line_data);
 }
 
 Texture create_texture(int32_t w, int32_t h, PixelFormat format, TextureSampling sampling, TextureUsage usage)
@@ -359,6 +442,9 @@ Vec4 texture(const Texture *texobj, const Vec2 &uv) {
     else if (texobj->format == PixelFormat_Float64) {
       return texobj->texture_float64_bilinear(uv);
     }
+    else if (texobj->format == PixelFormat_Float32) {
+      return texobj->texture_float32_bilinear(uv);
+    }
     else if (texobj->format == PixelFormat_UInt8) {
       return texobj->texture_uint8_bilinear(uv);
     }
@@ -372,6 +458,9 @@ Vec4 texture(const Texture *texobj, const Vec2 &uv) {
     }
     else if (texobj->format == PixelFormat_Float64) {
       return texobj->texture_float64_point(uv);
+    }
+    else if (texobj->format == PixelFormat_Float32) {
+      return texobj->texture_float32_point(uv);
     }
     else if (texobj->format == PixelFormat_UInt8) {
       return texobj->texture_uint8_point(uv);

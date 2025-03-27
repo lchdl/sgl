@@ -375,6 +375,9 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::draw(
       if (targets.out_texs[i]->get_texture_usage() == TextureUsage_DepthBuffer) {
         num_depth_buffers++;
         ppl.depth_texture_slot = i;
+        if (targets.out_texs[i]->get_pixel_format() != PixelFormat_Float64) {
+          is_ready = false;
+        }
       }
     }
     /* check if pipeline is ready for render */
@@ -965,6 +968,12 @@ inline void Pipeline<Uniforms_t, Vertex_t, Fragment_t, Shader_t>::write_render_t
       double data = color.i[0];
       double *pixels = (double *)targets.out_texs[i_slot]->get_pixel_data();
       pixels[pixel_id] = data;
+    }
+    else if (targets.out_texs[i_slot]->get_pixel_format() == PixelFormat_Float32) {
+      /* we only select the first component of the Vec4 color (color.i[0]), other components are ignored */
+      double data = color.i[0];
+      float *pixels = (float *)targets.out_texs[i_slot]->get_pixel_data();
+      pixels[pixel_id] = float(data);
     }
   }
 }

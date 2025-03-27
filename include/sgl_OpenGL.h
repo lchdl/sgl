@@ -88,7 +88,10 @@ IVec2 get_current_render_target_size(GLenum attachment = GL_COLOR_ATTACHMENT0);
 
 GLuint get_current_framebuffer();
 
-class Texture : public sgl::Texture {
+class Texture : protected sgl::Texture {
+protected:
+  sgl::DeviceType device; /* where is the texture currently stored */
+  GLuint gl_handle; /* OpenGL texture handle (0=invalid) */
 public:
   /*
 
@@ -117,20 +120,23 @@ public:
     GPU contain identical texture data, you can safely skip step (1).
 
   */
-  bool to(sgl::DeviceType device);
+  bool to_device(sgl::DeviceType device, bool flip_vertically_on_transfer = false);
 
   sgl::DeviceType get_device() const;
   const GLuint get_GL_handle() const;
-
-protected:
-  sgl::DeviceType device; /* where is the texture currently stored */
-  GLuint gl_handle; /* OpenGL texture handle (0=invalid) */
 
 public:
   /* reimplement base class functions */
   void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage);
   void destroy();
   bool save_png(const std::string& path) const;
+  void flip_vertically();
+  sgl::OpenGL::Texture to_format(const PixelFormat& target_format);
+  int32_t get_width() const;
+  int32_t get_height() const;
+  int32_t get_bytes_per_pixel() const;
+  void* get_pixel_data() const;
+  PixelFormat get_pixel_format() const;
 
 public:
   Texture();
@@ -267,7 +273,7 @@ class FrameBuffer {
   within the framebuffer instance.
   */
 public:
-  void setup_color_attachment(sgl::OpenGL::Texture* tex, int slot); /* link color texture to framebuffer color texture slot */
+  void setup_attachment(sgl::OpenGL::Texture* tex, int slot); /* link color texture to framebuffer color texture slot */
   bool make();    /* assemble framebuffer, must done before binding */
   void destroy(); /* destroy framebuffer and return resources to system */
   void bind();    /* bind the framebuffer */
@@ -277,8 +283,10 @@ public:
   int get_height() const;
 public:
   /* auxiliary functions */
-  /* Blits (copies) a color component from a framebuffer attachment to the main framebuffer, automatically stretching to fill the full screen if dimensions differ. */
-  void blit_color_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h);
+  /* Blits (copies) a color component from a framebuffer attachment to the main framebuffer. NOTE: this function will clear current bound framebuffer. */
+  void blit_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h);
+  /* Extract depth buffer from this framebuffer object. NOTE: this function will clear current bound framebuffer. */
+  sgl::OpenGL::Texture extract_depth_buffer();
 
 public:
   FrameBuffer();
@@ -298,7 +306,7 @@ protected:
   sgl::OpenGL::Shader shader;
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> vbuf;
 public:
-  void initialize();
+  void initialize(const std::string& vs = "", const std::string & fs = "", const int n_outs = 0, const Shader::FragDataLocation * fs_outs = NULL);
   void destroy();
 
   SpriteRenderer();
@@ -389,13 +397,14 @@ protected:
 };
 
 /* the initialization process will also initialize the following states */
-struct GL_states {
+struct GL_vars {
   GLint max_texture_image_units;     /* maximum number of textures that can be bound to a fragment shader */
   GLint max_color_attachments;
   SDL_Window* current_active_window; /* an `active` window refers to the window that currently holds the active OpenGL context. */
-  SpriteRenderer sprite_renderer;
+  SpriteRenderer sprite_renderer_RGBA;
+  SpriteRenderer sprite_renderer_R32F;
 
-  GL_states() {
+  GL_vars() {
     max_texture_image_units = -1;
     max_color_attachments = -1;
     current_active_window = NULL;

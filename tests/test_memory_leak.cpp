@@ -48,20 +48,43 @@ void test_OpenGL_texture() {
     gl_tex2 = gl_tex3;
     gl_tex1.destroy();
     gl_tex1 = gl_tex3;
-    gl_tex3.to(sgl::DeviceType_GPU);
+    gl_tex3.to_device(sgl::DeviceType_GPU);
     printf("%d (<-should always be 1)", gl_tex3.get_GL_handle());
 
     sgl::OpenGL::Texture tex = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
     std::map<int, sgl::OpenGL::Texture> map_int2tex;
     map_int2tex.insert_or_assign(0, tex);
-    tex.to(DeviceType_GPU);
-    tex.to(DeviceType_CPU);
-    tex.to(DeviceType_GPU);
-    tex.to(DeviceType_CPU);
+    tex.to_device(DeviceType_GPU);
+    tex.to_device(DeviceType_CPU);
+    tex.to_device(DeviceType_GPU);
+    tex.to_device(DeviceType_CPU);
+
+    sgl::OpenGL::Texture q = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
+    q.to_device(DeviceType_GPU);
+    q = q.to_format(PixelFormat_RGBA8888);
+    q = q.to_format(PixelFormat_RGBA8888);
   }
   printf("\n");
   printf("test_OpenGL_texture FINISHED.\n");
 }
+
+void test_OpenGL_texture_v2() {
+  const int total_loops = 100000;
+  for (int loop = 0; loop < total_loops; loop++) {
+    printf("test_OpenGL_texture >> Loop [%d/%d].\r", loop + 1, total_loops);
+    sgl::OpenGL::Texture gl_tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
+    gl_tex1.to_device(DeviceType_GPU);
+    printf("%d (<-should always be constant)", gl_tex1.get_GL_handle());
+    sgl::OpenGL::Texture gl_tex2 = gl_tex1;
+    sgl::OpenGL::Texture gl_tex3;
+    gl_tex3 = gl_tex1;
+    gl_tex1 = gl_tex2;
+    gl_tex1 = gl_tex3;
+    gl_tex2 = gl_tex3;
+    gl_tex3 = gl_tex2;
+  }
+}
+
 #endif
 
 /**
@@ -80,6 +103,7 @@ int main(int argc, char* argv[]) {
   SDL_Window* pWindow = SDL_CreateWindow("Dummy Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 64, 64, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
   if (pWindow == NULL) exit(1);
   if (!sgl::OpenGL::initialize_OpenGL(pWindow, 3, 3, true)) exit(1);
+  test_OpenGL_texture_v2();
   test_OpenGL_texture();
 #endif
 

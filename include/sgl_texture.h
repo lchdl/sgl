@@ -23,7 +23,8 @@ enum PixelFormat {
   PixelFormat_Unknown,
   PixelFormat_RGBA8888,
   PixelFormat_BGRA8888, /* NVIDIA graphics card native format */
-  PixelFormat_Float64, /* such as depth buffer, a single pixel stores a float64 */
+  PixelFormat_Float64, /* used in depth buffer, a single pixel stores a float64 */
+  PixelFormat_Float32, /* only use it in OpenGL. */
   PixelFormat_UInt8, /* often used as stencil buffers or other flag buffers. */
 };
 
@@ -164,8 +165,10 @@ class Texture {
   Vec4 texture_RGBA8888_point(const Vec2 &p) const;
   Vec4 texture_BGRA8888_point(const Vec2 &p) const;
   Vec4 texture_float64_point(const Vec2 &p) const;
+  Vec4 texture_float32_point(const Vec2 &p) const;
   Vec4 texture_xxxx8888_bilinear(const Vec2 &p) const;
   Vec4 texture_float64_bilinear(const Vec2 &p) const;
+  Vec4 texture_float32_bilinear(const Vec2 &p) const;
   Vec4 texture_uint8_point(const Vec2 &p) const;
   Vec4 texture_uint8_bilinear(const Vec2 &p) const;
 
@@ -193,6 +196,10 @@ class Texture {
   Save texture to disk.
   **/
   bool save_png(const std::string& path) const;
+  /**
+  Flip texture vertically.
+  **/
+  void flip_vertically();
 
  protected:
   /**
