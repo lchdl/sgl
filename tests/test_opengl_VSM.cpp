@@ -2,6 +2,20 @@
 #include <sstream>
 
 #ifdef ENABLE_OPENGL
+
+/*
+
+Variance shadow mapping (VSM).
+
+Some useful tutorials:
+  VSM fundamental explanation: https://www.youtube.com/watch?v=LqIl--GgfDA
+  VSM tutorial [1/3]: https://www.youtube.com/watch?v=LGFDifcbsoQ
+  VSM tutorial [2/3]: https://www.youtube.com/watch?v=F5QAkUloGOs
+  VSM tutorial [3/3]: https://www.youtube.com/watch?v=mb7WuTDz5jw
+  VSM results demo: https://graphics.stanford.edu/~mdfisher/Shadows.html
+
+*/
+
 #include "sgl.h"
 #include "stb_image.h"
 
@@ -14,16 +28,19 @@ const int w = 480, h = 480;
 double T_frame = 0.0, T_global = 0.0;
 int frameid = 0;
 
-std::wstring long_text;
-
 struct {
-  OpenGL::Shader shader_shadow, shader_main;
+  OpenGL::Shader shader_VSM, shader_main;
   OpenGL::Texture tex1, tex2;
   OpenGL::VertexBuffer<OpenGL::VertexFormat_3f2f> vbuf;
 
-  OpenGL::FrameBuffer fbuf_render, fbuf_depth;
+  OpenGL::FrameBuffer fbuf_render, fbuf_VSM;
   OpenGL::Texture tex_color;
-  OpenGL::Texture depth_attachment;
+  OpenGL::Texture tex_VSM;       /* for variance shadow mapping (VSM) */
+
+  /* for blurring the variance shadow map */
+  OpenGL::FrameBuffer fbuf_blur; /* for blurring the VSM to achieve soft shadows */
+  OpenGL::Texture tex_VSM_blur;  /* blurred variance shadow map */
+  OpenGL::Shader shader_blur;
 
   OpenGL::Font font;
 } gl;
@@ -77,6 +94,7 @@ void process_key(SDL_KeyboardEvent *key) {
 }
 
 void init_render() {
+  using namespace sgl::OpenGL;
 
   float vertices[] = {
     -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -124,70 +142,22 @@ void init_render() {
 
   gl.vbuf.create_and_fill(sizeof(vertices), vertices, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
   
-  sgl::OpenGL::Shader::FragDataLocation fs_outs[] = {
-    {"FragDepth", 0},
+  Shader::FragDataLocation vsm_gen_outs[] = {
+    {"FragVSM", 0},
   };
-  gl.shader_shadow.create(R"(
-    #version 330 core
-    layout (location = 0) in vec3 inPosition;
-    layout (location = 1) in vec2 inTexCoord;
-    uniform mat4x4 Model;
-    uniform mat4x4 LightTransform;
-    void main()
-    {
-	    gl_Position = LightTransform * Model * vec4(inPosition, 1.0);
-    }
-    )",R"(
-    #version 330 core
-    layout(location = 0) out float FragDepth;
-    void main()
-    {
-	    FragDepth = gl_FragCoord.z;
-    }
-    )",
-    1, fs_outs
+  gl.shader_VSM.create(
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_gen.vert"),
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_gen.frag"),
+    sizeof(vsm_gen_outs) / sizeof(Shader::FragDataLocation), vsm_gen_outs
   );
-  gl.shader_main.create(R"(
-    #version 330 core
-    layout (location = 0) in vec3 inPosition;
-    layout (location = 1) in vec2 inTexCoord;
-    uniform mat4x4 Model;
-    uniform mat4x4 View;
-    uniform mat4x4 Projection;
-    uniform mat4x4 LightTransform;
-    out vec2 TexCoord;
-    out vec4 LightSpacePos;
-    void main()
-    {
-	    gl_Position = Projection * View * Model * vec4(inPosition, 1.0);
-	    TexCoord = inTexCoord;
-      LightSpacePos = LightTransform * Model * vec4(inPosition, 1.0);
-    }
-    )", R"(
-    #version 330 core
-    layout(location = 0) out vec4 FragColor;
-    in vec2 TexCoord;
-    in vec4 LightSpacePos;
-    uniform sampler2D tex1;
-    uniform sampler2D tex2;
-    uniform sampler2D tex_shadow;
-    float shadow(vec4 LightSpacePos){
-      /* Manually perform perspective divide and normalize coordinates to [0, 1]. */
-      vec3 ShadowCoords = (LightSpacePos.xyz / LightSpacePos.w) * 0.5 + 0.5;
-      /* Then sample depth and compare with current depth. */
-      float ShadowDepth = texture(tex_shadow, ShadowCoords.xy).r; 
-      float CurrentDepth = ShadowCoords.z;
-      float ShadowBias = 0.005;
-      float InShadow = CurrentDepth - ShadowBias > ShadowDepth ? 1.0 : 0.0;
-      return InShadow;
-    }
-    void main()
-    {
-      float InShadow = shadow(LightSpacePos);
-      vec4 ShadowCoeff = vec4(vec3(clamp(1.0 - InShadow, 0.5, 1.0)), 1.0);
-	    FragColor = ShadowCoeff * mix(texture(tex1, TexCoord), texture(tex2, TexCoord), 0.5);
-    }
-    )"
+
+  Shader::FragDataLocation vsm_main_outs[] = {
+    {"FragColor", 0},
+  };
+  gl.shader_main.create(
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_main.vert"),
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_main.frag"),
+    sizeof(vsm_main_outs) / sizeof(Shader::FragDataLocation), vsm_main_outs
   );
 
   gl.tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
@@ -195,39 +165,46 @@ void init_render() {
   gl.tex1.to_device(DeviceType_GPU);
   gl.tex2.to_device(DeviceType_GPU);
 
+  gl.font.load("assets/common/fonts/Arial/11pt_Regular.fnt");
+
   /* init framebuffer here */
   gl.tex_color.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   gl.tex_color.to_device(DeviceType_GPU);
-  gl.depth_attachment.create(w, h, PixelFormat_Float32, TextureSampling_Nearest, TextureUsage_DepthBuffer);
-  gl.depth_attachment.to_device(DeviceType_GPU);
+  gl.tex_VSM.create(w, h, PixelFormat_OpenGL_RG32F, TextureSampling_Bilinear, TextureUsage_ColorComponents);
+  gl.tex_VSM.to_device(DeviceType_GPU);
   gl.fbuf_render.setup_attachment(&gl.tex_color, 0);
-  gl.fbuf_depth.setup_attachment(&gl.depth_attachment, 0);
   gl.fbuf_render.make();
-  gl.fbuf_depth.make();
+  gl.fbuf_VSM.setup_attachment(&gl.tex_VSM, 0);
+  gl.fbuf_VSM.make();
 
-  gl.font.load("assets/common/fonts/Arial/11pt_Regular.fnt");
+  gl.tex_VSM_blur.create(w, h, PixelFormat_OpenGL_RG32F, TextureSampling_Bilinear, TextureUsage_ColorComponents);
+  gl.tex_VSM_blur.set_wrap_mode(TextureWrapMode_ClampToBorder);
+  gl.tex_VSM_blur.set_border_color(Vec4(1, 1, 1, 1));
+  gl.tex_VSM_blur.to_device(DeviceType_GPU);
+  gl.fbuf_blur.setup_attachment(&gl.tex_VSM_blur, 0);
+  gl.fbuf_blur.make();
+  Shader::FragDataLocation vsm_blur_outs[] = {
+    {"FragColor", 0},
+  };
+  gl.shader_blur.create(
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_blur.vert"),
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_blur.frag"),
+    sizeof(vsm_blur_outs) / sizeof(Shader::FragDataLocation), vsm_blur_outs
+  );
 }
 
 void render_scene(sgl::OpenGL::Shader& shader, double T) {
-  const Vec3 model_locations[] = {
-    {-0.5, 0.0, 0.0},
-    {0.5, 1.5, 0.0},
-    {2.0, 0.5, 0.0},
-  };
-  const double model_scalings[] = {
-    1.0, 0.6, 1.5,
-  };
-  const Vec3 model_rotations[] = {
-    {-1.0, 2.0, 3.0},
-    {3.0, -2.0, 1.0},
-    {2.0, 1.0, 1.0},
-  };
+  const Vec3 model_locations[] = {{0, -10, 0}, {0, 0.5, 0}};
+  const double model_scalings[] = {20, 1};
+  const Vec3 model_rotations[] = {{0, 1, 0}, {3.0, -2.0, 1.0}};
+  const double rotations_speeds[] = {0, 10.0};
   const int n_cubes = sizeof(model_locations) / sizeof(Vec3);
   for (int i = 0; i < n_cubes; i++) {
     Vec3 model_location = model_locations[i];
     double model_scaling = model_scalings[i];
     Vec3 model_rotation = model_rotations[i];
-    Mat4x4 model = Mat4x4::translate(model_location.x, model_location.y, model_location.z) * Mat4x4::rotate(normalize(model_rotation), degrees_to_radians(T * 10.0)) * Mat4x4::scale(model_scaling, model_scaling, model_scaling);
+    double rotation_speed = rotations_speeds[i];
+    Mat4x4 model = Mat4x4::translate(model_location.x, model_location.y, model_location.z) * Mat4x4::rotate(normalize(model_rotation), degrees_to_radians(T * rotation_speed)) * Mat4x4::scale(model_scaling, model_scaling, model_scaling);
     shader.set_uniform_matrix_4fv("Model", 1, GL_TRUE, &model);
     gl.vbuf.draw_arrays(GL_TRIANGLES, 0, 36);
   }
@@ -237,7 +214,7 @@ Mat4x4 shadow_pass(double T) {
   
   Mat4x4 light_xfm;
   
-  gl.fbuf_depth.bind();
+  gl.fbuf_VSM.bind();
   {
     /* depth buffer should set to farthest 1.0f */
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f); 
@@ -247,20 +224,29 @@ Mat4x4 shadow_pass(double T) {
     const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
     const int w = rsize.x, h = rsize.y;
 
-    const Vec3 light_pos = Vec3(8.0, 4.0, 2.0);
+    const Vec3 light_pos = Vec3(2.0, 2.0, 2.0);
     const double range = 3.0, near_dist = 0.1, far_dist = 10.0;
 
     Mat4x4 light_view = sgl::get_view_matrix(light_pos, Vec3(0, 0, 0), Vec3(0, 1, 0));
     Mat4x4 light_proj = sgl::get_orthographic_matrix(near_dist, far_dist, -range, +range, +range, -range);
     light_xfm = light_proj * light_view;
 
-    gl.shader_shadow.use();
-    gl.shader_shadow.set_uniform_matrix_4fv("LightTransform", 1, GL_TRUE, &light_xfm);
-    render_scene(gl.shader_shadow, T);
+    gl.shader_VSM.use();
+    gl.shader_VSM.set_uniform_matrix_4fv("LightTransform", 1, GL_TRUE, &light_xfm);
+    render_scene(gl.shader_VSM, T);
   }
-  gl.fbuf_depth.unbind();
+  gl.fbuf_VSM.unbind();
 
   return light_xfm;
+}
+
+void blur_VSM_pass() {
+  gl.fbuf_blur.bind();
+  {
+    /* here note the custom shader instance we passed to blit_texture() */
+    sgl::OpenGL::blit_texture(&gl.tex_VSM, w, h, 0, 0, w, h, 0, 0, Vec2(1, 1), 0, Vec3(1, 1, 1), SpriteOriginMode_TopLeft, &gl.shader_blur);
+  }
+  gl.fbuf_blur.unbind();
 }
 
 void main_pass(Mat4x4& light_transform, double T) {
@@ -273,10 +259,10 @@ void main_pass(Mat4x4& light_transform, double T) {
     const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
     const int w = rsize.x, h = rsize.y;
 
-    Vec3 eye_pos = Vec3(3, 3, 3);
+    Vec3 eye_pos = Vec3(3, 3, -3);
 
     Mat4x4 eye_view = sgl::get_view_matrix(eye_pos, Vec3(0, 0, 0), Vec3(0, 1, 0));
-    Mat4x4 eye_proj = sgl::get_perspective_matrix(double(w) / double(h), 0.1, 10.0, degrees_to_radians(60.0));
+    Mat4x4 eye_proj = sgl::get_perspective_matrix(double(w) / double(h), 0.1, 30.0, degrees_to_radians(60.0));
 
     gl.shader_main.use();
     gl.shader_main.set_uniform_matrix_4fv("LightTransform", 1, GL_TRUE, &light_transform);
@@ -284,7 +270,7 @@ void main_pass(Mat4x4& light_transform, double T) {
     gl.shader_main.set_uniform_matrix_4fv("Projection", 1, GL_TRUE, &eye_proj);
     gl.shader_main.set_texture_sampler_2D("tex1", gl.tex1, 0);
     gl.shader_main.set_texture_sampler_2D("tex2", gl.tex2, 1);
-    gl.shader_main.set_texture_sampler_2D("tex_shadow", gl.depth_attachment, 2);
+    gl.shader_main.set_texture_sampler_2D("tex_VSM", gl.tex_VSM_blur, 2);
     render_scene(gl.shader_main, T);
   }
   gl.fbuf_render.unbind();
@@ -300,11 +286,12 @@ double render_frame(double T) {
   {
     Mat4x4 light_xfm;
     light_xfm = shadow_pass(T);
+    blur_VSM_pass();
     main_pass(light_xfm, T);
   }
   gl.fbuf_render.blit_attachment_to_main_framebuffer(0, 0, 0, w, h);
-  sgl::OpenGL::blit_texture(&gl.depth_attachment, w, h, 0, 0, w, h, 0, h, Vec2(0.4, 0.4), 0, Vec3(1, 1, 1), SpriteOriginMode_BottomLeft);
-  gl.font.draw_text(L"Depth Buffer (near=0.0, far=1.0)", 1, h - 12, Vec4(0, 0, 0, 1));
+  sgl::OpenGL::blit_texture(&gl.tex_VSM_blur, w, h, 0, 0, w, h, 0, h, Vec2(0.3,0.3), 0, Vec3(1, 1, 1), SpriteOriginMode_BottomLeft);
+  gl.font.draw_text(L"Variance Shadow Map", 1, h - 12, Vec4(0, 0, 0, 1));
 
   return timer.tick();
 }

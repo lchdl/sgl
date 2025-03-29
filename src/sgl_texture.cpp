@@ -52,6 +52,9 @@ void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSa
   else if (texture_format == PixelFormat_UInt8) {
     this->bypp = 1;
   }
+  else if (texture_format == PixelFormat_OpenGL_RG32F) {
+    this->bypp = 8;
+  }
   else {
     printf("Texture create failed: unsupported / unimplemented texture format.\n");
   }
@@ -125,7 +128,7 @@ void Texture::clear(const Vec4& clear_color)
       data[i] = R;
   }
   else {
-    printf("Cannot clear texture, unsupported texture format or usage.\n");
+    printf("Cannot clear texture, unsupported texture format and/or usage combination.\n");
   }
 }
 

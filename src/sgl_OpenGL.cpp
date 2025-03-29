@@ -89,6 +89,17 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
       float color = texture(tex0, TexCoord).r; 
       FragColor = vec4(vec3(color), 1.0) * vec4(ColorMask, 1.0);
     }
+    )", 1, NULL); 
+  gl_vars.sprite_renderer_RG32F.initialize("", R"(
+    #version 330 core
+    layout(location = 0) out vec4 FragColor;
+    in vec2 TexCoord;
+    uniform sampler2D tex0;
+    uniform vec3 ColorMask;
+    void main() {
+      vec2 color = texture(tex0, TexCoord).rg; 
+      FragColor = vec4(vec2(color), 1.0, 1.0) * vec4(ColorMask, 1.0);
+    }
     )", 1, NULL);
 
   return success;
@@ -161,11 +172,13 @@ GLuint get_current_framebuffer()
 Texture::Texture() {
   device = DeviceType_CPU;
   gl_handle = 0;
+  wrap_mode = TextureWrapMode_Repeat;
 }
 
 Texture::Texture(const sgl::Texture& source) {
   device = DeviceType_CPU;
   gl_handle = 0;
+  wrap_mode = TextureWrapMode_Repeat;
   this->copy(source);
 }
 
@@ -176,6 +189,7 @@ Texture::~Texture() {
 Texture::Texture(const Texture &texture) {
   this->gl_handle = 0;
   this->device = DeviceType_CPU;
+  wrap_mode = TextureWrapMode_Repeat;
   this->copy(texture);
 }
 
@@ -192,6 +206,30 @@ Texture& Texture::operator=(const Texture &texture) {
   return (*this);
 }
 
+void Texture::set_wrap_mode(TextureWrapMode wrap_mode) {
+  if (this->device != DeviceType_CPU) {
+    printf("Warning: set_wrap_mode() will have no effect "
+      "because the texture has already been uploaded to "
+      "the device. The setting will take effect the next "
+      "time to_device() is called.\n");
+  }
+  this->wrap_mode = wrap_mode;
+}
+
+TextureWrapMode Texture::get_wrap_mode() const {
+  return this->wrap_mode;
+}
+
+void Texture::set_border_color(const Vec4& border_color) {
+  if (this->device != DeviceType_CPU) {
+    printf("Warning: set_border_color() will have no effect "
+      "because the texture has already been uploaded to "
+      "the device. The setting will take effect the next "
+      "time to_device() is called.\n");
+  }
+  this->border_color = border_color;
+}
+
 bool Texture::to_device(sgl::DeviceType device, bool flip_vertically_on_transfer)
 {
   if (this->device == DeviceType_CPU && device == DeviceType_GPU) {
@@ -204,13 +242,29 @@ bool Texture::to_device(sgl::DeviceType device, bool flip_vertically_on_transfer
         return false;
       }
       glBindTexture(GL_TEXTURE_2D, gl_handle);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      if (this->wrap_mode == TextureWrapMode_Repeat) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      }
+      else if (this->wrap_mode == TextureWrapMode_ClampToBorder) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        float border[] = { float(border_color.r), float(border_color.g), float(border_color.b), float(border_color.a) };
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
+      }
+      else if (this->wrap_mode == TextureWrapMode_ClampToEdge) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      }
+      else if (this->wrap_mode == TextureWrapMode_MirroredRepeat) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+      }
       if (this->sampling == TextureSampling_Bilinear) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
-      else {
+      else if (this->sampling == TextureSampling_Nearest) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       }
@@ -250,11 +304,22 @@ bool Texture::to_device(sgl::DeviceType device, bool flip_vertically_on_transfer
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, this->w, this->h, 0, GL_RED, GL_FLOAT, this->pixels);
       }
     }
+    else if (this->format == PixelFormat_OpenGL_RG32F) {
+      if (flip_vertically_on_transfer) {
+        sgl::OpenGL::Texture flipped = *this;
+        flipped.flip_vertically();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, this->w, this->h, 0, GL_RG, GL_FLOAT, flipped.pixels);
+      }
+      else {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, this->w, this->h, 0, GL_RG, GL_FLOAT, this->pixels);
+      }
+    }
+    /* TODO: add support for other formats (GPU->CPU) */
     else {
       printf("Error, cannot transfer texture to GPU due to unsupported pixel format.\n");
       return false;
     }
-    glGenerateMipmap(GL_TEXTURE_2D);
+    glGenerateMipmap(GL_TEXTURE_2D); /* regenerate mipmap since texture data is changed */
     glBindTexture(GL_TEXTURE_2D, 0);
 
     /* texture is uploaded to GPU, change its location */
@@ -280,9 +345,14 @@ bool Texture::to_device(sgl::DeviceType device, bool flip_vertically_on_transfer
       glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, pixels);
       glBindTexture(GL_TEXTURE_2D, 0);
     }
-    /* TODO: add support for other formats downloading */
+    else if (this->format == PixelFormat_OpenGL_RG32F) {
+      glBindTexture(GL_TEXTURE_2D, gl_handle);
+      glGetTexImage(GL_TEXTURE_2D, 0, GL_RG, GL_FLOAT, pixels);
+      glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    /* TODO: add support for other formats (GPU->CPU) */
     else {
-      printf("Error, unsupported pixel format.\n");
+      printf("Error, cannot transfer texture to CPU due to unsupported pixel format.\n");
       return false;
     }
     this->device = DeviceType_CPU;
@@ -373,14 +443,17 @@ const GLuint Texture::get_GL_handle() const
   return this->gl_handle;
 }
 
-void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage) {
+void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage, TextureWrapMode wrap_mode) {
+  this->destroy();
   sgl::Texture::create(w, h, texture_format, texture_sampling, texture_usage);
   device = DeviceType_CPU;
   gl_handle = 0;
+  this->wrap_mode = wrap_mode;
 }
 
 void Texture::destroy() {
   device = DeviceType_CPU; /* default storage location is the CPU */
+  wrap_mode = TextureWrapMode_Repeat;
   glBindTexture(GL_TEXTURE_2D, 0);
   if (gl_handle > 0) {
     glDeleteTextures(1, &gl_handle);
@@ -1079,7 +1152,12 @@ SpriteRenderer::~SpriteRenderer() {
   this->destroy();
 }
 
-void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int target_h, int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y, const Vec2 & scale, const double & rot, const Vec3 & color_mask, const sgl::SpriteOriginMode origin_mode)
+void SpriteRenderer::draw(
+  sgl::OpenGL::Texture* source, int target_w, int target_h,
+  int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
+  const Vec2& scale, const double& rot, const Vec3& color_mask,
+  const sgl::SpriteOriginMode origin_mode,
+  const sgl::OpenGL::Shader* custom_shader)
 {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
@@ -1096,12 +1174,16 @@ void SpriteRenderer::draw(sgl::OpenGL::Texture * source, int target_w, int targe
   float by = dv * float(source->get_height() - src_y - src_h);
   float ty = dv * float(source->get_height() - src_y);
 
-  this->shader.use();
-  this->shader.set_uniform_3f("ColorMask", float(color_mask.r), float(color_mask.g), float(color_mask.b));
-  this->shader.set_texture_sampler_2D("tex0", *source, 0);
-  this->shader.set_uniform_4f("Transform", float(scale.x), float(scale.y), float(dst_x), float(target_h - dst_y)); /* Note the "target_h - dst_y" adjustment, as the Y-axis in screen space differs from the one defined in OpenGL's NDC (Normalized Device Coordinates). */
-  this->shader.set_uniform_4i("TextureDims", src_w, src_h, target_w, target_h);
-  this->shader.set_uniform_1f("Rotation", float(rot));
+  const sgl::OpenGL::Shader* shader = &this->shader;
+  if (custom_shader != NULL)
+    shader = custom_shader;
+
+  shader->use();
+  shader->set_uniform_3f("ColorMask", float(color_mask.r), float(color_mask.g), float(color_mask.b));
+  shader->set_texture_sampler_2D("tex0", *source, 0);
+  shader->set_uniform_4f("Transform", float(scale.x), float(scale.y), float(dst_x), float(target_h - dst_y)); /* Note the "target_h - dst_y" adjustment, as the Y-axis in screen space differs from the one defined in OpenGL's NDC (Normalized Device Coordinates). */
+  shader->set_uniform_4i("TexDims", src_w, src_h, target_w, target_h);
+  shader->set_uniform_1f("Rotation", float(rot));
 
   if (origin_mode == SpriteOriginMode_Center) {
     float vertices[16] = {
@@ -1157,48 +1239,32 @@ void SpriteRenderer::initialize(const std::string & vs, const std::string & fs, 
     #version 330 core
     layout(location = 0) in vec2 inPosition;
     layout(location = 1) in vec2 inTexCoord;
-    uniform ivec4 TextureDims; /* (Sw, Sh, Tw, Th) */
-    uniform vec4 Transform;    /* (Sx, Sy, dx, dy) */
+    uniform ivec4 TexDims;  /* (Sw, Sh, Tw, Th) */
+    uniform vec4 Transform; /* (Sx, Sy, dx, dy) */
     uniform float Rotation;
     out vec2 TexCoord;
-    mat4x4 rot_z(float angle) {
-      float c = cos(angle);
-      float s = sin(angle);
-      return mat4x4(
-        c, s, 0.0, 0.0,
-        -s, c, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0);
+    mat4x4 rotate_z(float angle) {
+      float c = cos(angle), s = sin(angle);
+      return mat4x4(c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
     }
-    mat4x4 trans(float dx, float dy, float dz) {
-      return mat4x4(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        dx, dy, dz, 1.0);
+    mat4x4 translate(float dx, float dy, float dz) {
+      return mat4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, dx, dy, dz, 1);
     }
     mat4x4 scale(float sx, float sy, float sz) {
-      return mat4x4(
-        sx, 0.0, 0.0, 0.0,
-        0.0, sy, 0.0, 0.0,
-        0.0, 0.0, sz, 0.0,
-        0.0, 0.0, 0.0, 1.0);
+      return mat4x4(sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, sz, 0, 0, 0, 0, 1);
     }
     mat4x4 ortho(float n, float f, float l, float r, float t, float b) {
-      return mat4x4(
-        2.0/(r-l), 0.0, 0.0, 0.0,
-        0.0, 2.0/(t-b), 0.0, 0.0,
-        0.0, 0.0, -2.0/(f-n), 0.0,
-        -(r+l)/(r-l), -(t+b)/(t-b), -(f+n)/(f-n), 1.0
-      );
+      return mat4x4(2/(r-l), 0, 0, 0, 0, 2/(t-b), 0, 0, 0, 0, -2/(f-n), 0, 
+        -(r+l)/(r-l), -(t+b)/(t-b), -(f+n)/(f-n), 1);
     }
     void main() {
-      mat4x4 mTranslate = trans(Transform.z, Transform.w, 0.0);
-      mat4x4 mRotate = rot_z(Rotation);
-      mat4x4 mScale = scale(Transform.x, Transform.y, 1.0);
+      mat4x4 mTranslate = translate(Transform.z, Transform.w, 0);
+      mat4x4 mRotate = rotate_z(Rotation);
+      mat4x4 mScale = scale(Transform.x, Transform.y, 1);
       mat4x4 mModel = mTranslate * mRotate * mScale;
-      mat4x4 mProjection = ortho(0.0, 1.0, 0.0, float(TextureDims.z), float(TextureDims.w), 0.0);
-      gl_Position = mProjection * mModel * vec4(float(TextureDims.x) * inPosition.x, float(TextureDims.y) * inPosition.y, 0.0, 1.0);
+      mat4x4 mProjection = ortho(0, 1, 0, TexDims.z, TexDims.w, 0);
+      mat4x4 mTransform = mProjection * mModel;
+      gl_Position = mTransform * vec4(TexDims.xy * inPosition.xy, 0, 1);
       TexCoord = inTexCoord;
     }
     )" : vs;
@@ -1210,7 +1276,7 @@ void SpriteRenderer::initialize(const std::string & vs, const std::string & fs, 
     uniform vec3 ColorMask;
     void main() {
       vec4 color = texture(tex0, TexCoord); 
-      FragColor = color * vec4(ColorMask, 1.0);
+      FragColor = color * vec4(ColorMask, 1);
     }
     )" : fs;
   Shader::FragDataLocation _fs_outs_default[] = {
@@ -1226,13 +1292,20 @@ void SpriteRenderer::initialize(const std::string & vs, const std::string & fs, 
 void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
   int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
   const Vec2& scale, const double& rot, const Vec3& color_mask,
-  const sgl::SpriteOriginMode origin_mode)
+  const sgl::SpriteOriginMode origin_mode,
+  const sgl::OpenGL::Shader* custom_shader)
 {
   PixelFormat format = source->get_pixel_format();
   if (format == PixelFormat_BGRA8888 || format == PixelFormat_RGBA8888)
-    gl_vars.sprite_renderer_RGBA.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode);
+    gl_vars.sprite_renderer_RGBA.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode, custom_shader);
   else if (format == PixelFormat_Float32)
-    gl_vars.sprite_renderer_R32F.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode);
+    gl_vars.sprite_renderer_R32F.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode, custom_shader);
+  else if (format == PixelFormat_OpenGL_RG32F)
+    gl_vars.sprite_renderer_RG32F.draw(source, target_w, target_h, src_x, src_y, src_w, src_h, dst_x, dst_y, scale, rot, color_mask, origin_mode, custom_shader);
+  else {
+    printf("Unsupported pixel format.\n");
+    return;
+  }
 }
 
 void FrameBuffer::setup_attachment(sgl::OpenGL::Texture * tex, int slot) {

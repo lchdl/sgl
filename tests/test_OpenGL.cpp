@@ -22,7 +22,7 @@ struct {
   OpenGL::VertexBuffer<OpenGL::VertexFormat_3f2f> vbuf;
 
   OpenGL::FrameBuffer framebuffer;
-  OpenGL::Texture color_attachment;
+  OpenGL::Texture tex_color;
 
   OpenGL::Font fonts[4];
 } gl;
@@ -136,9 +136,9 @@ void init_render() {
   gl.chess.to_device(DeviceType_GPU);
 
   /* init framebuffer here */
-  gl.color_attachment.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  gl.color_attachment.to_device(DeviceType_GPU);
-  gl.framebuffer.setup_attachment(&gl.color_attachment, 0);
+  gl.tex_color.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
+  gl.tex_color.to_device(DeviceType_GPU);
+  gl.framebuffer.setup_attachment(&gl.tex_color, 0);
   gl.framebuffer.make();
 
   gl.fonts[0].load("assets/common/fonts/GrapeSoda/16pt_Regular.fnt");

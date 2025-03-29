@@ -88,10 +88,19 @@ IVec2 get_current_render_target_size(GLenum attachment = GL_COLOR_ATTACHMENT0);
 
 GLuint get_current_framebuffer();
 
+enum TextureWrapMode {
+  TextureWrapMode_Repeat,
+  TextureWrapMode_MirroredRepeat,
+  TextureWrapMode_ClampToEdge,
+  TextureWrapMode_ClampToBorder,
+};
+
 class Texture : protected sgl::Texture {
 protected:
   sgl::DeviceType device; /* where is the texture currently stored */
   GLuint gl_handle; /* OpenGL texture handle (0=invalid) */
+  sgl::OpenGL::TextureWrapMode wrap_mode;
+  Vec4 border_color;
 public:
   /*
 
@@ -127,16 +136,24 @@ public:
 
 public:
   /* reimplement base class functions */
-  void Texture::create(int32_t w, int32_t h, PixelFormat texture_format, TextureSampling texture_sampling, TextureUsage texture_usage);
-  void destroy();
-  bool save_png(const std::string& path) const;
-  void flip_vertically();
+  void                    create(int32_t w, int32_t h, 
+                                 PixelFormat texture_format, 
+                                 TextureSampling texture_sampling, 
+                                 TextureUsage texture_usage, 
+                                 TextureWrapMode wrap_mode = TextureWrapMode_Repeat);
+  void                   destroy();
+  bool                  save_png(const std::string& path) const;
+  void           flip_vertically();
   sgl::OpenGL::Texture to_format(const PixelFormat& target_format);
-  int32_t get_width() const;
-  int32_t get_height() const;
-  int32_t get_bytes_per_pixel() const;
-  void* get_pixel_data() const;
-  PixelFormat get_pixel_format() const;
+  int32_t              get_width() const;
+  int32_t             get_height() const;
+  int32_t    get_bytes_per_pixel() const;
+  void*           get_pixel_data() const;
+  PixelFormat   get_pixel_format() const;
+  /* specific functions */
+  void             set_wrap_mode(TextureWrapMode wrap_mode);
+  TextureWrapMode  get_wrap_mode() const;
+  void          set_border_color(const Vec4& border_color);
 
 public:
   Texture();
@@ -327,7 +344,8 @@ public:
   void draw(sgl::OpenGL::Texture* source, int target_w, int target_h,
     int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
     const Vec2& scale, const double& rot, const Vec3& color_mask,
-    const sgl::SpriteOriginMode origin_mode = SpriteOriginMode_TopLeft);
+    const sgl::SpriteOriginMode origin_mode = SpriteOriginMode_TopLeft,
+    const sgl::OpenGL::Shader* custom_shader = NULL);
 };
 
 /**
@@ -336,7 +354,8 @@ Blit texture (OpenGL version).
 void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
   int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y,
   const Vec2& scale, const double& rot, const Vec3& color_mask,
-  const sgl::SpriteOriginMode origin_mode = SpriteOriginMode_TopLeft);
+  const sgl::SpriteOriginMode origin_mode = SpriteOriginMode_TopLeft,
+  const sgl::OpenGL::Shader* custom_shader = NULL);
 
 class Font : protected sgl::Font 
 {
@@ -403,6 +422,7 @@ struct GL_vars {
   SDL_Window* current_active_window; /* an `active` window refers to the window that currently holds the active OpenGL context. */
   SpriteRenderer sprite_renderer_RGBA;
   SpriteRenderer sprite_renderer_R32F;
+  SpriteRenderer sprite_renderer_RG32F;
 
   GL_vars() {
     max_texture_image_units = -1;
