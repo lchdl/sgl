@@ -136,7 +136,7 @@ protected:
   Pipeline_t pipeline;
   Shader       shader;
   Uniforms   uniforms;
-  /* ... other member variables here ... */
+  /* TODO: add other member variables here. */
 public:
   void draw(/* ... */) {
     Pipeline_t::VertexBuffer_t vertex_buffer;
@@ -152,14 +152,14 @@ public:
 };
 
 /**
-BaseAnimator:
+AnimatedModelRenderer:
 
 Simply draw a model (probably with animation) onto screen.
 * Note that a model can consists of multiple meshes, so this class also 
   wraps up multiple draw calls to fully render a model, each draw call
   only renders a single mesh.
 **/
-class BaseAnimator : public Pass
+class AnimatedModelRenderer : public Pass
 {
 public:
   struct Uniforms {
@@ -196,32 +196,27 @@ public:
     void FS(const Uniforms& uniforms, const FS_IN& fragment_in, const Vec4& gl_FragCoord, FS_Outputs& fs_outs, bool& discard, double& gl_FragDepth) const;
   };
 
-
 public:
   void                       draw();
-  void                 load_model(const std::string & zip_file, const std::string& model_fname);
+  void             load_model_zip(const std::string & zip_file, const std::string& model_fname);
   void        set_model_transform(const Mat4x4& transform);
-  PipelineDrawMode  get_draw_mode() const { return this->pipeline.get_draw_mode(); }
-  void              set_draw_mode(PipelineDrawMode draw_mode) { this->pipeline.set_draw_mode(draw_mode); }
-  bool get_backface_culling_state() const { return this->pipeline.get_backface_culling_state(); }
-  void set_backface_culling_state(bool state) { this->pipeline.set_backface_culling_state(state); }
-  void            set_num_threads(int num_threads) { this->pipeline.set_num_threads(num_threads); }
-  void             play_animation(const std::string& anim_name, const double& play_time) { this->anim_name = anim_name; this->play_time = play_time; }
-  double     query_last_draw_time() const { return this->last_draw_time; }
-  void        bind_render_targets(Texture* color, Texture* depth, Texture* normal) { 
-    this->pipeline.bind_render_target(0, color);
-    this->pipeline.bind_render_target(1, depth);
-    this->pipeline.bind_render_target(2, normal);
-  }
-  void       clear_pipeline_cache() { this->pipeline.clear_cache(); }
-  void       clear_render_targets(const Vec4& clear_color) { this->pipeline.clear_render_targets(clear_color); }
+  PipelineDrawMode  get_draw_mode() const;
+  void              set_draw_mode(PipelineDrawMode draw_mode);
+  bool get_backface_culling_state() const;
+  void set_backface_culling_state(bool state);
+  void   set_pipeline_num_threads(int num_threads);
+  void             play_animation(const std::string& anim_name, const double& play_time);
+  double     query_last_draw_time() const;
+  void        bind_render_targets(Texture* color, Texture* depth, Texture* normal);
+  void       clear_pipeline_cache();
+  void       clear_render_targets(const Vec4& clear_color);
 
 public:
-  BaseAnimator();
-  virtual ~BaseAnimator() {}
+  AnimatedModelRenderer();
+  virtual ~AnimatedModelRenderer() {}
 
 protected:
-  VS_IN convert_from_mesh_vertex(const Vertex_pnt_nm_bone& v) const;
+  VS_IN _convert_from_mesh_vertex(const Vertex_pnt_nm_bone& v) const;
 
 protected:
   typedef Pipeline<Uniforms, VS_IN, VS_OUT, Shader> Pipeline_t;
@@ -238,18 +233,6 @@ protected:
 
 };
 
-
-/**
-SpriteRenderer:
-Draw a 2D sprite onto screen.
-**/
-enum SpriteOriginMode {
-  SpriteOriginMode_Center,      /* Origin is at the center of the sprite. */
-  SpriteOriginMode_BottomLeft,  /* Origin is at the bottom-left corner of the sprite. */
-  SpriteOriginMode_BottomRight, /* Origin is at the bottom-right corner of the sprite.  */
-  SpriteOriginMode_TopLeft,     /* Origin is at the top-left corner of the sprite. */
-  SpriteOriginMode_TopRight,    /* Origin is at the top-right corner of the sprite. */
-};
 class SpriteRenderer : public Pass {
 public:
   struct Uniforms {

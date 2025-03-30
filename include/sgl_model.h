@@ -7,6 +7,7 @@
 #include "zip.h" /* for loading zipped model files */
 #include "sgl_utils.h"
 #include "sgl_math.h"
+#include "sgl_enums.h"
 #include "sgl_texture.h"
 #include "sgl_shader.h"
 
@@ -44,10 +45,6 @@ struct Animation {
   std::vector<KeyFrame<Vec3>> position_key_frames;
   std::vector<KeyFrame<Quat>> rotation_key_frames;
   double ticks_per_second; /* default = 25 */
-};
-enum KeyframeInterp_t {
-  KeyFrameInterp_Nearest,
-  KeyFrameInterp_Linear,
 };
 struct Bone {
   /* bone name */
@@ -94,7 +91,7 @@ class Model {
    * renders a single mesh onto the frame buffer. */
 public:
   /* initialize mesh object from external/internal file formats. */
-  bool load_zip(const std::string& zip_file, const std::string& model_file);
+  bool load_zip(const std::string& zip_file, const std::string& model_fname);
   /* dump mesh information for debugging */
   void dump();
   /* unload mesh and return allocated resources to OS. */
@@ -168,15 +165,31 @@ public:
     so if a model contains N meshes, it will need N draw calls to fully
     render the whole model, with i-th draw call renders the i-th mesh. */
   );
-  void set_keyframe_interp_mode(const KeyframeInterp_t interp) {
+  void set_keyframe_interp_mode(const KeyFrameInterpType interp) {
     this->keyframe_interp_mode = interp;
   }
 
-  /* ctor & dtor that we don't even care about much. */
+  /* ctor & dtor */
+
   Model();
+  Model(const Model& that);
+  Model& operator=(const Model& that);
+
   virtual ~Model();
 
 protected:
+  
+  /*
+  The following member variables must be initialized exclusively through this->load().
+  No other initialization paths are permitted for these members.
+  */
+
+  struct _load_info_ {
+    std::string load_method; /* how the model is loaded */
+    std::string zip_file;
+    std::string model_fname;
+  } load_info; /* will be stored when loading the model through `this->load*()` */
+
   std::vector<Mesh> meshes;
   std::vector<Material> materials;
   /* global transformation for the whole model, will be
@@ -190,7 +203,7 @@ protected:
   std::map<std::string, Node*> node_name_to_ptr;
   Node* root_node;
   /* key frame interpolation modes (nearest, linear, ...) */
-  KeyframeInterp_t keyframe_interp_mode;
+  KeyFrameInterpType keyframe_interp_mode;
 
 private:
   /* utility functions for loading the model */
@@ -210,7 +223,7 @@ private:
     Mat4x4* bone_matrices           /* uniform variables that will be written to */
   );
   Mat4x4 _interpolate_skeletal_animation(
-    const Animation& anim, const double tick, const KeyframeInterp_t interp
+    const Animation& anim, const double tick, const KeyFrameInterpType interp
   );
 
   /* utility functions for mesh debugging */

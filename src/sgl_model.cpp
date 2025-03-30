@@ -7,19 +7,61 @@
 namespace sgl {
 
 Model::Model() {
-  root_node = NULL;
-  model_transform = Mat4x4::identity();
-  keyframe_interp_mode = KeyframeInterp_t::KeyFrameInterp_Linear;
+  this->root_node = NULL;
+  this->model_transform = Mat4x4::identity();
+  this->keyframe_interp_mode = KeyFrameInterpType::KeyFrameInterpType_Linear;
 }
 Model::~Model() {
   this->unload();
 }
 
+Model::Model(const Model& that) {
+  this->root_node = NULL;
+  this->model_transform = Mat4x4::identity();
+  this->keyframe_interp_mode = KeyFrameInterpType::KeyFrameInterpType_Linear;
+
+  if (that.load_info.load_method == "load_zip") {
+    this->load_zip(that.load_info.zip_file, that.load_info.model_fname);
+  }
+  /* TODO: add other copy methods if load_method is new */
+
+  this->set_model_transform(that.model_transform);
+  this->set_keyframe_interp_mode(that.keyframe_interp_mode);
+}
+
+Model& Model::operator=(const Model& that) {
+  if (this == &that)
+    return (*this);
+
+  this->unload();
+
+  this->root_node = NULL;
+  this->model_transform = Mat4x4::identity();
+  this->keyframe_interp_mode = KeyFrameInterpType::KeyFrameInterpType_Linear;
+
+  if (that.load_info.load_method == "load_zip") {
+    this->load_zip(that.load_info.zip_file, that.load_info.model_fname);
+  }
+
+  this->set_model_transform(that.model_transform);
+  this->set_keyframe_interp_mode(that.keyframe_interp_mode);
+
+  return (*this);
+}
+
 void Model::unload() {
+  this->load_info.load_method = "";
+  this->load_info.zip_file = "";
+  this->load_info.model_fname = "";
   this->meshes.clear();
   this->materials.clear();
   this->_delete_node(root_node);
   this->root_node = NULL;
+  this->model_transform = Mat4x4::identity();
+  this->anim_name_to_unique_id.clear();
+  this->node_name_to_unique_id.clear();
+  this->node_name_to_ptr.clear();
+  this->keyframe_interp_mode = KeyFrameInterpType::KeyFrameInterpType_Linear;
 }
 
 bool Model::load_zip(const std::string& zip_file, const std::string& model_fname) {
@@ -27,6 +69,10 @@ bool Model::load_zip(const std::string& zip_file, const std::string& model_fname
   /* clear trash data from previous load */
   this->unload(); 
   
+  this->load_info.load_method = "load_zip";
+  this->load_info.zip_file = zip_file;
+  this->load_info.model_fname = model_fname;
+
   /* Assimp model importer.
    * Note: if the importer is destoryed, the resources
    * it holds will also be destroyed. */
@@ -387,7 +433,7 @@ inline T
 _interpolate_key_frames(
   const std::vector<KeyFrame<T>>& key_frames, 
   const double tick,
-  const KeyframeInterp_t interp)
+  const KeyFrameInterpType interp)
 {
   uint32_t n_frames = (uint32_t)key_frames.size();
 
@@ -418,10 +464,10 @@ _interpolate_key_frames(
   }
 
   /* interpolate left and right using different modes */
-  if (interp == KeyFrameInterp_Nearest) {
+  if (interp == KeyFrameInterpType_Nearest) {
     return key_frames[left].value;
   }
-  else if (interp == KeyframeInterp_t::KeyFrameInterp_Linear) {
+  else if (interp == KeyFrameInterpType::KeyFrameInterpType_Linear) {
     /* interpolate left and right (=left+1) */
     double weight = (tick - key_frames[left].tick) /
       (key_frames[right].tick - key_frames[left].tick);
@@ -445,7 +491,7 @@ inline Quat
 _interpolate_key_frames(
   const std::vector<KeyFrame<Quat>>& key_frames,
   const double tick,
-  const KeyframeInterp_t interp)
+  const KeyFrameInterpType interp)
 {
   uint32_t n_frames = (uint32_t)key_frames.size();
 
@@ -476,11 +522,11 @@ _interpolate_key_frames(
   }
 
   /* interpolate left and right using different modes */
-  if (interp == KeyFrameInterp_Nearest) {
+  if (interp == KeyFrameInterpType_Nearest) {
     Quat q1 = key_frames[left].value;
     return normalize(q1);
   }
-  else if (interp == KeyFrameInterp_Linear) {
+  else if (interp == KeyFrameInterpType_Linear) {
     /* interpolate left and right (=left+1) */
     double weight = (tick - key_frames[left].tick) / (key_frames[right].tick - key_frames[left].tick);
     if (weight < 0.0) weight = 0.0;
@@ -497,7 +543,7 @@ _interpolate_key_frames(
 
 Mat4x4 
 Model::_interpolate_skeletal_animation(
-  const Animation& anim, const double tick, const KeyframeInterp_t interp)
+  const Animation& anim, const double tick, const KeyFrameInterpType interp)
 {
   /*
   Interpolate position, scaling, and rotation.

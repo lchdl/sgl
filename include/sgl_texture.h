@@ -5,50 +5,9 @@
 #include <string>
 
 #include "sgl_math.h"
+#include "sgl_enums.h"
 
 namespace sgl {
-
-enum PixelFormat {
-  /*
-
-  Defines the physical storage order in little-endian system.
-
-  Useful reference:
-  http://http.download.nvidia.com/developer/Papers/2005/Fast_Texture_Transfers/Fast_Texture_Transfers.pdf
-  => "Storing 8-bit textures in a BGRA layout in system memory 
-      and use the GL_BGRA as the external format for textures 
-      to avoid swizzling."
-
-  */
-  PixelFormat_Unknown,
-  PixelFormat_RGBA8888,
-  PixelFormat_BGRA8888, /* NVIDIA graphics card native format */
-  PixelFormat_Float64, /* used in depth buffer, a single pixel stores a float64 */
-  PixelFormat_Float32, /* avoid this format in software rasterizer as much as possible */
-  PixelFormat_UInt8, /* often used as stencil buffers or other flag buffers. */
-  /* 
-  
-  Below are the OpenGL-specific pixel formats. 
-  NOTE: If a new OpenGL-specific format is added, ensure the following 
-  two functions are extended to support the new format:
-    1. sgl::Texture::create();
-    2. sgl::OpenGL::Texture::to_device();
-    3. sgl::OpenGL::blit_texture(); <- for blitting this new type texture onto screen
-
-  */
-  PixelFormat_OpenGL_RG32F, /* each pixel stores two float32 */
-};
-
-enum TextureSampling {
-  TextureSampling_Nearest, /* point (nearest) sampling */
-  TextureSampling_Bilinear,
-};
-
-enum TextureUsage {
-  TextureUsage_Unknown,
-  TextureUsage_ColorComponents, 
-  TextureUsage_DepthBuffer,
-};
 
 /**
 Pixel color convert/pack/unpack.

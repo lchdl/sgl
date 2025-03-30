@@ -14,8 +14,9 @@ adjust the number of CPU cores used for rendering.
 
 /* core features */
 #include "sgl_utils.h"
-#include "sgl_SDL2.h"
 #include "sgl_math.h"
+#include "sgl_enums.h"
+#include "sgl_SDL2.h"
 #include "sgl_texture.h"
 #include "sgl_shader.h"
 #include "sgl_model.h"

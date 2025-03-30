@@ -33,22 +33,12 @@ acceleration extension) defined in the header below.
 Reimplement some passes with hardware acceleration 
 defined in `sgl_pass.h`.
 **/
+#include "sgl_enums.h"
 #include "sgl_pass.h"
-/**
-Some functions defined here are used.
-**/
 #include "sgl_pipeline.h"
+#include "sgl_model.h"
 
-namespace sgl {
-/* 
-if OpenGL acceleration is enabled, we need to define an
-enum to distinguish different devices.
-*/
-enum DeviceType {
-  DeviceType_CPU,
-  DeviceType_GPU,
-};
- 
+namespace sgl { 
 namespace OpenGL {
 
 /**
@@ -88,13 +78,6 @@ IVec2 get_current_render_target_size(GLenum attachment = GL_COLOR_ATTACHMENT0);
 
 GLuint get_current_framebuffer();
 
-enum TextureWrapMode {
-  TextureWrapMode_Repeat,
-  TextureWrapMode_MirroredRepeat,
-  TextureWrapMode_ClampToEdge,
-  TextureWrapMode_ClampToBorder,
-};
-
 class Texture : protected sgl::Texture {
 protected:
   sgl::DeviceType device; /* where is the texture currently stored */
@@ -122,11 +105,16 @@ public:
     (2) Create a new texture by copying the CPU-side data.
     
     The newly created texture will remain in CPU memory. If you need 
-    to upload it to the GPU, you must manually call `Texture::to()`.
-    If step (1) is omitted, SGL will only copy the texture data 
+    to upload it to the GPU, you must manually call `Texture::to_devi
+    ce()`. If step (1) is skipped, SGL will only copy the texture data 
     available in CPU memory, which may be outdated if modifications 
     were made on the GPU. However, if you are certain that the CPU and
     GPU contain identical texture data, you can safely skip step (1).
+
+  * Note 3: If a texture has already been transferred to GPU and its 
+    `=` operator is called (e.g., during value assignment from another 
+    texture), this texture's GPU resources will be properly deallocated,
+    and it will become a CPU texture after assignment.
 
   */
   bool to_device(sgl::DeviceType device, bool flip_vertically_on_transfer = false);
@@ -415,8 +403,46 @@ protected:
 
 };
 
-/* the initialization process will also initialize the following states */
+class AnimatedModelRenderer {
+  /*
+  
+  It appears that the `sgl::OpenGL::AnimatedModelRenderer` class should 
+  inherit from `sgl::AnimatedModelRenderer` since they share the same 
+  concept of storing complete model data for scene rendering. However, 
+  this inheritance was intentionally avoided for the following reasons:
+
+  1. While sharing the same concept, `sgl::AnimatedModelRenderer` 
+     contains many data structures that 
+     `sgl::OpenGL::AnimatedModelRenderer` doesn't require.
+  
+  2. The complexity of `sgl::AnimatedModelRenderer` is already 
+     significant, and direct inheritance would exacerbate this, 
+     potentially making maintenance more difficult and introducing bugs. 
+     Since `sgl::OpenGL::AnimatedModelRenderer` also handles GPU 
+     interactions, inheriting from `sgl::AnimatedModelRenderer` might
+     lead to incompatible member functions that could cause memory 
+     leaks or other hard-to-detect issues, making the code potentially 
+     unsafe.
+
+     While protected inheritance with function hiding and rewriting 
+     could mitigate this, such an approach would be less maintainable 
+     than simply using composition.
+
+  Therefore, each `sgl::OpenGL::AnimatedModelRenderer` contains a 
+  `sgl::Model` instance (`this->_model`) as a member, accessing only
+  the necessary data when required.
+
+  */
+protected:
+  sgl::Model _model;
+  /* TODO: add members for GPU resource */
+public:
+  /* TODO: add member functions */
+
+};
+
 struct GL_vars {
+  /* the initialization process will also initialize the following states */
   GLint max_texture_image_units;     /* maximum number of textures that can be bound to a fragment shader */
   GLint max_color_attachments;
   SDL_Window* current_active_window; /* an `active` window refers to the window that currently holds the active OpenGL context. */

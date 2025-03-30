@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "sgl_math.h"
+#include "sgl_enums.h"
 #include "sgl_shader.h"
 #include "sgl_texture.h"
 #include "sgl_utils.h"
@@ -39,11 +40,6 @@ Software Rasterizer Tutorial
 * Fragment shader predefined outputs:
   https://www.khronos.org/opengl/wiki/Fragment_Shader
 */
-
-enum PipelineDrawMode {
-  PipelineDrawMode_Wireframe,
-  PipelineDrawMode_Triangle,
-};
 
 template <typename Uniforms_t, typename Vertex_t, typename Fragment_t, typename Shader_t>
 class Pipeline {

@@ -39,11 +39,11 @@ Pass::Pass()
   eye.orthographic.far = 100.0;
 }
 
-BaseAnimator::BaseAnimator() { 
+AnimatedModelRenderer::AnimatedModelRenderer() { 
   play_time = 0.0; 
 }
 
-BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_nm_bone & v) const
+AnimatedModelRenderer::VS_IN AnimatedModelRenderer::_convert_from_mesh_vertex(const Vertex_pnt_nm_bone & v) const
 {
   VS_IN v0;
   v0.p = v.position;
@@ -54,7 +54,7 @@ BaseAnimator::VS_IN BaseAnimator::convert_from_mesh_vertex(const Vertex_pnt_nm_b
   return v0;
 }
 
-void BaseAnimator::draw() {
+void AnimatedModelRenderer::draw() {
 
   /* setup uniforms */
   this->uniforms.world = this->model.get_model_transform();
@@ -82,7 +82,7 @@ void BaseAnimator::draw() {
   this->last_draw_time = timer.tick();
 }
 
-void BaseAnimator::load_model(const std::string & zip_file, const std::string& model_fname)
+void AnimatedModelRenderer::load_model_zip(const std::string & zip_file, const std::string& model_fname)
 {
   this->vertices_map.clear();
   this->indices_map.clear();
@@ -99,7 +99,7 @@ void BaseAnimator::load_model(const std::string & zip_file, const std::string& m
     /* load vertices */
     this->vertices_map.insert(std::pair<uint32_t, Pipeline_t::VertexBuffer_t>(i_mesh, Pipeline_t::VertexBuffer_t()));
     for (uint32_t i_vert=0; i_vert < vertices.size(); i_vert++) {
-      this->vertices_map[i_mesh].push_back(convert_from_mesh_vertex(vertices[i_vert]));
+      this->vertices_map[i_mesh].push_back(_convert_from_mesh_vertex(vertices[i_vert]));
     }
     /* load indices */
     this->indices_map.insert(std::pair<uint32_t, Pipeline_t::IndexBuffer_t>(i_mesh, Pipeline_t::IndexBuffer_t()));
@@ -109,12 +109,63 @@ void BaseAnimator::load_model(const std::string & zip_file, const std::string& m
   }
 }
 
-void BaseAnimator::set_model_transform(const Mat4x4 & transform)
+void AnimatedModelRenderer::clear_pipeline_cache()
+{
+  this->pipeline.clear_cache(); 
+}
+
+void AnimatedModelRenderer::clear_render_targets(const Vec4& clear_color)
+{
+  this->pipeline.clear_render_targets(clear_color);
+}
+
+void AnimatedModelRenderer::play_animation(const std::string& anim_name, const double& play_time)
+{
+  this->anim_name = anim_name; this->play_time = play_time; 
+}
+
+PipelineDrawMode AnimatedModelRenderer::get_draw_mode() const 
+{ 
+  return this->pipeline.get_draw_mode();
+}
+
+void AnimatedModelRenderer::set_draw_mode(PipelineDrawMode draw_mode)
+{
+  this->pipeline.set_draw_mode(draw_mode);
+}
+
+bool AnimatedModelRenderer::get_backface_culling_state() const
+{
+  return this->pipeline.get_backface_culling_state();
+}
+
+void AnimatedModelRenderer::set_backface_culling_state(bool state)
+{
+  this->pipeline.set_backface_culling_state(state);
+}
+
+void AnimatedModelRenderer::set_pipeline_num_threads(int num_threads)
+{
+  this->pipeline.set_num_threads(num_threads);
+}
+
+double AnimatedModelRenderer::query_last_draw_time() const
+{
+  return this->last_draw_time;
+}
+
+void AnimatedModelRenderer::bind_render_targets(Texture* color, Texture* depth, Texture* normal) {
+  this->pipeline.bind_render_target(0, color);
+  this->pipeline.bind_render_target(1, depth);
+  this->pipeline.bind_render_target(2, normal);
+}
+
+void AnimatedModelRenderer::set_model_transform(const Mat4x4 & transform)
 {
   this->model.set_model_transform(transform);
 }
 
-inline void BaseAnimator::VS_OUT::operator*=(const double& scalar)
+inline void AnimatedModelRenderer::VS_OUT::operator*=(const double& scalar)
 {
   this->gl_Position *= scalar;
   this->wp *= scalar;
@@ -122,7 +173,7 @@ inline void BaseAnimator::VS_OUT::operator*=(const double& scalar)
   this->t *= scalar;
 }
 
-inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator*(const double& scalar) const {
+inline AnimatedModelRenderer::VS_OUT AnimatedModelRenderer::VS_OUT::operator*(const double& scalar) const {
   VS_OUT out;
   out.gl_Position = this->gl_Position * scalar;
   out.wp = this->wp * scalar;
@@ -131,7 +182,7 @@ inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator*(const double& scalar
   return out;
 }
 
-inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator+(const VS_OUT& frag) const {
+inline AnimatedModelRenderer::VS_OUT AnimatedModelRenderer::VS_OUT::operator+(const VS_OUT& frag) const {
   VS_OUT out;
   out.gl_Position = this->gl_Position + frag.gl_Position;
   out.wp = this->wp + frag.wp;
@@ -140,7 +191,7 @@ inline BaseAnimator::VS_OUT BaseAnimator::VS_OUT::operator+(const VS_OUT& frag) 
   return out;
 }
 
-inline void BaseAnimator::Shader::VS(const Uniforms & uniforms, const VS_IN & vertex_in, VS_OUT & vertex_out, Vec4 & gl_Position) const
+inline void AnimatedModelRenderer::Shader::VS(const Uniforms & uniforms, const VS_IN & vertex_in, VS_OUT & vertex_out, Vec4 & gl_Position) const
 {
   /* uniforms:
   * in_textures[0]: diffuse texture.
@@ -190,7 +241,7 @@ inline void BaseAnimator::Shader::VS(const Uniforms & uniforms, const VS_IN & ve
   }
 }
 
-inline void BaseAnimator::Shader::FS(const Uniforms & uniforms, const FS_IN& fragment_in,
+inline void AnimatedModelRenderer::Shader::FS(const Uniforms & uniforms, const FS_IN& fragment_in,
   const Vec4 & gl_FragCoord, FS_Outputs & fs_outs, bool & discard, double & gl_FragDepth) const
 {
   Vec2 uv = Vec2(fragment_in.t.x, fragment_in.t.y);
