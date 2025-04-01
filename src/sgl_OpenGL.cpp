@@ -7,18 +7,60 @@ namespace OpenGL {
 
 GL_vars gl_vars;
 
-bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version, bool vsync)
+void GLAPIENTRY glDebugOutput(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+{
+  /* Ignore non-significant codes */
+  if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
+  printf("--------------- GL DEBUG MESSAGE ---------------\n");
+  printf("Debug message (err_id = %u): %s\n", id, message);
+  switch (source)
+  {
+  case GL_DEBUG_SOURCE_API:               printf("Source: API");                break;
+  case GL_DEBUG_SOURCE_WINDOW_SYSTEM:     printf("Source: Window System");      break;
+  case GL_DEBUG_SOURCE_SHADER_COMPILER:   printf("Source: Shader Compiler");    break;
+  case GL_DEBUG_SOURCE_THIRD_PARTY:       printf("Source: Third Party");        break;
+  case GL_DEBUG_SOURCE_APPLICATION:       printf("Source: Application");        break;
+  case GL_DEBUG_SOURCE_OTHER:             printf("Source: Other");              break;
+  }
+  printf("\n");
+  switch (type)
+  {
+  case GL_DEBUG_TYPE_ERROR:               printf("Type: Error");                break;
+  case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: printf("Type: Deprecated Behaviour"); break;
+  case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  printf("Type: Undefined Behaviour");  break;
+  case GL_DEBUG_TYPE_PORTABILITY:         printf("Type: Portability");          break;
+  case GL_DEBUG_TYPE_PERFORMANCE:         printf("Type: Performance");          break;
+  case GL_DEBUG_TYPE_MARKER:              printf("Type: Marker");               break;
+  case GL_DEBUG_TYPE_PUSH_GROUP:          printf("Type: Push Group");           break;
+  case GL_DEBUG_TYPE_POP_GROUP:           printf("Type: Pop Group");            break;
+  case GL_DEBUG_TYPE_OTHER:               printf("Type: Other");                break;
+  }
+  printf("\n");
+  switch (severity)
+  {
+  case GL_DEBUG_SEVERITY_HIGH:            printf("Severity: high");             break;
+  case GL_DEBUG_SEVERITY_MEDIUM:          printf("Severity: medium");           break;
+  case GL_DEBUG_SEVERITY_LOW:             printf("Severity: low");              break;
+  case GL_DEBUG_SEVERITY_NOTIFICATION:    printf("Severity: notification");     break;
+  }
+  printf("\n\n");
+#if defined(DEBUG) || defined(_DEBUG)
+  __debugbreak();
+#endif
+}
+
+bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version, bool vsync, bool debug)
 {
   /*
-  The OpenGL backend used by SGL relies on the SDL library. If the SDL 
+  The OpenGL backend used by SGL relies on the SDL library. If the SDL
   library is not linked with SGL, OpenGL acceleration will not be available.
 
   Below is a complete example of creating a window with OpenGL support in SDL:
 
-  SDL_Window* pWindow = SDL_CreateWindow("OpenGL Example", 
-    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, 
+  SDL_Window* pWindow = SDL_CreateWindow("OpenGL Example",
+    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480,
     SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
-  if (pWindow == NULL) 
+  if (pWindow == NULL)
     exit(1);
   bool vsync = false;
   if (!sgl::OpenGL::initialize_OpenGL(pWindow, vsync))
@@ -32,8 +74,8 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
   }
 
   /*
-  Before creating the OpenGL context, it is essential to verify that "pWindow" 
-  has been created with the "SDL_WINDOW_OPENGL" flag. If this flag is not set, 
+  Before creating the OpenGL context, it is essential to verify that "pWindow"
+  has been created with the "SDL_WINDOW_OPENGL" flag. If this flag is not set,
   the user should be notified to recreate the window with the "SDL_WINDOW_OPENGL"
   flag enabled.
   */
@@ -49,6 +91,14 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major_version);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor_version);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+  if (debug) {
+    if (major_version >= 4 && minor_version >= 3) {
+      SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+    }
+    else {
+      printf("Warning: OpenGL debug context is only available in version 4.3 and above.\n");
+    }
+  }
 
   /* Create context */
   bool success = true;
@@ -70,6 +120,21 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
       printf("Warning: Unable to set VSync! SDL Error: %s\n", SDL_GetError());
       success = false;
     }
+    /* Check if debug context is actually created. */
+    int flags;
+    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
+      glEnable(GL_DEBUG_OUTPUT);
+      glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+      glDebugMessageCallback(glDebugOutput, nullptr);
+      glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+      printf("OpenGL debug context is enabled.\n");
+    }
+    else {
+      if (debug) {
+        printf("Error: OpenGL debug context cannot be created.\n");
+      }
+    }
   }
 
   /*
@@ -77,6 +142,8 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
   */
   glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gl_vars.max_texture_image_units);
   glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &gl_vars.max_color_attachments);
+  gl_vars.major_version = major_version;
+  gl_vars.minor_version = minor_version;
   gl_vars.current_active_window = window;
   gl_vars.sprite_renderer_RGBA.initialize();
   gl_vars.sprite_renderer_R32F.initialize("", R"(
@@ -89,7 +156,7 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
       float color = texture(tex0, TexCoord).r; 
       FragColor = vec4(vec3(color), 1.0) * vec4(ColorMask, 1.0);
     }
-    )", 1, NULL); 
+    )", 1, NULL);
   gl_vars.sprite_renderer_RG32F.initialize("", R"(
     #version 330 core
     layout(location = 0) out vec4 FragColor;
@@ -702,36 +769,43 @@ bool Shader::set_uniform_matrix_2fv(const std::string & name, GLsizei count, GLb
   GLint location;
   if ((location = get_uniform_location(name)) < 0)
     return false;
-  float* f = (float*)malloc(sizeof(float) * 4 * count);
-  int p = 0;
-  for (int n = 0; n < count; n++)
-    for (int j = 0; j < 4; j++)
-      f[p++] = float(m[n].i[j]);
-  glUniformMatrix2fv(location, count, transpose, f);
+  float f[4];
+  for (int n = 0; n < count; n++) {
+    for (int j = 0; j < 4; j++) {
+      f[j] = float(m[n].i[j]);
+    }
+    if ((location = get_uniform_location(name + '[' + std::to_string(n) + ']')) < 0)
+      return false;
+    glUniformMatrix2fv(location, 1, transpose, f);
+  }
   return true;
 }
 bool Shader::set_uniform_matrix_3fv(const std::string & name, GLsizei count, GLboolean transpose, const sgl::Mat3x3 * m) const {
   GLint location;
   if ((location = get_uniform_location(name)) < 0)
     return false;
-  float* f = (float*)malloc(sizeof(float) * 9 * count);
-  int p = 0;
-  for (int n = 0; n < count; n++)
-    for (int j = 0; j < 9; j++)
-      f[p++] = float(m[n].i[j]);
-  glUniformMatrix3fv(location, count, transpose, f);
+  float f[9];
+  for (int n = 0; n < count; n++) {
+    for (int j = 0; j < 9; j++) {
+      f[j] = float(m[n].i[j]);
+    }
+    if ((location = get_uniform_location(name + '[' + std::to_string(n) + ']')) < 0)
+      return false;
+    glUniformMatrix3fv(location, 1, transpose, f);
+  }
   return true;
 }
 bool Shader::set_uniform_matrix_4fv(const std::string& name, GLsizei count, GLboolean transpose, const sgl::Mat4x4* m) const {
   GLint location;
-  if ((location = get_uniform_location(name)) < 0)
-    return false;
-  float* f = (float*)malloc(sizeof(float) * 16 * count);
-  int p = 0;
-  for (int n = 0; n < count; n++)
-    for (int j = 0; j < 16; j++)
-      f[p++] = float(m[n].i[j]);
-  glUniformMatrix4fv(location, count, transpose, f);
+  float f[16];
+  for (int n = 0; n < count; n++) {
+    for (int j = 0; j < 16; j++) {
+      f[j] = float(m[n].i[j]);
+    }
+    if ((location = get_uniform_location(name + '[' + std::to_string(n) + ']')) < 0)
+      return false;
+    glUniformMatrix4fv(location, 1, transpose, f);
+  }
   return true;
 }
 bool Shader::set_texture_sampler_2D(const std::string& name, const sgl::OpenGL::Texture& texture, GLuint slot) const {
@@ -812,6 +886,25 @@ void VertexFormat_2f2f::define_format()
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
   glEnableVertexAttribArray(1);
 }
+
+void VertexFormat_3f3f2f3f3f4i4f::define_format()
+{
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 18 * sizeof(float) + 4 * sizeof(int), (void*)0);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 18 * sizeof(float) + 4 * sizeof(int), (void*)(3 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 18 * sizeof(float) + 4 * sizeof(int), (void*)(6 * sizeof(float)));
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 18 * sizeof(float) + 4 * sizeof(int), (void*)(8 * sizeof(float)));
+  glEnableVertexAttribArray(3);
+  glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 18 * sizeof(float) + 4 * sizeof(int), (void*)(11 * sizeof(float)));
+  glEnableVertexAttribArray(4);
+  glVertexAttribIPointer(5, 4, GL_INT, 18 * sizeof(float) + 4 * sizeof(int), (void*)(14 * sizeof(float))); /* note the IPointer used here */
+  glEnableVertexAttribArray(5);
+  glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, 18 * sizeof(float) + 4 * sizeof(int), (void*)(14 * sizeof(float) + 4 * sizeof(int)));
+  glEnableVertexAttribArray(6);
+}
+
 
 bool Font::load(const char* path) {
 
@@ -1521,6 +1614,152 @@ FrameBuffer::FrameBuffer() {
 
 FrameBuffer::~FrameBuffer() {
   destroy();
+}
+
+AnimatedModelRenderer::AnimatedModelRenderer()
+{
+  this->play_time = 0.0;
+}
+
+AnimatedModelRenderer::~AnimatedModelRenderer()
+{
+  unload();
+}
+
+void AnimatedModelRenderer::play_animation(const std::string& anim_name, const double& play_time)
+{
+  this->anim_name = anim_name; this->play_time = play_time;
+}
+
+bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const std::string& model_fname)
+{
+  this->unload();
+
+  /* load model to CPU host memory */
+  if (!model.load_zip(zip_file, model_fname))
+    return false;
+
+  /* transfer model from CPU host memory to GPU VRAM */
+  const std::vector<Mesh>& mesh_data = model.get_meshes();
+  const std::vector<Material>& materials = model.get_materials();
+  auto _transform_vertex = [](const Vertex_pnt_nm_bone& vert) -> Vertex_t {
+    Vertex_t vert_new;
+    vert_new.position[0] = float(vert.position.x); vert_new.normal[0] = float(vert.normal.x);
+    vert_new.position[1] = float(vert.position.y); vert_new.normal[1] = float(vert.normal.y);
+    vert_new.position[2] = float(vert.position.z); vert_new.normal[2] = float(vert.normal.z);
+    vert_new.texcoord[0] = float(vert.texcoord.x);
+    vert_new.texcoord[1] = float(vert.texcoord.y);
+    vert_new.tangent[0] = float(vert.tangent.x); vert_new.bitangent[0] = float(vert.bitangent.x);
+    vert_new.tangent[1] = float(vert.tangent.y); vert_new.bitangent[1] = float(vert.bitangent.y);
+    vert_new.tangent[2] = float(vert.tangent.z); vert_new.bitangent[2] = float(vert.bitangent.z);
+    vert_new.bone_IDs[0] = vert.bone_IDs.i[0];
+    vert_new.bone_IDs[1] = vert.bone_IDs.i[1];
+    vert_new.bone_IDs[2] = vert.bone_IDs.i[2];
+    vert_new.bone_IDs[3] = vert.bone_IDs.i[3];
+    vert_new.bone_weights[0] = float(vert.bone_weights.i[0]);
+    vert_new.bone_weights[1] = float(vert.bone_weights.i[1]);
+    vert_new.bone_weights[2] = float(vert.bone_weights.i[2]);
+    vert_new.bone_weights[3] = float(vert.bone_weights.i[3]);
+    return vert_new;
+  };
+  for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
+    const int32_t mat_id = mesh_data[i_mesh].mat_id;
+    const std::vector<Vertex_pnt_nm_bone>& vertices = mesh_data[i_mesh].vertices;
+    const std::vector<int32_t>& indices = mesh_data[i_mesh].indices;
+    /* convert vertex format (float64 to float32) */
+    std::vector<Vertex_t> vbuf_cpu(vertices.size());
+    for (uint32_t i_vert = 0; i_vert < vertices.size(); i_vert++)
+      vbuf_cpu[i_vert] = _transform_vertex(vertices[i_vert]);
+    /* load vertices and indices into GPU VRAM */
+    VertexBuffer_t* vbuf_gpu = new VertexBuffer_t();
+    vbuf_gpu->create_and_fill(int(vertices.size() * sizeof(Vertex_t)), vbuf_cpu.data(), GL_STATIC_DRAW, int(sizeof(int) * indices.size()), indices.data(), GL_STATIC_DRAW);
+    this->vbufs.push_back(vbuf_gpu);
+    /* load and transfer textures */
+    void* tex_cpu_dptr = materials[mat_id].diffuse_texture.get_pixel_data();
+    if (tex_cpu_dptr != NULL && this->texmap.find(tex_cpu_dptr) == this->texmap.end()) {
+      /* this is a new texture, reigster and transfer it to GPU */
+      sgl::OpenGL::Texture* tex_gpu = new sgl::OpenGL::Texture();
+      *tex_gpu = materials[mat_id].diffuse_texture;
+      tex_gpu->to_device(DeviceType_GPU);
+      this->texmap.insert_or_assign(tex_cpu_dptr, tex_gpu);
+    }
+  }
+
+  /* create shader */
+  typedef sgl::OpenGL::Shader::FragDataLocation FragDataLocation;
+  FragDataLocation fs_outs[] = {
+    {"FragColor", 0},
+    {"FragNormal", 1},
+  };
+  if (!this->shader.create(
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/anim.vert"),
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/anim.frag"),
+    sizeof(fs_outs) / sizeof(FragDataLocation), fs_outs))
+  {
+    this->unload();
+    return false;
+  }
+
+  return true;
+}
+
+void AnimatedModelRenderer::draw()
+{
+  const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
+
+  Mat4x4 view = this->get_view_matrix();
+  Mat4x4 proj = this->get_projection_matrix(rsize.x, rsize.y);
+  Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
+
+  this->shader.use();
+  this->shader.set_uniform_matrix_4fv("u_Model", 1, GL_TRUE, &this->model.get_model_transform());
+  this->shader.set_uniform_matrix_4fv("u_View", 1, GL_TRUE, &view);
+  this->shader.set_uniform_matrix_4fv("u_Projection", 1, GL_TRUE, &proj);
+
+  /* Rendering all the mesh parts in model */
+  const std::vector<Mesh>& mesh_data = this->model.get_meshes();
+  const std::vector<Material>& materials = this->model.get_materials();
+
+  for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
+    /* for each mesh part */
+    const int32_t mat_id = mesh_data[i_mesh].mat_id;
+    const Mesh& mesh = mesh_data[i_mesh];
+    /* update bone matrices */
+    this->model.update_skeletal_animation_for_mesh(mesh, anim_name, play_time, bone_matrices);
+    this->shader.set_uniform_matrix_4fv("u_BoneMatrices", MAX_NODES_PER_MODEL, GL_TRUE, bone_matrices);
+    /* setup texture(s) */
+    void* tex_cpu_dptr = materials[mat_id].diffuse_texture.get_pixel_data();
+    if (this->texmap.find(tex_cpu_dptr) != this->texmap.end()) {
+      sgl::OpenGL::Texture* tex_gpu = this->texmap[tex_cpu_dptr];
+      this->shader.set_texture_sampler_2D("tex0", *tex_gpu, 0);
+    }
+    /* draw */
+    this->vbufs[i_mesh]->draw_elements(GL_TRIANGLES, int(mesh_data[i_mesh].indices.size()), GL_UNSIGNED_INT, NULL);
+  }
+}
+
+void AnimatedModelRenderer::unload()
+{
+  this->model.unload();
+  this->shader.destroy();
+
+  for (int i = 0; i < vbufs.size(); i++) {
+    this->vbufs[i]->destroy();
+    delete this->vbufs[i];
+  }
+  this->vbufs.clear();
+  this->vbufs.shrink_to_fit();
+
+  for (std::map<void*, sgl::OpenGL::Texture*>::iterator it = this->texmap.begin();
+    it != this->texmap.end(); it++)
+  {
+    sgl::OpenGL::Texture* tex_gpu = it->second;
+    delete tex_gpu;
+  }
+  this->texmap.clear();
+
+  this->anim_name = "";
+  this->play_time = 0.0;
 }
 
 }; /* namespace OpenGL */

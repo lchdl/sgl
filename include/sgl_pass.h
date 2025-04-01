@@ -7,8 +7,7 @@ namespace sgl {
 /**
 
 A `pass` is an object that describes a complete render operation
-and stores all the resources used during rendering. All `pass`
-objects & instances should inherit from `Pass` base class.
+and stores all the resources used during rendering. 
 
 * The reason I introduce the concept of `pass` is that drawing an
 object onto the screen correctly requires a lot of preparation
@@ -23,7 +22,7 @@ convenient when drawing something complex onto the screen.
 
 **/
 
-class Pass {
+class EyeParams {
 public:
   /* camera/eye settings */
   struct {
@@ -44,8 +43,8 @@ public:
   Mat4x4 get_view_matrix() const;
   Mat4x4 get_projection_matrix(int w, int h) const;
   /* default ctor & dtor */
-  Pass();
-  virtual ~Pass() {}
+  EyeParams();
+  virtual ~EyeParams() {}
 };
 
 /**
@@ -54,7 +53,7 @@ TemplatePass:
 A standard template for fully utilizing the programmable pipeline feature
 of SGL. The implementation of this class can also serve as a tutorial.
 **/
-class TemplatePass : public Pass {
+class TemplatePass : public EyeParams {
 public:
   struct Uniforms {
     /*
@@ -159,7 +158,7 @@ Simply draw a model (probably with animation) onto screen.
   wraps up multiple draw calls to fully render a model, each draw call
   only renders a single mesh.
 **/
-class AnimatedModelRenderer : public Pass
+class AnimatedModelRenderer : public EyeParams
 {
 public:
   struct Uniforms {
@@ -233,7 +232,7 @@ protected:
 
 };
 
-class SpriteRenderer : public Pass {
+class SpriteRenderer : public EyeParams {
 public:
   struct Uniforms {
     Vec3 color_mask;

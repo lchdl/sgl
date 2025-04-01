@@ -41,6 +41,12 @@ defined in `sgl_pass.h`.
 namespace sgl { 
 namespace OpenGL {
 
+/*
+Useful function to check if a GL draw call is completed without error(s).
+Available in OpenGL 4.3+.
+*/
+void GLAPIENTRY glDebugOutput(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
+
 /**
 Initializes OpenGL under SDL2.
 The SDL window must already be created before calling this function.
@@ -51,7 +57,7 @@ The SDL window must already be created before calling this function.
   have access to all OpenGL API functions (e.g., `gl*`). Additionally, some
   utility classes are provided for convenience.
 **/
-bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version, bool vsync);
+bool initialize_OpenGL(SDL_Window* window, int major_version = 4, int minor_version = 3, bool vsync = false, bool debug = false);
 
 /**
 Retrieves the size (width and height) of an OpenGL framebuffer object (FBO).
@@ -219,6 +225,7 @@ struct VertexFormat { static void define_format() {} };
 struct VertexFormat_3f3f2f : public VertexFormat { static void define_format(); };
 struct VertexFormat_3f2f : public VertexFormat { static void define_format(); };
 struct VertexFormat_2f2f : public VertexFormat { static void define_format(); };
+struct VertexFormat_3f3f2f3f3f4i4f : public VertexFormat { static void define_format(); };
 
 template <typename VertexFormat_t>
 class VertexBuffer {
@@ -403,46 +410,74 @@ protected:
 
 };
 
-class AnimatedModelRenderer {
+class AnimatedModelRenderer : public EyeParams {
   /*
-  
-  It appears that the `sgl::OpenGL::AnimatedModelRenderer` class should 
-  inherit from `sgl::AnimatedModelRenderer` since they share the same 
-  concept of storing complete model data for scene rendering. However, 
+
+  It appears that the `sgl::OpenGL::AnimatedModelRenderer` class should
+  inherit from `sgl::AnimatedModelRenderer` since they share the same
+  concept of storing complete model data for scene rendering. However,
   this inheritance was intentionally avoided for the following reasons:
 
-  1. While sharing the same concept, `sgl::AnimatedModelRenderer` 
-     contains many data structures that 
+  1. While sharing the same concept, `sgl::AnimatedModelRenderer`
+     contains many data structures that
      `sgl::OpenGL::AnimatedModelRenderer` doesn't require.
-  
-  2. The complexity of `sgl::AnimatedModelRenderer` is already 
-     significant, and direct inheritance would exacerbate this, 
-     potentially making maintenance more difficult and introducing bugs. 
-     Since `sgl::OpenGL::AnimatedModelRenderer` also handles GPU 
+
+  2. The complexity of `sgl::AnimatedModelRenderer` is already
+     significant, and direct inheritance would exacerbate this,
+     potentially making maintenance more difficult and introducing bugs.
+     Since `sgl::OpenGL::AnimatedModelRenderer` also handles GPU
      interactions, inheriting from `sgl::AnimatedModelRenderer` might
-     lead to incompatible member functions that could cause memory 
-     leaks or other hard-to-detect issues, making the code potentially 
+     lead to incompatible member functions that could cause memory
+     leaks or other hard-to-detect issues, making the code potentially
      unsafe.
 
-     While protected inheritance with function hiding and rewriting 
-     could mitigate this, such an approach would be less maintainable 
+     While protected inheritance with function hiding and rewriting
+     could mitigate this, such an approach would be less maintainable
      than simply using composition.
 
-  Therefore, each `sgl::OpenGL::AnimatedModelRenderer` contains a 
-  `sgl::Model` instance (`this->_model`) as a member, accessing only
-  the necessary data when required.
+  Therefore, each `sgl::OpenGL::AnimatedModelRenderer` contains a
+  `sgl::Model` instance (`this->model`) as a member, accessing only the
+  necessary data when required.
 
   */
 protected:
-  sgl::Model _model;
-  /* TODO: add members for GPU resource */
-public:
-  /* TODO: add member functions */
+  typedef VertexBuffer<VertexFormat_3f3f2f3f3f4i4f> VertexBuffer_t;
+  typedef struct {
+    float position[3], normal[3], texcoord[2];
+    float tangent[3], bitangent[3];
+    int bone_IDs[4];
+    float bone_weights[4];
+  } Vertex_t;
 
+  sgl::Model model;
+  sgl::OpenGL::Shader shader;
+  std::vector<VertexBuffer_t*> vbufs;
+  std::map<void*, sgl::OpenGL::Texture*> texmap; /* Maps a texture's CPU memory pointer to its corresponding OpenGL texture. */
+
+  std::string anim_name; /* name of the current animation being played */
+  double      play_time; /* time value for controlling the skeletal animation (in sec.) */
+
+  /* TODO: add other members */
+
+protected:
+
+public:
+  void                   draw();
+  bool         load_model_zip(const std::string& zip_file, const std::string& model_fname);
+  void                 unload();
+  void         play_animation(const std::string& anim_name, const double& play_time);
+  void    set_model_transform(const Mat4x4& transform);
+  /* TODO: add other member functions */
+
+
+public:
+  AnimatedModelRenderer();
+  virtual ~AnimatedModelRenderer();
 };
 
 struct GL_vars {
   /* the initialization process will also initialize the following states */
+  GLint major_version, minor_version;
   GLint max_texture_image_units;     /* maximum number of textures that can be bound to a fragment shader */
   GLint max_color_attachments;
   SDL_Window* current_active_window; /* an `active` window refers to the window that currently holds the active OpenGL context. */
@@ -451,6 +486,7 @@ struct GL_vars {
   SpriteRenderer sprite_renderer_RG32F;
 
   GL_vars() {
+    major_version = minor_version = -1;
     max_texture_image_units = -1;
     max_color_attachments = -1;
     current_active_window = NULL;

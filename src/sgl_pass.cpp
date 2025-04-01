@@ -7,11 +7,11 @@ A global sprite renderer instance.
 */
 SpriteRenderer sprite_renderer;
 
-Mat4x4 Pass::get_view_matrix() const {
+Mat4x4 EyeParams::get_view_matrix() const {
   return sgl::get_view_matrix(eye.position, eye.look_at, eye.up_dir);
 }
 
-Mat4x4 Pass::get_projection_matrix(int w, int h) const {
+Mat4x4 EyeParams::get_projection_matrix(int w, int h) const {
   Mat4x4 projection_matrix;
   if (eye.perspective.enabled) {
     double aspect_ratio = double(w) / double(h);
@@ -23,7 +23,7 @@ Mat4x4 Pass::get_projection_matrix(int w, int h) const {
       eye.orthographic.width, eye.orthographic.height);
   }
 }
-Pass::Pass()
+EyeParams::EyeParams()
 {
   eye.look_at = Vec3(0, 0, 0);
   eye.position = Vec3(10, 10, 10);
