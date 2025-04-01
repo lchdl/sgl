@@ -122,10 +122,31 @@ void init_render() {
   };
 
   gl.vbuf.create_and_fill(sizeof(vertices), vertices, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
-  
-  gl.shader.create(
-    sgl::read_file_as_string("assets/common/shaders/test.vert"),
-    sgl::read_file_as_string("assets/common/shaders/test.frag")
+
+  gl.shader.create(R"(
+    #version 330 core
+    layout (location = 0) in vec3 inPosition;
+    layout (location = 1) in vec2 inTexCoord;
+    uniform mat4x4 Model;
+    uniform mat4x4 View;
+    uniform mat4x4 Proj;
+    out vec2 TexCoord;
+    void main()
+    {
+	    gl_Position = Proj * View * Model * vec4(inPosition, 1.0);
+	    TexCoord = inTexCoord;
+    }
+    )", R"(
+    #version 330 core
+    layout(location = 0) out vec4 FragColor;
+    in vec2 TexCoord;
+    uniform sampler2D tex1;
+    uniform sampler2D tex2;
+    void main()
+    {
+	    FragColor = mix(texture(tex1, TexCoord), texture(tex2, TexCoord), 0.5);
+    }
+    )"
   );
 
   gl.tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
@@ -163,11 +184,11 @@ void render_procedure(double T) {
   Mat4x4 projection = sgl::get_perspective_matrix(double(w) / double(h), 0.1, 10.0, degrees_to_radians(60.0));
 
   gl.shader.use();
-  gl.shader.set_texture_sampler_2D("texture1", gl.tex1, 0);
-  gl.shader.set_texture_sampler_2D("texture2", gl.tex2, 1);
-  gl.shader.set_uniform_matrix_4fv("model", 1, GL_TRUE, &model);
-  gl.shader.set_uniform_matrix_4fv("view", 1, GL_TRUE, &view);
-  gl.shader.set_uniform_matrix_4fv("projection", 1, GL_TRUE, &projection);
+  gl.shader.set_texture_sampler_2D("tex1", gl.tex1, 0);
+  gl.shader.set_texture_sampler_2D("tex2", gl.tex2, 1);
+  gl.shader.set_uniform_matrix_4fv("Model", 1, GL_TRUE, &model);
+  gl.shader.set_uniform_matrix_4fv("View", 1, GL_TRUE, &view);
+  gl.shader.set_uniform_matrix_4fv("Proj", 1, GL_TRUE, &projection);
   gl.vbuf.draw_arrays(GL_TRIANGLES, 0, 36);
 
   /* Directly use this API to render a sprite to the screen without requiring any additional operations. */
@@ -194,7 +215,7 @@ double render_frame(double T) {
   }
   gl.framebuffer.unbind();
   gl.framebuffer.blit_attachment_to_main_framebuffer(0, 0, 0, w, h);
- 
+
   return timer.tick();
 }
 
