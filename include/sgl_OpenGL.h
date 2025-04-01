@@ -157,7 +157,7 @@ public:
   virtual ~Texture();
 };
 
-class Shader {
+class Shader : public sgl::NonCopyable {
 public:
   struct FragDataLocation {
     /* layout (location = `slot`) out `name`; */
@@ -208,9 +208,6 @@ public:
   Shader();
   Shader(const std::string& vs, const std::string& fs);
   Shader(const std::string& vs, const std::string& fs, const int n_outs, const FragDataLocation* fs_outs); /* for multiple render targets (MRT) */
-  /* disable copy */
-  Shader(const Shader&) = delete;
-  Shader& operator=(const Shader&) = delete;
   virtual ~Shader();
 
 protected:
@@ -228,20 +225,25 @@ struct VertexFormat_2f2f : public VertexFormat { static void define_format(); };
 struct VertexFormat_3f3f2f3f3f4i4f : public VertexFormat { static void define_format(); };
 
 template <typename VertexFormat_t>
-class VertexBuffer {
+class VertexBuffer : public sgl::NonCopyable {
   /*
   The VertexBuffer class encapsulates an OpenGL Vertex Array Object (VAO), 
   a Vertex Buffer Object (VBO), and an Element Array Buffer (IBO). Being a 
   template class, it can adapt to various vertex data layouts.
   */
 public:
-  void create_and_reserve(const int vbuf_bytes, GLenum vbuf_usage, const int ibuf_bytes, GLenum ibuf_usage);
-  void create_and_fill(const GLsizei vbuf_bytes, const void* vbuf_data, GLenum vbuf_usage, const GLsizei ibuf_bytes, const void* ibuf_data, GLenum ibuf_usage);
-  void subdata_VBO(GLintptr offset, GLsizeiptr size, const void* data); /* updates vertex array buffer (VBO) */
-  void subdata_IBO(GLintptr offset, GLsizeiptr size, const void* data); /* updates element array buffer (IBO/EBO) */
-  void draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices);
-  void draw_arrays(GLenum mode, GLint first, GLsizei count);
-  void destroy();
+  void      create_and_reserve(const int vbuf_bytes, GLenum vbuf_usage, const int ibuf_bytes, GLenum ibuf_usage);
+  void         create_and_fill(const GLsizei vbuf_bytes, const void* vbuf_data, GLenum vbuf_usage, const GLsizei ibuf_bytes, const void* ibuf_data, GLenum ibuf_usage);
+  /* updates vertex array buffer (VBO) */
+  void             subdata_VBO(GLintptr offset, GLsizeiptr size, const void* data); 
+  /* updates element array buffer (IBO/EBO) */
+  void             subdata_IBO(GLintptr offset, GLsizeiptr size, const void* data); 
+  void                 destroy();
+
+  void           draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices);
+  void             draw_arrays(GLenum mode, GLint first, GLsizei count);
+  void draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void *indices, const int num_instances);
+  void   draw_arrays_instanced(GLenum mode, GLint first, GLsizei count, const int num_instances);
 
   VertexBuffer();
   virtual ~VertexBuffer();
@@ -267,38 +269,44 @@ protected:
   GLuint VAO, VBO, IBO;
 };
 
-class FrameBuffer {
+class FrameBuffer : public sgl::NonCopyable {
   /*
-  The framebuffer currently only accepts color textures while handling depth 
-  and stencil buffers internally without exposing them. This design decision 
-  was made for several reasons:
-  1. Depth and stencil buffers are used less frequently than color textures, 
-     and exposing them would unnecessarily complicate library maintenance.
-  2. The framebuffer primarily serves as an encapsulation of OpenGL framebuffer 
-     objects. In OpenGL, depth buffers typically use 24-bit or float32 formats.
-     However, in SGL, we store depth buffers in float64 format to match modern 
-     CPU defaults. Supporting float32 would require additional effort without 
-     providing significant benefits, as there's no compelling need to create 
-     a float32 format solely for OpenGL compatibility.
-  Consequently, we provide specialized methods only for transferring depth and 
-  stencil buffer data when needed, while maintaining these buffers internally 
-  within the framebuffer instance.
+  The framebuffer currently supports only color textures as attachments,
+  while managing depth and stencil buffers internally without exposing
+  them. This design decision was made for the following reasons:
+
+  1. Usage frequency: depth and stencil buffers are less commonly needed
+     than color textures, and exposing them would add unnecessary
+     complexity to library maintenance.
+
+  2. Practical workaround: to access depth data, you can simply create a
+     float32 texture, set it as a render target, and use multiple render
+     targets (MRT) in the fragment shader to store gl_FragCoord.z in the
+     desired output texture. This approach eliminates the need for a
+     dedicated function to extract the internal depth buffer. The same
+     logic applies to the stencil buffer.
   */
 public:
   void setup_attachment(sgl::OpenGL::Texture* tex, int slot); /* link color texture to framebuffer color texture slot */
-  bool make();    /* assemble framebuffer, must done before binding */
-  void destroy(); /* destroy framebuffer and return resources to system */
-  void bind();    /* bind the framebuffer */
-  void unbind();  /* unbind the framebuffer (bind default framebuffer) */
+  bool            make(); /* assemble framebuffer, must done before binding */
+  void         destroy(); /* destroy framebuffer and return resources to system */
+  void            bind(); /* bind the framebuffer */
+  void          unbind(); /* unbind the framebuffer (bind default framebuffer) */
   GLuint get_GL_handle() const;
-  int get_width() const;
-  int get_height() const;
+  int        get_width() const;
+  int       get_height() const;
 public:
-  /* auxiliary functions */
-  /* Blits (copies) a color component from a framebuffer attachment to the main framebuffer. NOTE: this function will clear current bound framebuffer. */
+  /*
+  Copies (blits) a color component from a framebuffer attachment to the main
+  framebuffer.
+
+  Important Notes:
+  1. This operation will clear the currently bound framebuffer.
+  2. For safety, the function includes a validation check. If a non-default
+     framebuffer (ID != 0) is currently bound, the function will abort with
+     an error and return immediately.
+  */
   void blit_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h);
-  /* Extract depth buffer from this framebuffer object. NOTE: this function will clear current bound framebuffer. */
-  sgl::OpenGL::Texture extract_depth_buffer();
 
 public:
   FrameBuffer();
@@ -313,7 +321,7 @@ protected:
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> quad_vbuf;
 };
 
-class SpriteRenderer {
+class SpriteRenderer : public sgl::NonCopyable {
 protected:
   sgl::OpenGL::Shader shader;
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> vbuf;
@@ -352,7 +360,7 @@ void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
   const sgl::SpriteOriginMode origin_mode = SpriteOriginMode_TopLeft,
   const sgl::OpenGL::Shader* custom_shader = NULL);
 
-class Font : protected sgl::Font 
+class Font : protected sgl::Font, public sgl::NonCopyable
 {
 public:
   /* 
@@ -383,8 +391,8 @@ public:
   - Excessive batch sizes waste heap memory without meaningful gains
   Therefore, 64 has been selected as the optimal batch size for this implementation.
   */
-  static const int batch_size = 64;
-  static const int batch_bufsz = Font::batch_size * 16 * sizeof(float);
+  static const int BATCH_SIZE = 64;
+  static const int BATCH_BUFSIZE = Font::BATCH_SIZE * 16 * sizeof(float);
 public:
   bool load(const char* path);
   void unload();
@@ -410,7 +418,7 @@ protected:
 
 };
 
-class AnimatedModelRenderer : public EyeParams {
+class AnimatedModelRenderer : public EyeParams, public sgl::NonCopyable {
   /*
 
   It appears that the `sgl::OpenGL::AnimatedModelRenderer` class should
@@ -439,36 +447,65 @@ class AnimatedModelRenderer : public EyeParams {
   `sgl::Model` instance (`this->model`) as a member, accessing only the
   necessary data when required.
 
+  Additionally, this class now supports instanced rendering of the same
+  model, by setting instance count using this->set_num_instances()
+
   */
-protected:
+public:
+
   typedef VertexBuffer<VertexFormat_3f3f2f3f3f4i4f> VertexBuffer_t;
+
   typedef struct {
-    float position[3], normal[3], texcoord[2];
-    float tangent[3], bitangent[3];
-    int bone_IDs[4];
+    float     position[3];
+    float       normal[3];
+    float     texcoord[2];
+    float      tangent[3];
+    float    bitangent[3];
+    int       bone_IDs[4];
     float bone_weights[4];
   } Vertex_t;
 
+  typedef struct {
+    union {
+      struct { float i[16]; };
+      struct { float row0[4], row1[4], row2[4], row3[4]; };
+    };
+  } Mat4x4f;
+
+  typedef struct {
+    std::string anim_name; /* name of the current animation being played */
+    double      play_time; /* time value for controlling the skeletal animation (in sec.) */
+  } AnimInfo_t;
+
+protected:
   sgl::Model model;
   sgl::OpenGL::Shader shader;
   std::vector<VertexBuffer_t*> vbufs;
   std::map<void*, sgl::OpenGL::Texture*> texmap; /* Maps a texture's CPU memory pointer to its corresponding OpenGL texture. */
 
-  std::string anim_name; /* name of the current animation being played */
-  double      play_time; /* time value for controlling the skeletal animation (in sec.) */
-
-  /* TODO: add other members */
+  std::vector<AnimInfo_t> inst_anims;
+  /* 
+  A shader storage buffer object used to store all model's bone matrices.
+  NOTE: only available in OpenGL 4.3+.
+  */
+  GLuint bone_matrices_SSBO;
+  GLuint model_matrices_SSBO;
 
 protected:
+  void           _resize_SSBO(int new_count);
 
 public:
-  void                   draw();
+  void      set_num_instances(int count);
+  int       get_num_instances() const;
+  void                   draw(); /* draw all instances at once */
   bool         load_model_zip(const std::string& zip_file, const std::string& model_fname);
   void                 unload();
   void         play_animation(const std::string& anim_name, const double& play_time);
+  void         play_animation(int instance_ID, const std::string& anim_name, const double& play_time);
   void    set_model_transform(const Mat4x4& transform);
-  /* TODO: add other member functions */
-
+  void    set_model_transform(int instance_ID, const Mat4x4& transform);
+  void    set_model_transform(const Vec3& pos, const Vec3& scale, const Vec3& rot_axis, const double& rot_angle);
+  void    set_model_transform(int instance_ID, const Vec3& pos, const Vec3& scale, const Vec3& rot_axis, const double& rot_angle);
 
 public:
   AnimatedModelRenderer();
@@ -478,19 +515,14 @@ public:
 struct GL_vars {
   /* the initialization process will also initialize the following states */
   GLint major_version, minor_version;
-  GLint max_texture_image_units;     /* maximum number of textures that can be bound to a fragment shader */
-  GLint max_color_attachments;
+  GLint MAX_TEXTURE_IMAGE_UNITS;     /* maximum number of textures that can be bound to a fragment shader */
+  GLint MAX_COLOR_ATTACHMENTS;
   SDL_Window* current_active_window; /* an `active` window refers to the window that currently holds the active OpenGL context. */
   SpriteRenderer sprite_renderer_RGBA;
   SpriteRenderer sprite_renderer_R32F;
   SpriteRenderer sprite_renderer_RG32F;
 
-  GL_vars() {
-    major_version = minor_version = -1;
-    max_texture_image_units = -1;
-    max_color_attachments = -1;
-    current_active_window = NULL;
-  }
+  GL_vars();
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -586,6 +618,30 @@ inline void VertexBuffer<VertexFormat_t>::draw_arrays(GLenum mode, GLint first, 
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
   glDrawArrays(mode, first, count);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+}
+
+template<typename VertexFormat_t>
+inline void VertexBuffer<VertexFormat_t>::draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void * indices, const int num_instances)
+{
+  glBindVertexArray(VAO);
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+  glDrawElementsInstanced(mode, count, type, indices, num_instances);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+}
+
+template<typename VertexFormat_t>
+inline void VertexBuffer<VertexFormat_t>::draw_arrays_instanced(GLenum mode, GLint first, GLsizei count, const int num_instances)
+{
+  glBindVertexArray(VAO);
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+  glDrawArraysInstanced(mode, first, count, num_instances);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);

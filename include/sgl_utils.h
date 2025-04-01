@@ -97,6 +97,23 @@ inline void print(const Mat4x4& m) {
   printf("  %.2lf %.2lf %.2lf %.2lf ]\n", m.i41, m.i42, m.i43, m.i44);
 }
 
+class NonCopyable {
+  /*
+
+  A base class that disables copying for derived classes.
+
+  Inheriting from this class will automatically delete the copy
+  constructor and copy assignment operator, effectively making
+  the derived class non-copyable. Move operations are still
+  allowed unless explicitly disabled.
+
+  */
+public:
+  NonCopyable() = default;
+  NonCopyable(const NonCopyable &) = delete;
+  NonCopyable & operator=(const NonCopyable &) = delete;
+};
+
 #if defined(WINDOWS) || defined(WIN32)
 class Timer {
 public:

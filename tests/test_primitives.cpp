@@ -8,7 +8,7 @@ bool keystate[SDL_NUM_SCANCODES];
 SDL_Window* pWindow;
 SDL_Surface* pWindowSurface;
 
-int w = 800, h = 600;
+int w = 400, h = 400;
 
 sgl::Texture tex_640x480;
 sgl::Texture chess, chess_mask;

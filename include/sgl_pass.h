@@ -168,7 +168,7 @@ public:
     /* texture objects */
     const Texture *in_textures[MAX_TEXTURES_PER_SHADING_UNIT];
     /* final bone transformations */
-    Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
+    Mat4x4 bone_matrices[sgl::Model::MAX_NODES_PER_MODEL];
   };
   struct VS_IN : public IVertex {
     Vec3 p; /* vertex position (in model local space) */

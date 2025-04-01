@@ -365,7 +365,7 @@ struct Mat4x4 {
     for (int t = 0; t < 16; t++) 
       this->i[t] = _data[t];
   }
-  Mat4x4 transpose() {
+  Mat4x4 transpose() const {
     return Mat4x4(
       i11, i21, i31, i41,
       i12, i22, i32, i42,

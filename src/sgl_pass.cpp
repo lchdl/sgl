@@ -218,7 +218,7 @@ inline void AnimatedModelRenderer::Shader::VS(const Uniforms & uniforms, const V
     * to make computation a little bit faster, we calculate
     * w[i]*m[i] for i in [0,1,2,3], then multiply it with p. */
     Mat4x4 bone_transform;
-    for (uint32_t i_bone = 0; i_bone < MAX_BONES_INFLUENCE_PER_VERTEX; i_bone++)
+    for (uint32_t i_bone = 0; i_bone < sgl::Model::MAX_BONES_INFLUENCE_PER_VERTEX; i_bone++)
     {
       int32_t bone_id = vertex_in.bone_IDs.i[i_bone];
       /* bone_id can be negative, which indicates that the

@@ -1,4 +1,5 @@
 #pragma once
+
 /*
 
 Contains all enumerations used throughout the SGL library.
@@ -11,6 +12,7 @@ graphics operations, states, and configurations.
 */
 
 namespace sgl {
+
 /* namespace sgl */
 enum DeviceType {
   DeviceType_CPU,

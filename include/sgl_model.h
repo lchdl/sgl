@@ -27,12 +27,6 @@ Assimp: model import library
 
 namespace sgl {
 
-/* A vertex can only be affected by no more than 4 bones.
-  * NOTE: this value cannot be changed. */
-const int MAX_BONES_INFLUENCE_PER_VERTEX = 4;
-/* A mesh model can only have less than 256 nodes. */
-const int MAX_NODES_PER_MODEL = 256;
-
 template <typename T> 
 struct KeyFrame {
   double tick; 
@@ -89,6 +83,13 @@ class Model {
    * can be rendered onto screen. A model can contain
    * one or multiple meshes. A single draw call only
    * renders a single mesh onto the frame buffer. */
+public:
+  /* A vertex can only be affected by no more than 4 bones.
+   * NOTE: this value cannot be changed. */
+  static const int MAX_BONES_INFLUENCE_PER_VERTEX = 4;
+  /* A mesh model can only have less than 256 nodes. */
+  static const int MAX_NODES_PER_MODEL = 256;
+
 public:
   /* initialize mesh object from external/internal file formats. */
   bool load_zip(const std::string& zip_file, const std::string& model_fname);

@@ -83,8 +83,11 @@ void init_render() {
   gl.font.load("assets/common/fonts/Arial/11pt_Regular.fnt");
 
   gl.animator.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
+  gl.animator.set_num_instances(2);
+  gl.animator.set_model_transform(0, Vec3(+1.5, 0, +0.5), Vec3(1, 1, 1), Vec3(0, 1, 0), 0.0);
+  gl.animator.set_model_transform(1, Vec3(-1.5, 0, -0.5), Vec3(1, 1, 1), Vec3(0, 1, 0), sgl::PI);
   gl.animator.eye.position = Vec3(0, 6, 8);
-  gl.animator.eye.look_at = Vec3(0, 3.5, 0);
+  gl.animator.eye.look_at = Vec3(0, 3, 0);
   gl.animator.eye.up_dir = Vec3(0, 1, 0);
   /* perspective */
   gl.animator.eye.perspective.enabled = true;
@@ -110,7 +113,8 @@ void render_procedure(double T) {
   glEnable(GL_DEPTH_TEST);
 
   const double radius = 8.0;
-  gl.animator.play_animation("", fmod(T, 6.0)); /* 6 seconds per loop */
+  gl.animator.play_animation(0, "", fmod(T, 6.0));
+  gl.animator.play_animation(1, "", fmod(T + 3.0, 6.0));
   gl.animator.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
   gl.animator.eye.look_at = Vec3(0, 3.5, 0);
   gl.animator.draw();

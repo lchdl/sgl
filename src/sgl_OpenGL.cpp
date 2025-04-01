@@ -140,8 +140,8 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
   /*
   Initialize OpenGL states.
   */
-  glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gl_vars.max_texture_image_units);
-  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &gl_vars.max_color_attachments);
+  glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gl_vars.MAX_TEXTURE_IMAGE_UNITS);
+  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &gl_vars.MAX_COLOR_ATTACHMENTS);
   gl_vars.major_version = major_version;
   gl_vars.minor_version = minor_version;
   gl_vars.current_active_window = window;
@@ -809,8 +809,8 @@ bool Shader::set_uniform_matrix_4fv(const std::string& name, GLsizei count, GLbo
   return true;
 }
 bool Shader::set_texture_sampler_2D(const std::string& name, const sgl::OpenGL::Texture& texture, GLuint slot) const {
-  if (int(slot) >= gl_vars.max_texture_image_units) {
-    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_vars.max_texture_image_units);
+  if (int(slot) >= gl_vars.MAX_TEXTURE_IMAGE_UNITS) {
+    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_vars.MAX_TEXTURE_IMAGE_UNITS);
     return false;
   }
   if (!this->set_uniform_1i(name, slot))
@@ -830,8 +830,8 @@ bool Shader::set_texture_sampler_2D(const std::string& name, const sgl::OpenGL::
 
 bool Shader::set_texture_sampler_2D(const std::string & name, const GLuint tex_handle, GLuint slot) const
 {
-  if (int(slot) >= gl_vars.max_texture_image_units) {
-    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_vars.max_texture_image_units);
+  if (int(slot) >= gl_vars.MAX_TEXTURE_IMAGE_UNITS) {
+    printf("Invalid slot number given (%d), should <%d.\n", slot, gl_vars.MAX_TEXTURE_IMAGE_UNITS);
     return false;
   }
   glActiveTexture(GL_TEXTURE0 + slot);
@@ -989,9 +989,9 @@ bool Font::load(const char* path) {
   font_tex.to_device(DeviceType_GPU);
 
   /* create VBO and shader for rendering */
-  int sizeof_indices = sizeof(int) * 6 * Font::batch_size;
+  int sizeof_indices = sizeof(int) * 6 * Font::BATCH_SIZE;
   int* indices = (int*)malloc(sizeof_indices);
-  for (int i = 0; i < Font::batch_size; i++) {
+  for (int i = 0; i < Font::BATCH_SIZE; i++) {
     indices[i * 6 + 0] = 0 + i * 4;
     indices[i * 6 + 1] = 1 + i * 4;
     indices[i * 6 + 2] = 3 + i * 4;
@@ -999,7 +999,7 @@ bool Font::load(const char* path) {
     indices[i * 6 + 4] = 2 + i * 4;
     indices[i * 6 + 5] = 3 + i * 4;
   }
-  vbuf.create_and_fill(Font::batch_bufsz, NULL, GL_DYNAMIC_DRAW, sizeof_indices, indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
+  vbuf.create_and_fill(Font::BATCH_BUFSIZE, NULL, GL_DYNAMIC_DRAW, sizeof_indices, indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
   free(indices);
   
   Shader::FragDataLocation fs_outs[] = {
@@ -1029,7 +1029,7 @@ bool Font::load(const char* path) {
     , sizeof(fs_outs) / sizeof(Shader::FragDataLocation), fs_outs
   );
 
-  this->batch_buf = (uint8_t*)malloc(Font::batch_bufsz);
+  this->batch_buf = (uint8_t*)malloc(Font::BATCH_BUFSIZE);
 
   fclose(fp);
   return true;
@@ -1109,7 +1109,7 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
 
   /* Auxiliary function for flushing (rendering) glyph batch buffer. */
   auto flush_batch = [&](const int count) -> void {
-    this->vbuf.subdata_VBO(0, Font::batch_bufsz, this->batch_buf);
+    this->vbuf.subdata_VBO(0, Font::BATCH_BUFSIZE, this->batch_buf);
     this->vbuf.draw_elements(GL_TRIANGLES, 6 * count, GL_UNSIGNED_INT, NULL);
   };
 
@@ -1178,7 +1178,7 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
         Exit early as the text exceeds the boundaries of the text box, 
         but don't forget to flush remained chars.
         */
-        flush_batch(n_out_chars % Font::batch_size);
+        flush_batch(n_out_chars % Font::BATCH_SIZE);
         return IVec2(x_cursor, y_cursor);
       }
     }
@@ -1209,19 +1209,19 @@ IVec2 Font::draw_text(const std::wstring & text, int x, int y, int w, int h, con
         g_xl, g_yt, t_xl, t_yt,
       };
 
-      memcpy(this->batch_buf + sizeof(glyph_vbuf) * (n_out_chars % Font::batch_size), glyph_vbuf, sizeof(glyph_vbuf));
+      memcpy(this->batch_buf + sizeof(glyph_vbuf) * (n_out_chars % Font::BATCH_SIZE), glyph_vbuf, sizeof(glyph_vbuf));
       n_out_chars++;
 
       /* flush if batch is full */
-      if (n_out_chars % Font::batch_size == 0)
-        flush_batch(Font::batch_size);
+      if (n_out_chars % Font::BATCH_SIZE == 0)
+        flush_batch(Font::BATCH_SIZE);
     }
     line_chars++;
     x_cursor += glyph.xadvance;
   }
 
   /* flush remained chars */
-  flush_batch(n_out_chars % Font::batch_size);
+  flush_batch(n_out_chars % Font::BATCH_SIZE);
 
   return IVec2(x_cursor, y_cursor);
 }
@@ -1402,7 +1402,7 @@ void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
 }
 
 void FrameBuffer::setup_attachment(sgl::OpenGL::Texture * tex, int slot) {
-  if (slot < 0 || slot >= 8 || slot >= gl_vars.max_color_attachments) {
+  if (slot < 0 || slot >= 8 || slot >= gl_vars.MAX_COLOR_ATTACHMENTS) {
     printf("Error, invalid slot id.\n");
     return;
   }
@@ -1427,7 +1427,7 @@ bool FrameBuffer::make() {
   int w = -1, h = -1;
   int num_draw_buffers = 0;
   for (int i = 0; i < 8; i++) {
-    if (i >= gl_vars.max_color_attachments) break;
+    if (i >= gl_vars.MAX_COLOR_ATTACHMENTS) break;
     if (color_slots[i] == NULL) continue;
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, color_slots[i]->get_GL_handle(), 0);
     if (w < 0 || h < 0) {
@@ -1567,6 +1567,11 @@ GLuint FrameBuffer::get_GL_handle() const {
 
 void FrameBuffer::blit_attachment_to_main_framebuffer(int slot, int dst_x, int dst_y, int dst_w, int dst_h) {
 
+  if (sgl::OpenGL::get_current_framebuffer() != 0) {
+    printf("Failed to blit color attachment to main framebuffer (0) since current bound framebuffer ID != 0.\n");
+    return;
+  }
+
   IVec2 size = sgl::OpenGL::get_OpenGL_framebuffer_size(0);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0); /* select main framebuffer */
@@ -1590,20 +1595,6 @@ void FrameBuffer::blit_attachment_to_main_framebuffer(int slot, int dst_x, int d
   quad_vbuf.draw_arrays(GL_TRIANGLES, 0, 6);
 }
 
-sgl::OpenGL::Texture FrameBuffer::extract_depth_buffer()
-{
-  sgl::OpenGL::Texture tex = sgl::create_texture(w, h, PixelFormat_Float32, TextureSampling_Nearest, TextureUsage_DepthBuffer);
-
-  this->bind();
-  {
-    float* pixel_ptr = (float*)tex.get_pixel_data();
-    glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, pixel_ptr);
-  }
-  this->unbind();
-  
-  return tex;
-}
-
 FrameBuffer::FrameBuffer() {
   for (int i = 0; i < 8; i++)
     color_slots[i] = NULL;
@@ -1618,17 +1609,108 @@ FrameBuffer::~FrameBuffer() {
 
 AnimatedModelRenderer::AnimatedModelRenderer()
 {
-  this->play_time = 0.0;
+  this->bone_matrices_SSBO = 0;
+  this->model_matrices_SSBO = 0;
 }
 
 AnimatedModelRenderer::~AnimatedModelRenderer()
 {
-  unload();
+  this->unload();
 }
 
 void AnimatedModelRenderer::play_animation(const std::string& anim_name, const double& play_time)
 {
-  this->anim_name = anim_name; this->play_time = play_time;
+  Mat4x4 bone_matrices[sgl::Model::MAX_NODES_PER_MODEL];
+
+  const std::vector<Mesh>& mesh_data = this->model.get_meshes();
+  for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
+    const Mesh& mesh = mesh_data[i_mesh];
+    this->model.update_skeletal_animation_for_mesh(mesh, anim_name, play_time, bone_matrices);
+  }
+
+  /* transpose each matrix since OpenGL use column major format */
+  Mat4x4f bone_matrices0[sgl::Model::MAX_NODES_PER_MODEL];
+  for (int i_mat = 0; i_mat < sgl::Model::MAX_NODES_PER_MODEL; i_mat++) {
+    Mat4x4 mat_t = bone_matrices[i_mat].transpose();
+    for (int j = 0; j < 16; j++)
+      bone_matrices0[i_mat].i[j] = float(mat_t.i[j]);
+  }
+
+  /* upload to GPU */
+  const int num_instances = this->get_num_instances();
+  for (int instance_ID = 0; instance_ID < num_instances; instance_ID++) {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bone_matrices_SSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, instance_ID * sizeof(Mat4x4f) * sgl::Model::MAX_NODES_PER_MODEL, sizeof(Mat4x4f) * sgl::Model::MAX_NODES_PER_MODEL, &bone_matrices0[0].i[0]);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+  }
+}
+
+void AnimatedModelRenderer::play_animation(int instance_ID, const std::string & anim_name, const double & play_time)
+{
+  Mat4x4 bone_matrices[sgl::Model::MAX_NODES_PER_MODEL];
+
+  const std::vector<Mesh>& mesh_data = this->model.get_meshes();
+  for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
+    const Mesh& mesh = mesh_data[i_mesh];
+    this->model.update_skeletal_animation_for_mesh(mesh, anim_name, play_time, bone_matrices);
+  }
+
+  /* transpose each matrix since OpenGL use column major format */
+  Mat4x4f bone_matrices0[sgl::Model::MAX_NODES_PER_MODEL];
+  for (int i_mat = 0; i_mat < sgl::Model::MAX_NODES_PER_MODEL; i_mat++) {
+    Mat4x4 mat_t = bone_matrices[i_mat].transpose();
+    for (int j = 0; j < 16; j++) {
+      bone_matrices0[i_mat].i[j] = float(mat_t.i[j]);
+    }
+  }
+
+  /* upload to GPU */
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, bone_matrices_SSBO);
+  glBufferSubData(GL_SHADER_STORAGE_BUFFER, instance_ID * sizeof(Mat4x4f) * sgl::Model::MAX_NODES_PER_MODEL, sizeof(Mat4x4f) * sgl::Model::MAX_NODES_PER_MODEL, &bone_matrices0[0].i[0]);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+void AnimatedModelRenderer::set_model_transform(const Mat4x4& transform)
+{
+  /* Note that OpenGL's matrix is column major, we need to transpose it */
+  Mat4x4 xfm_t = transform.transpose();
+  Mat4x4f xfm_t0;
+  for (int j = 0; j < 16; j++)
+    xfm_t0.i[j] = float(xfm_t.i[j]);
+
+  /* upload to GPU */
+  const int num_instances = this->get_num_instances();
+  for (int instance_ID = 0; instance_ID < num_instances; instance_ID++) {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_matrices_SSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, instance_ID * sizeof(Mat4x4f), sizeof(Mat4x4f), &xfm_t0.i[0]);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+  }
+}
+
+void AnimatedModelRenderer::set_model_transform(int instance_ID, const Mat4x4& transform)
+{
+  /* Note that OpenGL's matrix is column major, we need to transpose it */
+  Mat4x4 xfm_t = transform.transpose();
+  Mat4x4f xfm_t0;
+  for (int j = 0; j < 16; j++)
+    xfm_t0.i[j] = float(xfm_t.i[j]);
+
+  /* upload to GPU */
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_matrices_SSBO);
+  glBufferSubData(GL_SHADER_STORAGE_BUFFER, instance_ID * sizeof(Mat4x4f), sizeof(Mat4x4f), &xfm_t0.i[0]);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+void AnimatedModelRenderer::set_model_transform(const Vec3& pos, const Vec3& scale, const Vec3& rot_axis, const double& rot_angle)
+{
+  Mat4x4 transform = Mat4x4::translate(pos.x, pos.y, pos.z) * Mat4x4::scale(scale.x, scale.y, scale.z) * Mat4x4::rotate(rot_axis, rot_angle);
+  this->set_model_transform(transform);
+}
+
+void AnimatedModelRenderer::set_model_transform(int instance_ID, const Vec3& pos, const Vec3& scale, const Vec3& rot_axis, const double& rot_angle)
+{
+  Mat4x4 transform = Mat4x4::translate(pos.x, pos.y, pos.z) * Mat4x4::scale(scale.x, scale.y, scale.z) * Mat4x4::rotate(rot_axis, rot_angle);
+  this->set_model_transform(instance_ID, transform);
 }
 
 bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const std::string& model_fname)
@@ -1638,6 +1720,8 @@ bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const st
   /* load model to CPU host memory */
   if (!model.load_zip(zip_file, model_fname))
     return false;
+
+  this->set_num_instances(1);
 
   /* transfer model from CPU host memory to GPU VRAM */
   const std::vector<Mesh>& mesh_data = model.get_meshes();
@@ -1692,8 +1776,8 @@ bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const st
     {"FragNormal", 1},
   };
   if (!this->shader.create(
-    sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/anim.vert"),
-    sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/anim.frag"),
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/instanced_anim.vert"),
+    sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/instanced_anim.frag"),
     sizeof(fs_outs) / sizeof(FragDataLocation), fs_outs))
   {
     this->unload();
@@ -1703,18 +1787,73 @@ bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const st
   return true;
 }
 
+void AnimatedModelRenderer::_resize_SSBO(int new_count) {
+  if (this->get_num_instances() == new_count)
+    return;
+
+  const int bone_matrices_size = sizeof(Mat4x4f) * sgl::Model::MAX_NODES_PER_MODEL * new_count;
+  const int model_matrices_size = sizeof(Mat4x4f) * new_count;
+
+  if (bone_matrices_SSBO != 0) {
+    glDeleteBuffers(1, &this->bone_matrices_SSBO);
+    this->bone_matrices_SSBO = 0;
+  }
+  glCreateBuffers(1, &bone_matrices_SSBO);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, bone_matrices_SSBO);
+  glBufferStorage(GL_SHADER_STORAGE_BUFFER, bone_matrices_size, NULL, GL_DYNAMIC_STORAGE_BIT);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+  if (model_matrices_SSBO != 0) {
+    glDeleteBuffers(1, &this->model_matrices_SSBO);
+    this->model_matrices_SSBO = 0;
+  }
+  glCreateBuffers(1, &model_matrices_SSBO);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, model_matrices_SSBO);
+  glBufferStorage(GL_SHADER_STORAGE_BUFFER, model_matrices_size, NULL, GL_DYNAMIC_STORAGE_BIT);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+}
+
+void AnimatedModelRenderer::set_num_instances(int count)
+{
+  /* resize storages */
+  this->_resize_SSBO(count);
+  this->inst_anims.clear();
+  this->inst_anims.resize(count);
+  for (int i = 0; i < count; i++) {
+    this->inst_anims[i].anim_name = "";
+    this->inst_anims[i].play_time = 0.0;
+  }
+
+  /* set default model transform */
+  this->set_model_transform(Mat4x4::identity());
+
+  /* set default bone matrices (all set to identity) */
+  Mat4x4 I = Mat4x4::identity();
+  Mat4x4f m[sgl::Model::MAX_NODES_PER_MODEL];
+  for (int i_mat = 0; i_mat < sgl::Model::MAX_NODES_PER_MODEL; i_mat++) {
+    for (int j = 0; j < 16; j++)
+      m[i_mat].i[j] = float(I.i[j]);
+  }
+  for (int instance_ID = 0; instance_ID < this->get_num_instances(); instance_ID++) {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bone_matrices_SSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, instance_ID * sizeof(Mat4x4f) * sgl::Model::MAX_NODES_PER_MODEL, sizeof(Mat4x4f) * sgl::Model::MAX_NODES_PER_MODEL, &m[0].i[0]);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+  }
+}
+
+int AnimatedModelRenderer::get_num_instances() const
+{
+  return int(this->inst_anims.size());
+}
+
 void AnimatedModelRenderer::draw()
 {
   const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
 
   Mat4x4 view = this->get_view_matrix();
   Mat4x4 proj = this->get_projection_matrix(rsize.x, rsize.y);
-  Mat4x4 bone_matrices[MAX_NODES_PER_MODEL];
-
-  this->shader.use();
-  this->shader.set_uniform_matrix_4fv("u_Model", 1, GL_TRUE, &this->model.get_model_transform());
-  this->shader.set_uniform_matrix_4fv("u_View", 1, GL_TRUE, &view);
-  this->shader.set_uniform_matrix_4fv("u_Projection", 1, GL_TRUE, &proj);
+  Mat4x4 bone_matrices[sgl::Model::MAX_NODES_PER_MODEL];
 
   /* Rendering all the mesh parts in model */
   const std::vector<Mesh>& mesh_data = this->model.get_meshes();
@@ -1724,17 +1863,25 @@ void AnimatedModelRenderer::draw()
     /* for each mesh part */
     const int32_t mat_id = mesh_data[i_mesh].mat_id;
     const Mesh& mesh = mesh_data[i_mesh];
-    /* update bone matrices */
-    this->model.update_skeletal_animation_for_mesh(mesh, anim_name, play_time, bone_matrices);
-    this->shader.set_uniform_matrix_4fv("u_BoneMatrices", MAX_NODES_PER_MODEL, GL_TRUE, bone_matrices);
+
+    /* SSBOs are all prepared at this time, so we can directly bind them */
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, model_matrices_SSBO);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, bone_matrices_SSBO);
+
+    /* setup shader */
+    this->shader.use();
+    this->shader.set_uniform_matrix_4fv("u_View", 1, GL_TRUE, &view);
+    this->shader.set_uniform_matrix_4fv("u_Projection", 1, GL_TRUE, &proj);
+
     /* setup texture(s) */
     void* tex_cpu_dptr = materials[mat_id].diffuse_texture.get_pixel_data();
     if (this->texmap.find(tex_cpu_dptr) != this->texmap.end()) {
       sgl::OpenGL::Texture* tex_gpu = this->texmap[tex_cpu_dptr];
       this->shader.set_texture_sampler_2D("tex0", *tex_gpu, 0);
     }
+
     /* draw */
-    this->vbufs[i_mesh]->draw_elements(GL_TRIANGLES, int(mesh_data[i_mesh].indices.size()), GL_UNSIGNED_INT, NULL);
+    this->vbufs[i_mesh]->draw_elements_instanced(GL_TRIANGLES, int(mesh_data[i_mesh].indices.size()), GL_UNSIGNED_INT, NULL, this->get_num_instances());
   }
 }
 
@@ -1758,8 +1905,23 @@ void AnimatedModelRenderer::unload()
   }
   this->texmap.clear();
 
-  this->anim_name = "";
-  this->play_time = 0.0;
+  if (this->bone_matrices_SSBO != 0) {
+    glDeleteBuffers(1, &this->bone_matrices_SSBO);
+    this->bone_matrices_SSBO = 0;
+  }
+  if (this->model_matrices_SSBO != 0) {
+    glDeleteBuffers(1, &this->model_matrices_SSBO);
+    this->model_matrices_SSBO = 0;
+  }
+
+  this->inst_anims.clear();
+}
+
+GL_vars::GL_vars() {
+  major_version = minor_version = -1;
+  MAX_TEXTURE_IMAGE_UNITS = -1;
+  MAX_COLOR_ATTACHMENTS = -1;
+  current_active_window = NULL;
 }
 
 }; /* namespace OpenGL */

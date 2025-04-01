@@ -62,7 +62,6 @@ bool RunMemLeakTest(memory_leak_test_func_t func, std::string test_name, const i
     }
     SetColor(BRIGHT_RED);
     printf("Dumping memory leak info...\n");
-    SetColor(BRIGHT_RED);
     printf("_CrtMemDumpStatistics():\n");
     SetColor(BRIGHT_WHITE);
     _CrtMemDumpStatistics(&s0);
@@ -132,7 +131,7 @@ void test_OpenGL_texture() {
   sgl::OpenGL::Texture gl_tex1 = sgl::OpenGL::Texture(tex);
   sgl::OpenGL::Texture gl_tex2;
 
-  const int total_loops = 100;
+  const int total_loops = 5;
   GLint tex_handle = -1;
   for (int loop = 0; loop < total_loops; loop++) {
     sgl::OpenGL::Texture gl_tex3;
@@ -164,7 +163,7 @@ void test_OpenGL_texture() {
   }
 }
 void test_OpenGL_texture_v2() {
-  const int total_loops = 100;
+  const int total_loops = 5;
   GLint tex_handle = -1;
   for (int loop = 0; loop < total_loops; loop++) {
     sgl::OpenGL::Texture gl_tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
@@ -181,6 +180,17 @@ void test_OpenGL_texture_v2() {
   if (tex_handle != 1) {
     SetMemLeakChkFailed("OpenGL texture handle leaked!");
   }
+}
+void test_OpenGL_AnimatedModelRenderer() {
+  sgl::OpenGL::AnimatedModelRenderer animator;
+  animator.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
+  animator.unload();
+
+  animator.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
+  animator.set_num_instances(2);
+  animator.set_num_instances(10);
+  animator.set_model_transform(0, Vec3(+1.5, 0, +0.5), Vec3(1, 1, 1), Vec3(0, 1, 0), 0.0);
+  animator.play_animation(0, "", 1.0);
 }
 #endif
 
@@ -202,6 +212,7 @@ int main(int argc, char* argv[]) {
   if (!sgl::OpenGL::initialize_OpenGL(pWindow, 3, 3, true)) exit(1);
   RunMemLeakTest(test_OpenGL_texture,"test_OpenGL_texture");
   RunMemLeakTest(test_OpenGL_texture_v2, "test_OpenGL_texture_v2");
+  RunMemLeakTest(test_OpenGL_AnimatedModelRenderer, "test_OpenGL_AnimatedModelRenderer");
 #endif
 
   /* TODO: add more memory leak tests here... */

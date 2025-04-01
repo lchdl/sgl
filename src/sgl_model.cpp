@@ -402,23 +402,13 @@ Model::_update_mesh_skeletal_animation_from_node(
 
   /* Compute bone final tranformation matrix and save to uniform variable */
   uint32_t node_unique_id = node_name_to_unique_id[node_name];
-  Mat4x4 uniform_matrix;
   if (is_bone) {
-    /* in some tutorials, a global inverse transform is applied to the end
+    /* Update bone_matrices (important). */
+    bone_matrices[node_unique_id] = mul(accumulated_transform, bone->offset);
+    /* In some tutorials, a global inverse transform is applied to the end 
     of the transformation chain, but here I ignore it as apply an additional
     transformation seems to mess up the model location. */
-    uniform_matrix = mul(accumulated_transform, bone->offset); 
   }
-  else {
-    /* This node is not a bone and no vertices should linked to this node.
-    For debugging purposes we set it to zero matrix, so if something wrong 
-    happens (such as a vertex is linked to a non-bone node) then we will 
-    know. */
-    uniform_matrix = Mat4x4();
-  }
-
-  /* update bone_matrices (important) */
-  bone_matrices[node_unique_id] = uniform_matrix;
 
   /* continue to child nodes */
   for (uint32_t i_node = 0; i_node < node->childs.size(); i_node++) {
