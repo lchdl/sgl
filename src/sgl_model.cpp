@@ -15,44 +15,7 @@ Model::~Model() {
   this->unload();
 }
 
-Model::Model(const Model& that) {
-  this->root_node = NULL;
-  this->model_transform = Mat4x4::identity();
-  this->keyframe_interp_mode = KeyFrameInterpType::KeyFrameInterpType_Linear;
-
-  if (that.load_info.load_method == "load_zip") {
-    this->load_zip(that.load_info.zip_file, that.load_info.model_fname);
-  }
-  /* TODO: add other copy methods if load_method is new */
-
-  this->set_model_transform(that.model_transform);
-  this->set_keyframe_interp_mode(that.keyframe_interp_mode);
-}
-
-Model& Model::operator=(const Model& that) {
-  if (this == &that)
-    return (*this);
-
-  this->unload();
-
-  this->root_node = NULL;
-  this->model_transform = Mat4x4::identity();
-  this->keyframe_interp_mode = KeyFrameInterpType::KeyFrameInterpType_Linear;
-
-  if (that.load_info.load_method == "load_zip") {
-    this->load_zip(that.load_info.zip_file, that.load_info.model_fname);
-  }
-
-  this->set_model_transform(that.model_transform);
-  this->set_keyframe_interp_mode(that.keyframe_interp_mode);
-
-  return (*this);
-}
-
 void Model::unload() {
-  this->load_info.load_method = "";
-  this->load_info.zip_file = "";
-  this->load_info.model_fname = "";
   this->meshes.clear();
   this->materials.clear();
   this->_delete_node(root_node);
@@ -69,10 +32,6 @@ bool Model::load_zip(const std::string& zip_file, const std::string& model_fname
   /* clear trash data from previous load */
   this->unload(); 
   
-  this->load_info.load_method = "load_zip";
-  this->load_info.zip_file = zip_file;
-  this->load_info.model_fname = model_fname;
-
   /* Assimp model importer.
    * Note: if the importer is destoryed, the resources
    * it holds will also be destroyed. */

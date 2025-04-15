@@ -26,9 +26,12 @@ adjust the number of CPU cores used for rendering.
 /* extension */
 #include "sgl_primitives.h" /* draw 2D shapes or make 3D meshes */
 
+/* audio */
+#include "sgl_audio.h"
+
 /* optional additional functions */
 #ifdef ENABLE_OPENGL
-#include "sgl_opengl.h"
+#include "sgl_OpenGL.h"
 #endif
 
 /*
@@ -37,8 +40,12 @@ namespaces:
 sgl         * Core software rasterization feature.
 |             NOTE: this does not rely on any external libraries.
 +--SDL2     * Implement communications between sgl and SDL2.
-|             For example, texture to surface conversion
-+--OpenGL   * [OPTIONAL] Implements hardware acceleration by 
-              wrapping the OpenGL API using SDL2 and GLEW.
+|             For example, SGL texture to SDL surface conversion.
++--[OpenGL] * Implements hardware acceleration by wrapping the 
+|             OpenGL API using SDL2 and GLEW.
++--Audio    * Audio support using miniaudio.
++--Physics  * Simple physics support (TBD).
+
+'[...]': Optional
 
 */

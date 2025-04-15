@@ -18,6 +18,7 @@ using namespace sgl;
 
 typedef void (*memory_leak_test_func_t)(void);
 
+int num_tests = 0, num_success = 0, num_failed = 0;
 struct memchk_states {
   static const int bufsize = 4096;
   char fail_reason[memchk_states::bufsize];
@@ -48,6 +49,7 @@ bool RunMemLeakTest(memory_leak_test_func_t func, std::string test_name, const i
   SetColor(WHITE);
   printf("%s >> testing...", test_name.c_str());
   _CrtMemState s0, s1, s2; /* s0 = s2 - s1 */
+  num_tests++;
   _CrtMemCheckpoint(&s1);
   func();
   _CrtMemCheckpoint(&s2);
@@ -70,15 +72,20 @@ bool RunMemLeakTest(memory_leak_test_func_t func, std::string test_name, const i
     SetColor(BRIGHT_WHITE);
     _CrtDumpMemoryLeaks();
     SetColor(WHITE);
+    num_failed++;
     return false;
   }
   else {
     SetColor(BRIGHT_GREEN);
     printf("  PASSED.\n");
     SetColor(BRIGHT_WHITE);
+    num_success++;
     return true;
   }
   return false;
+}
+void PrintMemLeakSummary() {
+  printf("Summary: total=%d, success=%d, failed=%d.\n", num_tests, num_success, num_failed);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -98,17 +105,19 @@ void test_func_template() {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-void test_model_copy() {
+void test_audio() {
+  sgl::Audio::Sound snd;
+  snd.load("assets/audios/rain.mp4");
+  snd.unload();
+}
+
+void test_mesh_and_model() {
   Model model;
+  Mesh mesh, mesh1;
   model.load_zip("assets/common/models/boblamp.zip", "model.md5mesh");
-  Model model0 = model;
-  Model model1(model);
-  Model model2;
-  model2.load_zip("assets/common/models/boblamp.zip", "model.md5mesh");
-  model2 = model;
-  model = model2;
-  model1 = model2;
-  model2 = model1;
+  mesh = model.get_meshes()[0];
+  mesh1 = mesh;
+  mesh = mesh1;
 }
 void test_font_memory_leak() {
   sgl::Font Arial_11pt, Arial_11pt_copy;
@@ -202,9 +211,10 @@ int main(int argc, char* argv[]) {
 
   /* Run memory leak tests here. */
 
-  RunMemLeakTest(test_model_copy, "test_model_copy");
+  RunMemLeakTest(test_mesh_and_model, "test_model");
   RunMemLeakTest(test_font_memory_leak, "test_font_memory_leak");
   RunMemLeakTest(test_texture_memory_leak, "test_texture_memory_leak");
+  RunMemLeakTest(test_audio, "test_audio");
 
 #ifdef ENABLE_OPENGL
   SDL_Window* pWindow = SDL_CreateWindow("Dummy Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 64, 64, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
@@ -217,6 +227,7 @@ int main(int argc, char* argv[]) {
 
   /* TODO: add more memory leak tests here... */
 
+  PrintMemLeakSummary();
   return 0;
 }
 

@@ -159,14 +159,14 @@ public:
 
 class Shader : public sgl::NonCopyable {
 public:
-  struct FragDataLocation {
+  struct FragDataLoc {
     /* layout (location = `slot`) out `name`; */
     std::string name;
     GLuint slot;
   };
 public:
   bool create(const std::string& vs, const std::string& fs);
-  bool create(const std::string& vs, const std::string& fs, const int n_outs, const FragDataLocation* fs_outs); /* for multiple render targets (MRT) */
+  bool create(const std::string& vs, const std::string& fs, const int n_outs, const FragDataLoc* fs_outs); /* for multiple render targets (MRT) */
   void use() const;
   GLuint get_GL_handle() const;
   GLint get_uniform_location(const std::string& name) const;
@@ -207,7 +207,7 @@ public:
 
   Shader();
   Shader(const std::string& vs, const std::string& fs);
-  Shader(const std::string& vs, const std::string& fs, const int n_outs, const FragDataLocation* fs_outs); /* for multiple render targets (MRT) */
+  Shader(const std::string& vs, const std::string& fs, const int n_outs, const FragDataLoc* fs_outs); /* for multiple render targets (MRT) */
   virtual ~Shader();
 
 protected:
@@ -215,7 +215,7 @@ protected:
 
 protected:
   GLuint gl_handle;
-  std::vector<FragDataLocation> fs_outs;
+  std::vector<FragDataLoc> fs_outs;
 };
 
 struct VertexFormat { static void define_format() {} };
@@ -326,7 +326,7 @@ protected:
   sgl::OpenGL::Shader shader;
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_2f2f> vbuf;
 public:
-  void initialize(const std::string& vs = "", const std::string & fs = "", const int n_outs = 0, const Shader::FragDataLocation * fs_outs = NULL);
+  void initialize(const std::string& vs = "", const std::string & fs = "", const int n_outs = 0, const Shader::FragDataLoc * fs_outs = NULL);
   void destroy();
 
   SpriteRenderer();
@@ -492,7 +492,7 @@ protected:
   GLuint model_matrices_SSBO;
 
 protected:
-  void           _resize_SSBO(int new_count);
+  void           _resize_SSBOs(int new_count);
 
 public:
   void      set_num_instances(int count);

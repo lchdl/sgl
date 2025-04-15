@@ -142,22 +142,22 @@ void init_render() {
 
   gl.vbuf.create_and_fill(sizeof(vertices), vertices, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
   
-  Shader::FragDataLocation vsm_gen_outs[] = {
+  Shader::FragDataLoc vsm_gen_outs[] = {
     {"FragVSM", 0},
   };
   gl.shader_VSM.create(
     sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_gen.vert"),
     sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_gen.frag"),
-    sizeof(vsm_gen_outs) / sizeof(Shader::FragDataLocation), vsm_gen_outs
+    sizeof(vsm_gen_outs) / sizeof(Shader::FragDataLoc), vsm_gen_outs
   );
 
-  Shader::FragDataLocation vsm_main_outs[] = {
+  Shader::FragDataLoc vsm_main_outs[] = {
     {"FragColor", 0},
   };
   gl.shader_main.create(
     sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_main.vert"),
     sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_main.frag"),
-    sizeof(vsm_main_outs) / sizeof(Shader::FragDataLocation), vsm_main_outs
+    sizeof(vsm_main_outs) / sizeof(Shader::FragDataLoc), vsm_main_outs
   );
 
   gl.tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_RGBA8888, TextureSampling_Bilinear, true);
@@ -183,13 +183,13 @@ void init_render() {
   gl.tex_VSM_blur.to_device(DeviceType_GPU);
   gl.fbuf_blur.setup_attachment(&gl.tex_VSM_blur, 0);
   gl.fbuf_blur.make();
-  Shader::FragDataLocation vsm_blur_outs[] = {
+  Shader::FragDataLoc vsm_blur_outs[] = {
     {"FragColor", 0},
   };
   gl.shader_blur.create(
     sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_blur.vert"),
     sgl::read_file_as_string("assets/common/shaders/test_opengl_VSM/vsm_blur.frag"),
-    sizeof(vsm_blur_outs) / sizeof(Shader::FragDataLocation), vsm_blur_outs
+    sizeof(vsm_blur_outs) / sizeof(Shader::FragDataLoc), vsm_blur_outs
   );
 }
 

@@ -533,7 +533,7 @@ bool Shader::create(const std::string & vs, const std::string & fs) {
   return this->create(vs, fs, 0, NULL);
 }
 
-bool Shader::create(const std::string & vs, const std::string & fs, const int n_outs, const FragDataLocation * fs_outs)
+bool Shader::create(const std::string & vs, const std::string & fs, const int n_outs, const FragDataLoc * fs_outs)
 {
   destroy();
 
@@ -598,7 +598,7 @@ Shader::Shader(const std::string & vs, const std::string & fs) {
   create(vs, fs);
 }
 
-Shader::Shader(const std::string & vs, const std::string & fs, const int n_outs, const FragDataLocation * fs_outs)
+Shader::Shader(const std::string & vs, const std::string & fs, const int n_outs, const FragDataLoc * fs_outs)
 {
   gl_handle = 0;
   create(vs, fs, n_outs, fs_outs);
@@ -1002,7 +1002,7 @@ bool Font::load(const char* path) {
   vbuf.create_and_fill(Font::BATCH_BUFSIZE, NULL, GL_DYNAMIC_DRAW, sizeof_indices, indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
   free(indices);
   
-  Shader::FragDataLocation fs_outs[] = {
+  Shader::FragDataLoc fs_outs[] = {
     {"FragColor", 0},
   };
   shader.create(R"(
@@ -1026,7 +1026,7 @@ bool Font::load(const char* path) {
       FragColor = vec4(1.0, 1.0, 1.0, color.r) * vec4(ColorMask, 1.0);
     }
     )"
-    , sizeof(fs_outs) / sizeof(Shader::FragDataLocation), fs_outs
+    , sizeof(fs_outs) / sizeof(Shader::FragDataLoc), fs_outs
   );
 
   this->batch_buf = (uint8_t*)malloc(Font::BATCH_BUFSIZE);
@@ -1326,7 +1326,7 @@ void SpriteRenderer::draw(
   this->vbuf.draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
 }
 
-void SpriteRenderer::initialize(const std::string & vs, const std::string & fs, const int n_outs, const Shader::FragDataLocation * fs_outs)
+void SpriteRenderer::initialize(const std::string & vs, const std::string & fs, const int n_outs, const Shader::FragDataLoc * fs_outs)
 {
   std::string _vs = (strlen(vs.c_str()) == 0) ? R"(
     #version 330 core
@@ -1372,11 +1372,11 @@ void SpriteRenderer::initialize(const std::string & vs, const std::string & fs, 
       FragColor = color * vec4(ColorMask, 1);
     }
     )" : fs;
-  Shader::FragDataLocation _fs_outs_default[] = {
+  Shader::FragDataLoc _fs_outs_default[] = {
       {"FragColor", 0},
   };
-  const Shader::FragDataLocation* _fs_outs = (fs_outs == NULL) ? _fs_outs_default : fs_outs;
-  int _n_outs = (fs_outs == NULL) ? sizeof(_fs_outs_default) / sizeof(Shader::FragDataLocation) : n_outs;
+  const Shader::FragDataLoc* _fs_outs = (fs_outs == NULL) ? _fs_outs_default : fs_outs;
+  int _n_outs = (fs_outs == NULL) ? sizeof(_fs_outs_default) / sizeof(Shader::FragDataLoc) : n_outs;
   shader.create(_vs, _fs, _n_outs, _fs_outs);  
   int indices[] = { 0, 1, 3, 1, 2, 3 };
   vbuf.create_and_fill(16 * sizeof(float), NULL, GL_DYNAMIC_DRAW, 6 * sizeof(indices), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
@@ -1770,15 +1770,15 @@ bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const st
   }
 
   /* create shader */
-  typedef sgl::OpenGL::Shader::FragDataLocation FragDataLocation;
-  FragDataLocation fs_outs[] = {
+  typedef sgl::OpenGL::Shader::FragDataLoc FragDataLoc;
+  FragDataLoc fs_outs[] = {
     {"FragColor", 0},
     {"FragNormal", 1},
   };
   if (!this->shader.create(
     sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/instanced_anim.vert"),
     sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/instanced_anim.frag"),
-    sizeof(fs_outs) / sizeof(FragDataLocation), fs_outs))
+    sizeof(fs_outs) / sizeof(FragDataLoc), fs_outs))
   {
     this->unload();
     return false;
@@ -1787,7 +1787,7 @@ bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const st
   return true;
 }
 
-void AnimatedModelRenderer::_resize_SSBO(int new_count) {
+void AnimatedModelRenderer::_resize_SSBOs(int new_count) {
   if (this->get_num_instances() == new_count)
     return;
 
@@ -1817,7 +1817,7 @@ void AnimatedModelRenderer::_resize_SSBO(int new_count) {
 void AnimatedModelRenderer::set_num_instances(int count)
 {
   /* resize storages */
-  this->_resize_SSBO(count);
+  this->_resize_SSBOs(count);
   this->inst_anims.clear();
   this->inst_anims.resize(count);
   for (int i = 0; i < count; i++) {

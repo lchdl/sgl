@@ -124,7 +124,7 @@ void init_render() {
 
   gl.vbuf.create_and_fill(sizeof(vertices), vertices, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
   
-  sgl::OpenGL::Shader::FragDataLocation fs_outs[] = {
+  sgl::OpenGL::Shader::FragDataLoc fs_outs[] = {
     {"FragDepth", 0},
   };
   gl.shader_shadow.create(R"(

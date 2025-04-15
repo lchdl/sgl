@@ -47,7 +47,8 @@ struct Bone {
      when the model is in bind pose (default T-pose). */
   Mat4x4 offset;
 };
-struct Node {
+struct Node : public NonCopyable {
+  /* node duplication requires deep copy operation (shallow copy disabled by design) */
   std::string          name; /* name of the node */
   Node*              parent; /* parent node name */
   std::vector<Node*> childs; /* child nodes */
@@ -78,7 +79,7 @@ struct Material {
   Texture diffuse_texture;
 };
 
-class Model {
+class Model : public NonCopyable {
   /* The model represents a standalone object that 
    * can be rendered onto screen. A model can contain
    * one or multiple meshes. A single draw call only
@@ -173,9 +174,6 @@ public:
   /* ctor & dtor */
 
   Model();
-  Model(const Model& that);
-  Model& operator=(const Model& that);
-
   virtual ~Model();
 
 protected:
@@ -184,12 +182,6 @@ protected:
   The following member variables must be initialized exclusively through this->load().
   No other initialization paths are permitted for these members.
   */
-
-  struct _load_info_ {
-    std::string load_method; /* how the model is loaded */
-    std::string zip_file;
-    std::string model_fname;
-  } load_info; /* will be stored when loading the model through `this->load*()` */
 
   std::vector<Mesh> meshes;
   std::vector<Material> materials;
