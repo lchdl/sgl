@@ -78,7 +78,6 @@ struct Material {
   std::string diffuse_texture_file;
   Texture diffuse_texture;
 };
-
 class Model : public NonCopyable {
   /* The model represents a standalone object that 
    * can be rendered onto screen. A model can contain
@@ -223,6 +222,29 @@ private:
   void _dump_mesh(const Mesh& mesh);
   void _dump_material(const Material& material);
   void _dump_node(const Node* node, const uint32_t indent);
+};
+struct SimpleOBJLoader {
+  enum OBJFaceFormat {
+    InvalidFace,
+    V,               /* vertex position only:     "f   1     2     3    " */
+    V_Vt,            /* position and texcoord:    "f   3/1   4/2   5/3  " */
+    V_Vn,            /* position and normal:      "f   1//2  7//8  9//3 " */
+    V_Vt_Vn          /* pos, texcoord and normal: "f   1/2/3 5/6/2 3/4/5" */
+  };
+  static OBJFaceFormat _get_OBJ_face_format(const char* file);
+  static bool _is_char_in_string(const char ch, const char* s);
+  static bool _get_word_from_file(FILE * fp, char * buf, int bufLen, const char* wordDelim, const char commentChar);
+  static bool _get_word_from_string(char * src, char * buf, int bufLen, const char * wordDelim, const char commentChar);
+  static bool _get_double_from_file(FILE * fp, double * v);
+  static bool _get_int_from_file(FILE * fp, int * v);
+  static bool _get_Vec2_from_file(FILE * fp, Vec2 * v);
+  static bool _get_Vec3_from_file(FILE * fp, Vec3 * v);
+  static bool _get_IVec2_from_file(FILE * fp, IVec2 * v);
+  static bool _get_IVec3_from_file(FILE * fp, IVec3 * v);
+
+  static Mesh load(const char* file);
+  /* Load only the vertex positions (lines starting with "v") from a .obj file. */
+  static std::vector<Vec3> load_v(const char* file);
 };
 
 /*

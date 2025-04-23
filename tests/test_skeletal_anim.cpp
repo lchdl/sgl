@@ -16,7 +16,8 @@ struct {
   Texture depth;
   Texture normal;
 } frame_buffer;
-AnimatedModelRenderer animator;
+AnimatedModelRenderer renderer;
+EyeParams eye;
 
 std::string dtos(double v, int precision) {
   std::stringstream stream;
@@ -63,19 +64,19 @@ void process_key(SDL_KeyboardEvent *key) {
 
   /* custom key handling */
   if (keycode == SDLK_SPACE && is_press) {
-    if (animator.eye.perspective.enabled) {
-      animator.eye.perspective.enabled = false;
-      animator.eye.orthographic.enabled = true;
+    if (eye.eye.perspective.enabled) {
+      eye.eye.perspective.enabled = false;
+      eye.eye.orthographic.enabled = true;
       printf("Now enables orthographic projection.\n");
     }
     else {
-      animator.eye.perspective.enabled = true;
-      animator.eye.orthographic.enabled = false;
+      eye.eye.perspective.enabled = true;
+      eye.eye.orthographic.enabled = false;
       printf("Now enables perspective projection.\n");
     }
   }
   if (keycode == SDLK_RETURN && is_press) {
-    PipelineDrawMode draw_mode = animator.get_draw_mode();
+    PipelineDrawMode draw_mode = renderer.get_draw_mode();
     if (draw_mode == PipelineDrawMode_Triangle) {
       draw_mode = PipelineDrawMode_Wireframe;
       printf("Now uses DrawMode::wireframe_draw_mode.\n");
@@ -84,7 +85,7 @@ void process_key(SDL_KeyboardEvent *key) {
       draw_mode = PipelineDrawMode_Triangle;
       printf("Now uses DrawMode::triangle_draw_mode.\n");
     }
-    animator.set_draw_mode(draw_mode);
+    renderer.set_draw_mode(draw_mode);
   }
   if (keycode == SDLK_1 && is_press) {
     show_which_texture = 1;
@@ -99,7 +100,7 @@ void process_key(SDL_KeyboardEvent *key) {
     printf("Now display normal maps.\n");
   }
   if (keycode == SDLK_b && is_press) {
-    bool backface_culling = animator.get_backface_culling_state();
+    bool backface_culling = renderer.get_backface_culling_state();
     if (backface_culling == false) {
       backface_culling = true;
       printf("Backface culling: ON\n");
@@ -108,7 +109,7 @@ void process_key(SDL_KeyboardEvent *key) {
       backface_culling = false;
       printf("Backface culling: OFF\n");
     }
-    animator.set_backface_culling_state(backface_culling);
+    renderer.set_backface_culling_state(backface_culling);
   }
 }
 
@@ -119,29 +120,31 @@ void init_render() {
   frame_buffer.normal = sgl::create_texture(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
 
   /* setup render pass */
-  animator.bind_render_targets(&frame_buffer.color, &frame_buffer.depth, &frame_buffer.normal);
-  animator.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
-  animator.eye.position = Vec3(0, 6, 10);
-  animator.eye.look_at = Vec3(0, 3.5, 0);
-  animator.eye.up_dir = Vec3(0, 1, 0);
+  renderer.bind_render_targets(&frame_buffer.color, &frame_buffer.depth, &frame_buffer.normal);
+  renderer.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
+  renderer.set_eye_params(&eye);
+
+  eye.eye.position = Vec3(0, 6, 10);
+  eye.eye.look_at = Vec3(0, 3.5, 0);
+  eye.eye.up_dir = Vec3(0, 1, 0);
   /* perspective */
-  animator.eye.perspective.enabled = true;
-  animator.eye.perspective.near = 1.0;
-  animator.eye.perspective.far = 50.0;
-  animator.eye.perspective.field_of_view = degrees_to_radians(60.0);
+  eye.eye.perspective.enabled = true;
+  eye.eye.perspective.near = 1.0;
+  eye.eye.perspective.far = 50.0;
+  eye.eye.perspective.field_of_view = degrees_to_radians(60.0);
   /* orthographic */
-  animator.eye.orthographic.enabled = false;
-  animator.eye.orthographic.near = 1.0;
-  animator.eye.orthographic.far = 50.0;
-  animator.eye.orthographic.width = 12.0;
-  animator.eye.orthographic.height = 9.0;
+  eye.eye.orthographic.enabled = false;
+  eye.eye.orthographic.near = 1.0;
+  eye.eye.orthographic.far = 50.0;
+  eye.eye.orthographic.width = 12.0;
+  eye.eye.orthographic.height = 9.0;
 
   /* setup model to be rendered */
-  animator.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
-  animator.set_draw_mode(PipelineDrawMode_Triangle);
+  renderer.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
+  renderer.set_draw_mode(PipelineDrawMode_Triangle);
   
   if (num_threads > 0) {
-    animator.set_pipeline_num_threads(num_threads);
+    renderer.set_pipeline_num_threads(num_threads);
   }
   printf("\n");
   printf("Press SPACE to switch between perspective/orthographic modes.\n");
@@ -154,12 +157,12 @@ void init_render() {
 
 double render_frame(double T) {
   const double radius = 8.0;
-  animator.play_animation("", fmod(T, 6.0)); /* 6 seconds per loop */
-  animator.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
-  animator.eye.look_at = Vec3(0, 3.5, 0);
-  animator.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
-  animator.draw();
-  return animator.query_last_draw_time();
+  renderer.play_animation("", fmod(T, 6.0)); /* 6 seconds per loop */
+  eye.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
+  eye.eye.look_at = Vec3(0, 3.5, 0);
+  renderer.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
+  renderer.draw();
+  return renderer.query_last_draw_time();
 }
 
 int main(int argc, char* argv[]) {

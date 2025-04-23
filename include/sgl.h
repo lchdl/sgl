@@ -29,6 +29,9 @@ adjust the number of CPU cores used for rendering.
 /* audio */
 #include "sgl_audio.h"
 
+/* physics */
+#include "sgl_physics/sgl_physics.h"
+
 /* optional additional functions */
 #ifdef ENABLE_OPENGL
 #include "sgl_OpenGL.h"

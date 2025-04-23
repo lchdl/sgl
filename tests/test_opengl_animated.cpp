@@ -1,9 +1,9 @@
 #include <stdio.h>
-#include <sstream>
 
 #ifdef ENABLE_OPENGL
+
+#include <sstream>
 #include "sgl.h"
-#include "stb_image.h"
 
 using namespace sgl;
 
@@ -15,12 +15,12 @@ double T_frame = 0.0, T_global = 0.0;
 int frameid = 0;
 
 struct {
+  sgl::Model boblamp;
   OpenGL::AnimatedModelRenderer animator;
-
   OpenGL::FrameBuffer framebuffer;
   OpenGL::Texture color_out0, color_out1;
-
   OpenGL::Font font;
+  sgl::EyeParams eye;
 } gl;
 
 std::string dtos(double v, int precision) {
@@ -82,24 +82,26 @@ void init_render() {
 
   gl.font.load("assets/common/fonts/Arial/11pt_Regular.fnt");
 
-  gl.animator.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
-  gl.animator.set_num_instances(2);
+  gl.boblamp.load_zip("assets/common/models/boblamp.zip", "model.md5mesh");
+  gl.animator.set_model(&gl.boblamp, 2);
   gl.animator.set_model_transform(0, Vec3(+1.5, 0, +0.5), Vec3(1, 1, 1), Vec3(0, 1, 0), 0.0);
   gl.animator.set_model_transform(1, Vec3(-1.5, 0, -0.5), Vec3(1, 1, 1), Vec3(0, 1, 0), sgl::PI);
-  gl.animator.eye.position = Vec3(0, 6, 8);
-  gl.animator.eye.look_at = Vec3(0, 3, 0);
-  gl.animator.eye.up_dir = Vec3(0, 1, 0);
+  gl.animator.set_eye_params(&gl.eye);
+
+  gl.eye.eye.position = Vec3(0, 6, 8);
+  gl.eye.eye.look_at = Vec3(0, 3, 0);
+  gl.eye.eye.up_dir = Vec3(0, 1, 0);
   /* perspective */
-  gl.animator.eye.perspective.enabled = true;
-  gl.animator.eye.perspective.near = 1.0;
-  gl.animator.eye.perspective.far = 50.0;
-  gl.animator.eye.perspective.field_of_view = degrees_to_radians(60.0);
+  gl.eye.eye.perspective.enabled = true;
+  gl.eye.eye.perspective.near = 1.0;
+  gl.eye.eye.perspective.far = 50.0;
+  gl.eye.eye.perspective.field_of_view = degrees_to_radians(60.0);
   /* orthographic */
-  gl.animator.eye.orthographic.enabled = false;
-  gl.animator.eye.orthographic.near = 1.0;
-  gl.animator.eye.orthographic.far = 50.0;
-  gl.animator.eye.orthographic.width = 12.0;
-  gl.animator.eye.orthographic.height = 9.0;
+  gl.eye.eye.orthographic.enabled = false;
+  gl.eye.eye.orthographic.near = 1.0;
+  gl.eye.eye.orthographic.far = 50.0;
+  gl.eye.eye.orthographic.width = 12.0;
+  gl.eye.eye.orthographic.height = 9.0;
 }
 
 void render_procedure(double T) {
@@ -115,8 +117,8 @@ void render_procedure(double T) {
   const double radius = 8.0;
   gl.animator.play_animation(0, "", fmod(T, 6.0));
   gl.animator.play_animation(1, "", fmod(T + 3.0, 6.0));
-  gl.animator.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
-  gl.animator.eye.look_at = Vec3(0, 3.5, 0);
+  gl.eye.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
+  gl.eye.eye.look_at = Vec3(0, 3.5, 0);
   gl.animator.draw();
 }
 

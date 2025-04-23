@@ -33,7 +33,7 @@ void main()
     /* Vertex does not belong to any bone */
     gl_Position = Transform * vec4(in_Position, 1.0);
     TexCoord = in_TexCoord;
-    WorldNormal = (in_Model * vec4(in_Normal, 1.0)).xyz;
+    WorldNormal = normalize((in_Model * vec4(in_Normal, 0.0)).xyz);
     WorldPosition = (in_Model * vec4(in_Position, 1.0)).xyz;
   }
   else {

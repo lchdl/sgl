@@ -40,7 +40,8 @@ EyeParams::EyeParams()
 }
 
 AnimatedModelRenderer::AnimatedModelRenderer() { 
-  play_time = 0.0; 
+  play_time = 0.0;
+  eye = NULL;
 }
 
 AnimatedModelRenderer::VS_IN AnimatedModelRenderer::_convert_from_mesh_vertex(const Vertex_pnt_nm_bone & v) const
@@ -56,10 +57,13 @@ AnimatedModelRenderer::VS_IN AnimatedModelRenderer::_convert_from_mesh_vertex(co
 
 void AnimatedModelRenderer::draw() {
 
+  if (this->eye == NULL)
+    return;
+
   /* setup uniforms */
   this->uniforms.world = this->model.get_model_transform();
-  this->uniforms.view = this->get_view_matrix();
-  this->uniforms.projection = this->get_projection_matrix(this->pipeline.get_render_target(0)->get_width(), this->pipeline.get_render_target(0)->get_height());
+  this->uniforms.view = this->eye->get_view_matrix();
+  this->uniforms.projection = this->eye->get_projection_matrix(this->pipeline.get_render_target(0)->get_width(), this->pipeline.get_render_target(0)->get_height());
 
   /* Rendering all the mesh parts in model */
   const std::vector<Mesh>& mesh_data = model.get_meshes();
@@ -74,7 +78,14 @@ void AnimatedModelRenderer::draw() {
     /* calculate bone tranformation matrices and update uniform variables */
     this->model.update_skeletal_animation_for_mesh(mesh, anim_name, play_time, uniforms.bone_matrices);
     /* Setting up mesh materials. */
-    this->uniforms.in_textures[0] = &materials[mat_id].diffuse_texture; /* diffuse texture */
+    if (materials[mat_id].diffuse_texture.get_pixel_data() == NULL) {
+      /* use default texture */
+      this->uniforms.in_textures[0] = &this->default_texture;
+    }
+    else {
+      /* diffuse texture */
+      this->uniforms.in_textures[0] = &materials[mat_id].diffuse_texture;
+    }
     /* Launch the pipeline to render all the triangles in this mesh */
     this->pipeline.draw(shader, vertices_map[i_mesh], indices_map[i_mesh], uniforms);
   }
@@ -117,6 +128,16 @@ void AnimatedModelRenderer::clear_pipeline_cache()
 void AnimatedModelRenderer::clear_render_targets(const Vec4& clear_color)
 {
   this->pipeline.clear_render_targets(clear_color);
+}
+
+void AnimatedModelRenderer::set_default_texture(const char * path)
+{
+  if (path == NULL) {
+    this->default_texture = sgl::Texture();
+  }
+  else {
+    this->default_texture = sgl::load_texture(path);
+  }
 }
 
 void AnimatedModelRenderer::play_animation(const std::string& anim_name, const double& play_time)
@@ -253,6 +274,12 @@ inline void AnimatedModelRenderer::Shader::FS(const Uniforms & uniforms, const F
   fs_outs[0] = Vec4(textured * falloff, 1.0);
   fs_outs[2] = Vec4((wn + 1.0)*0.5, 1.0);
 }
+
+void AnimatedModelRenderer::set_eye_params(EyeParams* eye)
+{
+  this->eye = eye;
+}
+
 
 void blit_texture(sgl::Texture * source, sgl::Texture * target, int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y, const Vec2 & scale, const double & rot, const Vec3 & color_mask, const SpriteOriginMode origin_mode, const Texture * src_mask)
 {

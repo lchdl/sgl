@@ -1,5 +1,6 @@
+#include <stdio.h>
 
-#ifdef WINDOWS
+#if defined(WINDOWS) && defined(MSVC_COMPILER) && defined(_DEBUG)
 /**
 
 NOTE: Run memory leak tests in DEBUG mode,
@@ -12,7 +13,6 @@ https://github.com/microsoft/VCSamples/blob/master/VC2010Samples/crt/crt_dbg1/cr
 
 #include <Windows.h>
 #include <crtdbg.h> /* for detecting memory leaks */
-#include <stdio.h>
 #include "sgl.h"
 using namespace sgl;
 
@@ -104,13 +104,22 @@ void test_func_template() {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
+//void test_convex() {
+//  sgl::Model teapot;
+//  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
+//  Physics::convex convex = Physics::build_convex_3D(teapot);
+//  Physics::convex convex0;
+//  convex0 = convex;
+//  convex.from_obj("assets/common/models/teapot_lowpoly_convhull.obj");
+//  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
+//  Vec3 teapot_CoM = sgl::Physics::build_convex_3D(teapot).center_of_mass();
+//
+//}
 void test_audio() {
   sgl::Audio::Sound snd;
   snd.load("assets/audios/rain.mp4");
   snd.unload();
 }
-
 void test_mesh_and_model() {
   Model model;
   Mesh mesh, mesh1;
@@ -126,6 +135,8 @@ void test_font_memory_leak() {
   Arial_11pt = Arial_11pt_copy;
 }
 void test_texture_memory_leak() {
+  Texture tex;
+  tex = sgl::Texture();
   Texture tex0 = sgl::create_texture(512, 512, PixelFormat_RGBA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
   Texture tex1 = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
   Texture tex2 = tex1.to_format(PixelFormat_RGBA8888);
@@ -135,6 +146,37 @@ void test_texture_memory_leak() {
   tex3 = tex0;
 }
 #ifdef ENABLE_OPENGL
+//void test_OpenGL_PhysicsDebugger() {
+//  sgl::Physics::Debugger debugger;
+//  sgl::EyeParams eye;
+//  sgl::Model teapot;
+//  sgl::Physics::RigidBody body;
+//
+//  debugger.initialize();
+//  debugger.set_eye_params(&eye);
+//
+//  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
+//  body.convex_hull = sgl::Physics::build_convex_3D(teapot);
+//  body.model = &teapot;
+//  body.cur_states.x = Vec3(0, 0, 0);
+//  body.cur_states.q = Quat::identity();
+//
+//  /* draw twice to check object cache mechanism */
+//  debugger.draw(body);
+//  debugger.draw(body);
+//
+//  debugger.delete_cached_geometry();
+//  debugger.draw(body);
+//  debugger.draw(body);
+//
+//  body.model = NULL;
+//  debugger.draw(body);
+//  debugger.draw(body);
+//
+//  debugger.delete_cached_geometry();
+//  debugger.draw(body);
+//  debugger.draw(body);
+//}
 void test_OpenGL_texture() {
   sgl::Texture tex = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
   sgl::OpenGL::Texture gl_tex1 = sgl::OpenGL::Texture(tex);
@@ -192,10 +234,12 @@ void test_OpenGL_texture_v2() {
 }
 void test_OpenGL_AnimatedModelRenderer() {
   sgl::OpenGL::AnimatedModelRenderer animator;
-  animator.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
+  sgl::Model boblamp;
+  boblamp.load_zip("assets/common/models/boblamp.zip", "model.md5mesh");
+  animator.set_model(&boblamp);
   animator.unload();
 
-  animator.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
+  animator.set_model(&boblamp);
   animator.set_num_instances(2);
   animator.set_num_instances(10);
   animator.set_model_transform(0, Vec3(+1.5, 0, +0.5), Vec3(1, 1, 1), Vec3(0, 1, 0), 0.0);
@@ -215,6 +259,7 @@ int main(int argc, char* argv[]) {
   RunMemLeakTest(test_font_memory_leak, "test_font_memory_leak");
   RunMemLeakTest(test_texture_memory_leak, "test_texture_memory_leak");
   RunMemLeakTest(test_audio, "test_audio");
+  //RunMemLeakTest(test_convex, "test_convex");
 
 #ifdef ENABLE_OPENGL
   SDL_Window* pWindow = SDL_CreateWindow("Dummy Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 64, 64, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
@@ -223,6 +268,7 @@ int main(int argc, char* argv[]) {
   RunMemLeakTest(test_OpenGL_texture,"test_OpenGL_texture");
   RunMemLeakTest(test_OpenGL_texture_v2, "test_OpenGL_texture_v2");
   RunMemLeakTest(test_OpenGL_AnimatedModelRenderer, "test_OpenGL_AnimatedModelRenderer");
+  //RunMemLeakTest(test_OpenGL_PhysicsDebugger, "test_OpenGL_PhysicsDebugger");
 #endif
 
   /* TODO: add more memory leak tests here... */
@@ -233,6 +279,11 @@ int main(int argc, char* argv[]) {
 
 #else
 int main() {
-  printf("Compile on Windows to test memory leak.\n");
+  printf(
+    "To run memory leak tests:\n"
+    "  * Please use MSVC IDE on Windows;\n"
+    "  * Ensure DEBUG mode is active.\n"
+    "Memory leak tests will now be skipped.\n"
+  );
 }
 #endif

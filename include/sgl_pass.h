@@ -158,7 +158,7 @@ Simply draw a model (probably with animation) onto screen.
   wraps up multiple draw calls to fully render a model, each draw call
   only renders a single mesh.
 **/
-class AnimatedModelRenderer : public EyeParams
+class AnimatedModelRenderer
 {
 public:
   struct Uniforms {
@@ -209,6 +209,8 @@ public:
   void        bind_render_targets(Texture* color, Texture* depth, Texture* normal);
   void       clear_pipeline_cache();
   void       clear_render_targets(const Vec4& clear_color);
+  void        set_default_texture(const char* path);
+  void             set_eye_params(EyeParams* eye);
 
 public:
   AnimatedModelRenderer();
@@ -230,6 +232,10 @@ protected:
   double      play_time; /* time value for controlling the skeletal animation (in sec.) */
   double last_draw_time; /* draw time (sec) of the last frame */
 
+  /* some model does not have any texture, in this case the default texture is needed */
+  sgl::Texture default_texture;
+
+  EyeParams* eye;
 };
 
 class SpriteRenderer : public EyeParams {

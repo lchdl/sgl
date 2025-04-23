@@ -11,6 +11,13 @@ void GLAPIENTRY glDebugOutput(GLenum source, GLenum type, GLuint id, GLenum seve
 {
   /* Ignore non-significant codes */
   if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
+  GL_vars* p_vars = (GL_vars*)userParam;
+  if (p_vars->ignore_minor_OpenGL_debug_messages) {
+    if (severity == GL_DEBUG_SEVERITY_LOW || severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+      return;
+    }
+  }
+
   printf("--------------- GL DEBUG MESSAGE ---------------\n");
   printf("Debug message (err_id = %u): %s\n", id, message);
   switch (source)
@@ -68,7 +75,7 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
 
   */
 
-  if (gl_vars.current_active_window != NULL) {
+  if (sgl::OpenGL::is_OpenGL_initialized()) {
     printf("Error, OpenGL is already initialized.\n");
     return false;
   }
@@ -126,7 +133,7 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
     if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
       glEnable(GL_DEBUG_OUTPUT);
       glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-      glDebugMessageCallback(glDebugOutput, nullptr);
+      glDebugMessageCallback(glDebugOutput, &gl_vars);
       glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
       printf("OpenGL debug context is enabled.\n");
     }
@@ -170,6 +177,11 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
     )", 1, NULL);
 
   return success;
+}
+
+bool is_OpenGL_initialized()
+{
+  return gl_vars.current_active_window != NULL;
 }
 
 IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment)
@@ -1611,6 +1623,7 @@ AnimatedModelRenderer::AnimatedModelRenderer()
 {
   this->bone_matrices_SSBO = 0;
   this->model_matrices_SSBO = 0;
+  this->eye = NULL;
 }
 
 AnimatedModelRenderer::~AnimatedModelRenderer()
@@ -1622,10 +1635,10 @@ void AnimatedModelRenderer::play_animation(const std::string& anim_name, const d
 {
   Mat4x4 bone_matrices[sgl::Model::MAX_NODES_PER_MODEL];
 
-  const std::vector<Mesh>& mesh_data = this->model.get_meshes();
+  const std::vector<Mesh>& mesh_data = this->model->get_meshes();
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
     const Mesh& mesh = mesh_data[i_mesh];
-    this->model.update_skeletal_animation_for_mesh(mesh, anim_name, play_time, bone_matrices);
+    this->model->update_skeletal_animation_for_mesh(mesh, anim_name, play_time, bone_matrices);
   }
 
   /* transpose each matrix since OpenGL use column major format */
@@ -1649,10 +1662,10 @@ void AnimatedModelRenderer::play_animation(int instance_ID, const std::string & 
 {
   Mat4x4 bone_matrices[sgl::Model::MAX_NODES_PER_MODEL];
 
-  const std::vector<Mesh>& mesh_data = this->model.get_meshes();
+  const std::vector<Mesh>& mesh_data = this->model->get_meshes();
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
     const Mesh& mesh = mesh_data[i_mesh];
-    this->model.update_skeletal_animation_for_mesh(mesh, anim_name, play_time, bone_matrices);
+    this->model->update_skeletal_animation_for_mesh(mesh, anim_name, play_time, bone_matrices);
   }
 
   /* transpose each matrix since OpenGL use column major format */
@@ -1713,33 +1726,31 @@ void AnimatedModelRenderer::set_model_transform(int instance_ID, const Vec3& pos
   this->set_model_transform(instance_ID, transform);
 }
 
-bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const std::string& model_fname)
+bool AnimatedModelRenderer::set_model(sgl::Model* model, int num_instances)
 {
   this->unload();
 
-  /* load model to CPU host memory */
-  if (!model.load_zip(zip_file, model_fname))
+  this->model = model;
+
+  if (model == NULL)
     return false;
 
-  this->set_num_instances(1);
+  this->set_num_instances(num_instances);
 
   /* transfer model from CPU host memory to GPU VRAM */
-  const std::vector<Mesh>& mesh_data = model.get_meshes();
-  const std::vector<Material>& materials = model.get_materials();
+  const std::vector<Mesh>& mesh_data = this->model->get_meshes();
+  const std::vector<Material>& materials = this->model->get_materials();
   auto _transform_vertex = [](const Vertex_pnt_nm_bone& vert) -> Vertex_t {
     Vertex_t vert_new;
     vert_new.position[0] = float(vert.position.x); vert_new.normal[0] = float(vert.normal.x);
     vert_new.position[1] = float(vert.position.y); vert_new.normal[1] = float(vert.normal.y);
     vert_new.position[2] = float(vert.position.z); vert_new.normal[2] = float(vert.normal.z);
-    vert_new.texcoord[0] = float(vert.texcoord.x);
-    vert_new.texcoord[1] = float(vert.texcoord.y);
+    vert_new.texcoord[0] = float(vert.texcoord.x); vert_new.texcoord[1] = float(vert.texcoord.y);
     vert_new.tangent[0] = float(vert.tangent.x); vert_new.bitangent[0] = float(vert.bitangent.x);
     vert_new.tangent[1] = float(vert.tangent.y); vert_new.bitangent[1] = float(vert.bitangent.y);
     vert_new.tangent[2] = float(vert.tangent.z); vert_new.bitangent[2] = float(vert.bitangent.z);
-    vert_new.bone_IDs[0] = vert.bone_IDs.i[0];
-    vert_new.bone_IDs[1] = vert.bone_IDs.i[1];
-    vert_new.bone_IDs[2] = vert.bone_IDs.i[2];
-    vert_new.bone_IDs[3] = vert.bone_IDs.i[3];
+    vert_new.bone_IDs[0] = vert.bone_IDs.i[0]; vert_new.bone_IDs[1] = vert.bone_IDs.i[1];
+    vert_new.bone_IDs[2] = vert.bone_IDs.i[2]; vert_new.bone_IDs[3] = vert.bone_IDs.i[3];
     vert_new.bone_weights[0] = float(vert.bone_weights.i[0]);
     vert_new.bone_weights[1] = float(vert.bone_weights.i[1]);
     vert_new.bone_weights[2] = float(vert.bone_weights.i[2]);
@@ -1776,8 +1787,8 @@ bool AnimatedModelRenderer::load_model_zip(const std::string& zip_file, const st
     {"FragNormal", 1},
   };
   if (!this->shader.create(
-    sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/instanced_anim.vert"),
-    sgl::read_file_as_string("assets/common/shaders/test_opengl_animated/instanced_anim.frag"),
+    sgl::read_file_as_string("assets/common/shaders/AnimatedModelRenderer/instanced_anim.vert"),
+    sgl::read_file_as_string("assets/common/shaders/AnimatedModelRenderer/instanced_anim.frag"),
     sizeof(fs_outs) / sizeof(FragDataLoc), fs_outs))
   {
     this->unload();
@@ -1831,9 +1842,9 @@ void AnimatedModelRenderer::set_num_instances(int count)
   /* set default bone matrices (all set to identity) */
   Mat4x4 I = Mat4x4::identity();
   Mat4x4f m[sgl::Model::MAX_NODES_PER_MODEL];
-  for (int i_mat = 0; i_mat < sgl::Model::MAX_NODES_PER_MODEL; i_mat++) {
+  for (int i_node = 0; i_node < sgl::Model::MAX_NODES_PER_MODEL; i_node++) {
     for (int j = 0; j < 16; j++)
-      m[i_mat].i[j] = float(I.i[j]);
+      m[i_node].i[j] = float(I.i[j]);
   }
   for (int instance_ID = 0; instance_ID < this->get_num_instances(); instance_ID++) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, bone_matrices_SSBO);
@@ -1849,15 +1860,18 @@ int AnimatedModelRenderer::get_num_instances() const
 
 void AnimatedModelRenderer::draw()
 {
+  if (this->eye == NULL)
+    return;
+
   const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
 
-  Mat4x4 view = this->get_view_matrix();
-  Mat4x4 proj = this->get_projection_matrix(rsize.x, rsize.y);
+  Mat4x4 view = this->eye->get_view_matrix();
+  Mat4x4 proj = this->eye->get_projection_matrix(rsize.x, rsize.y);
   Mat4x4 bone_matrices[sgl::Model::MAX_NODES_PER_MODEL];
 
   /* Rendering all the mesh parts in model */
-  const std::vector<Mesh>& mesh_data = this->model.get_meshes();
-  const std::vector<Material>& materials = this->model.get_materials();
+  const std::vector<Mesh>& mesh_data = this->model->get_meshes();
+  const std::vector<Material>& materials = this->model->get_materials();
 
   for (uint32_t i_mesh = 0; i_mesh < mesh_data.size(); i_mesh++) {
     /* for each mesh part */
@@ -1885,9 +1899,14 @@ void AnimatedModelRenderer::draw()
   }
 }
 
+void AnimatedModelRenderer::set_eye_params(EyeParams* eye)
+{
+  this->eye = eye;
+}
+
 void AnimatedModelRenderer::unload()
 {
-  this->model.unload();
+  this->model = NULL;
   this->shader.destroy();
 
   for (int i = 0; i < vbufs.size(); i++) {
@@ -1922,6 +1941,7 @@ GL_vars::GL_vars() {
   MAX_TEXTURE_IMAGE_UNITS = -1;
   MAX_COLOR_ATTACHMENTS = -1;
   current_active_window = NULL;
+  ignore_minor_OpenGL_debug_messages = true;
 }
 
 }; /* namespace OpenGL */

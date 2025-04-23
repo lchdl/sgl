@@ -643,4 +643,319 @@ void calculate_tangent_bitangent(
   ));
 }
 
+SimpleOBJLoader::OBJFaceFormat SimpleOBJLoader::_get_OBJ_face_format(const char * file)
+{
+  FILE* fp = fopen(file, "r");
+  if (fp == NULL) return OBJFaceFormat::InvalidFace;
+
+  char buf[256];
+
+  OBJFaceFormat fmt = OBJFaceFormat::InvalidFace;
+
+  /* start parsing */
+  while (_get_word_from_file(fp, buf, 256, " #\n\r\t/", '#'))
+  {
+    if (strcmp(buf, "f") == 0)
+    {
+      _get_word_from_file(fp, buf, 256, " #\n\r\t", '#');
+      int n = 0;
+      for (int i = 0; i < strlen(buf); i++) if (buf[i] == '/') n++;
+      if (n == 0) { fmt = OBJFaceFormat::V; break; }
+      else if (n == 1) { fmt = OBJFaceFormat::V_Vt; break; }
+      else if (n == 2) {
+        if (strstr(buf, "//") != NULL) { fmt = OBJFaceFormat::V_Vn; break; }
+        else { fmt = OBJFaceFormat::V_Vt_Vn; break; }
+      }
+      else { fmt = OBJFaceFormat::InvalidFace; break; }
+    }
+  }
+
+  fclose(fp);
+  return fmt;
+}
+
+bool SimpleOBJLoader::_is_char_in_string(const char ch, const char * s) {
+  for (int i = 0; s[i] != '\0'; i++) {
+    if (ch == s[i]) return true;
+  }
+  return false;
+}
+
+bool SimpleOBJLoader::_get_word_from_file(FILE * fp, char * buf, int bufLen, const char * wordDelim, const char commentChar)
+{
+  if (feof(fp)) return false;
+  int i = 0;
+  int write = 0, end = 0;
+  while (!feof(fp) && !end) {
+    int c = fgetc(fp);
+
+    if (_is_char_in_string(char(c), wordDelim) || c == -1) {
+      if (c == commentChar) { /* skip comment */
+        while ((c = fgetc(fp)) != EOF)
+          if (c == '\n')
+            break;
+      }
+      else if (write == 1) { /* a word is finished because it meets a delimiter */
+        write = 0;
+        end = 1;
+      }
+    }
+    else { /* word still not complete, write to buffer */
+      write = 1;
+    }
+
+    if (write && i < bufLen - 1) {
+      buf[i] = char(c);
+      i++;
+    }
+  }
+  buf[i] = '\0'; /* reserve last character as '\0' */
+  if (i == 0) return false; /* if parsed word is empty string return false */
+  else return true;
+}
+
+bool SimpleOBJLoader::_get_word_from_string(char * src, char * buf, int bufLen, const char * wordDelim, const char commentChar)
+{
+  if (!src) return false;
+  int i = 0;
+  int s = 0, l = int(strlen(src));
+  int write = 0, end = 0;
+  while (s < l && !end) {
+    int c = src[s++];
+
+    if (_is_char_in_string(char(c), wordDelim)) {
+      if (c == commentChar) { /* skip comment */
+        while ((c = src[s++]) && (s < l))
+          if (c == '\n')
+            break;
+      }
+      else if (write == 1) { /* a word is finished because it meets a delimiter */
+        write = 0;
+        end = 1;
+      }
+    }
+    else { /* word still not complete, write to buffer */
+      write = 1;
+    }
+
+    if (write && i < bufLen - 1) {
+      buf[i] = char(c);
+      i++;
+    }
+  }
+  buf[i] = '\0'; /* reserve last character as '\0' */
+                 /* offset source string by s characters */
+  int j = 0;
+  for (; s + j < l; j++) {
+    src[j] = src[s + j];
+  }
+  src[j] = '\0';
+  /* if parsed word is empty string return false */
+  if (i == 0) return false;
+  else return true;
+}
+
+bool SimpleOBJLoader::_get_double_from_file(FILE * fp, double * v)
+{
+  char* errptr = NULL, buf[32];
+  if (!_get_word_from_file(fp, buf, 32, " #\n\r\t/", '#')) return false;
+  *v = (double)(strtod(buf, &errptr));
+  if (*errptr != '\0') return false;
+  else return true;
+}
+
+bool SimpleOBJLoader::_get_int_from_file(FILE * fp, int * v)
+{
+  char* errptr = NULL, buf[32];
+  if (!_get_word_from_file(fp, buf, 32, " #\n\r\t/", '#')) return false;
+  *v = (int)(strtol(buf, &errptr, 10));
+  if (*errptr != '\0') return false;
+  else return true;
+}
+
+bool SimpleOBJLoader::_get_Vec2_from_file(FILE * fp, Vec2 * v)
+{
+  if (!_get_double_from_file(fp, &(v->x))) return false;
+  if (!_get_double_from_file(fp, &(v->y))) return false;
+  return true;
+}
+
+bool SimpleOBJLoader::_get_Vec3_from_file(FILE * fp, Vec3 * v)
+{
+  if (!_get_double_from_file(fp, &(v->x))) return false;
+  if (!_get_double_from_file(fp, &(v->y))) return false;
+  if (!_get_double_from_file(fp, &(v->z))) return false;
+  return true;
+}
+
+bool SimpleOBJLoader::_get_IVec2_from_file(FILE * fp, IVec2 * v)
+{
+  if (!_get_int_from_file(fp, &(v->x))) return false;
+  if (!_get_int_from_file(fp, &(v->y))) return false;
+  return true;
+}
+
+bool SimpleOBJLoader::_get_IVec3_from_file(FILE * fp, IVec3 * v)
+{
+  if (!_get_int_from_file(fp, &(v->x))) return false;
+  if (!_get_int_from_file(fp, &(v->y))) return false;
+  if (!_get_int_from_file(fp, &(v->z))) return false;
+  return true;
+}
+
+Mesh SimpleOBJLoader::load(const char * file) {
+
+  Mesh mesh;
+  mesh.mat_id = 0;
+
+  FILE* fp = fopen(file, "r");
+  if (fp == NULL) {
+    printf("error, cannot open file '%s' for loading.", file);
+    return mesh;
+  }
+  OBJFaceFormat fmt = _get_OBJ_face_format(file);
+  if (!(fmt == OBJFaceFormat::V_Vt_Vn || fmt == OBJFaceFormat::V_Vn)) {
+    printf("error, invalid OBJ face format. "
+      "Only support face format \"V_Vt_Vn\" and \"V_Vn\".");
+    fclose(fp);
+    return mesh;
+  }
+
+  std::vector<Vec3> p, n, t;
+  std::vector<IVec3> f;
+
+  char buf[256];
+
+  /* start parsing */
+  while (_get_word_from_file(fp, buf, 256, " #\n\r\t/", '#'))
+  {
+    Vec3 v;
+    if (strcmp(buf, "v") == 0) {
+      if (!_get_Vec3_from_file(fp, &v)) return mesh;
+      p.push_back(v);
+    }
+    else if (strcmp(buf, "vn") == 0) {
+      if (!_get_Vec3_from_file(fp, &v)) return mesh;
+      n.push_back(v);
+    }
+    else if (strcmp(buf, "vt") == 0) {
+      if (!_get_Vec3_from_file(fp, &v)) return mesh;
+      t.push_back(v);
+    }
+  }
+  if (t.size() == 0)
+    t.push_back(Vec3()); /* add a dummy coordinate */
+
+  rewind(fp);
+
+  while (_get_word_from_file(fp, buf, 256, " #\n\r\t/", '#'))
+  {
+    IVec2 z2;
+    IVec3 z3;
+
+    auto recalc_face3 = [&](IVec3 z3) -> IVec3 {
+      if (z3.x > 0) z3.x--;
+      else if (z3.x < 0)
+        z3.x = (int)p.size() + z3.x;
+      if (z3.y > 0) z3.y--;
+      else if (z3.y < 0)
+        z3.y = (int)t.size() + z3.y;
+      if (z3.z > 0) z3.z--;
+      else if (z3.z < 0)
+        z3.z = (int)n.size() + z3.z;
+      return z3;
+    };
+
+    if (strcmp(buf, "f") == 0) {
+      /* index starts with 0 but obj index starts with 1,     */
+      /* so we need to decrease each vertex index by 1 to get */
+      /* the correct offset. */
+      if (fmt == V_Vt_Vn) {
+        if (!_get_IVec3_from_file(fp, &z3)) return mesh;
+        f.push_back(recalc_face3(z3));
+        if (!_get_IVec3_from_file(fp, &z3)) return mesh;
+        f.push_back(recalc_face3(z3));
+        if (!_get_IVec3_from_file(fp, &z3)) return mesh;
+        f.push_back(recalc_face3(z3));
+      }
+      else if (fmt == V_Vn) {
+        if (!_get_IVec2_from_file(fp, &z2)) return mesh;
+        f.push_back(recalc_face3(IVec3(z2.x, 0, z2.y)));
+        if (!_get_IVec2_from_file(fp, &z2)) return mesh;
+        f.push_back(recalc_face3(IVec3(z2.x, 0, z2.y)));
+        if (!_get_IVec2_from_file(fp, &z2)) return mesh;
+        f.push_back(recalc_face3(IVec3(z2.x, 0, z2.y)));
+      }
+    }
+  }
+
+  /* assemble vertices */
+  std::map<std::string, int> i_map;
+  Mesh::Vertex_t vertex;
+  vertex.bone_IDs = IVec4(-1, -1, -1, -1);
+  for (int i = 0; i < (int)f.size() / 3; i++) {
+    IVec3 fi;
+    for (int j = 0; j < 3; j++) {
+      int iv = f[i * 3 + j].x;
+      int it = f[i * 3 + j].y;
+      int in = f[i * 3 + j].z;
+      std::string vk = std::to_string(iv) + "/" + std::to_string(it) + "/" + std::to_string(in);
+      int id = -1;
+      if (i_map.find(vk) == i_map.end()) {
+        vertex.position = p[iv];
+        vertex.texcoord = t[it].xy();
+        vertex.normal = n[in];
+        id = (int)mesh.vertices.size();
+        i_map.emplace(vk, id);
+        mesh.vertices.push_back(vertex);
+      }
+      else {
+        id = i_map[vk];
+      }
+      fi.i[j] = id;
+    }
+    mesh.indices.push_back(fi.x);
+    mesh.indices.push_back(fi.y);
+    mesh.indices.push_back(fi.z);
+  }
+
+  fclose(fp);
+
+  return mesh;
+}
+
+std::vector<Vec3> SimpleOBJLoader::load_v(const char * file)
+{
+  std::vector<Vec3> p;
+
+  FILE* fp = fopen(file, "r");
+  if (fp == NULL) {
+    printf("error, cannot open file '%s' for loading.", file);
+    return p;
+  }
+  OBJFaceFormat fmt = _get_OBJ_face_format(file);
+  if (!(fmt == OBJFaceFormat::V_Vt_Vn || fmt == OBJFaceFormat::V_Vn)) {
+    printf("error, invalid OBJ face format. "
+      "Only support face format \"V_Vt_Vn\" and \"V_Vn\".");
+    fclose(fp);
+    return p;
+  }
+
+  char buf[256];
+
+  /* start parsing */
+  while (_get_word_from_file(fp, buf, 256, " #\n\r\t/", '#'))
+  {
+    Vec3 v;
+    if (strcmp(buf, "v") == 0) {
+      if (!_get_Vec3_from_file(fp, &v)) return p;
+      p.push_back(v);
+    }
+  }
+
+  fclose(fp);
+
+  return p;
+}
+
 }; /* namespace sgl */

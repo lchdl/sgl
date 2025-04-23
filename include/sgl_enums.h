@@ -77,6 +77,7 @@ enum SpriteOriginMode {
   SpriteOriginMode_TopRight,    /* Origin is at the top-right corner of the sprite. */
 };
 
+#ifdef ENABLE_OPENGL
 namespace OpenGL {
 /* namespace sgl::OpenGL */
 enum TextureWrapMode {
@@ -85,6 +86,7 @@ enum TextureWrapMode {
   TextureWrapMode_ClampToEdge,
   TextureWrapMode_ClampToBorder,
 };
+#endif
 
 }; /* namespace sgl::OpenGL */
 }; /* namespace sgl */

@@ -59,6 +59,8 @@ The SDL window must already be created before calling this function.
 **/
 bool initialize_OpenGL(SDL_Window* window, int major_version = 4, int minor_version = 3, bool vsync = false, bool debug = false);
 
+bool is_OpenGL_initialized();
+
 /**
 Retrieves the size (width and height) of an OpenGL framebuffer object (FBO).
 NOTE: Call this function before any gl* draw calls, as it may bind the
@@ -418,7 +420,7 @@ protected:
 
 };
 
-class AnimatedModelRenderer : public EyeParams, public sgl::NonCopyable {
+class AnimatedModelRenderer : public sgl::NonCopyable {
   /*
 
   It appears that the `sgl::OpenGL::AnimatedModelRenderer` class should
@@ -478,7 +480,8 @@ public:
   } AnimInfo_t;
 
 protected:
-  sgl::Model model;
+  sgl::Model* model;
+  sgl::EyeParams* eye;
   sgl::OpenGL::Shader shader;
   std::vector<VertexBuffer_t*> vbufs;
   std::map<void*, sgl::OpenGL::Texture*> texmap; /* Maps a texture's CPU memory pointer to its corresponding OpenGL texture. */
@@ -491,21 +494,23 @@ protected:
   GLuint bone_matrices_SSBO;
   GLuint model_matrices_SSBO;
 
+
 protected:
-  void           _resize_SSBOs(int new_count);
+  void          _resize_SSBOs(int new_count);
 
 public:
+  bool              set_model(sgl::Model* model, int num_instances = 1);
+  void         set_eye_params(sgl::EyeParams* eye);
   void      set_num_instances(int count);
-  int       get_num_instances() const;
-  void                   draw(); /* draw all instances at once */
-  bool         load_model_zip(const std::string& zip_file, const std::string& model_fname);
-  void                 unload();
-  void         play_animation(const std::string& anim_name, const double& play_time);
-  void         play_animation(int instance_ID, const std::string& anim_name, const double& play_time);
   void    set_model_transform(const Mat4x4& transform);
   void    set_model_transform(int instance_ID, const Mat4x4& transform);
   void    set_model_transform(const Vec3& pos, const Vec3& scale, const Vec3& rot_axis, const double& rot_angle);
   void    set_model_transform(int instance_ID, const Vec3& pos, const Vec3& scale, const Vec3& rot_axis, const double& rot_angle);
+  void         play_animation(const std::string& anim_name, const double& play_time);
+  void         play_animation(int instance_ID, const std::string& anim_name, const double& play_time);
+  void                   draw(); /* draw all instances at once */
+  int       get_num_instances() const;
+  void                 unload();
 
 public:
   AnimatedModelRenderer();
@@ -515,12 +520,17 @@ public:
 struct GL_vars {
   /* the initialization process will also initialize the following states */
   GLint major_version, minor_version;
+
   GLint MAX_TEXTURE_IMAGE_UNITS;     /* maximum number of textures that can be bound to a fragment shader */
   GLint MAX_COLOR_ATTACHMENTS;
+
   SDL_Window* current_active_window; /* an `active` window refers to the window that currently holds the active OpenGL context. */
+
   SpriteRenderer sprite_renderer_RGBA;
   SpriteRenderer sprite_renderer_R32F;
   SpriteRenderer sprite_renderer_RG32F;
+
+  bool ignore_minor_OpenGL_debug_messages;
 
   GL_vars();
 };

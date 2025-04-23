@@ -2,7 +2,7 @@
 
 #ifdef WIN32
 #include <windows.h>
-/* windows header file defined lots of dirty stuff... */
+/* Windows header file defined lots of dirty stuff... */
 #undef near
 #undef far
 #undef max
@@ -16,6 +16,7 @@
 #include <string.h>
 #endif
 
+#include <assert.h>
 #include <stdio.h>
 #include <cctype>
 #include <vector>
@@ -27,17 +28,7 @@
 #include <streambuf>
 
 #include "sgl_math.h"
-
-#if defined(LINUX)
-#include "signal.h"
-inline void debugbreak(){
-  raise(SIGTRAP);
-}
-#elif defined(WINDOWS) || defined(WIN32)
-inline void debugbreak(){
-  __debugbreak();
-}
-#endif
+#include "sgl_debugbreak.h"
 
 #define SGL_INCREMENT_IT_PTR(it)            (++(*it))
 #define SGL_PTR_DIFF(it, out)               (size_t)(it - out)
@@ -70,6 +61,9 @@ inline void print(const IVec3 &v) {
 inline void print(const IVec4 &v) {
   printf("(%d, %d, %d, %d)\n", v.x, v.y, v.z, v.w);
 };
+inline void print(const Quat& q) {
+  printf("(%.2f, (%.2f, %.2f, %.2f))\n", q.s, q.x, q.y, q.z);
+}
 
 inline void print(const std::string &prefix, const Vec2 &v) {
   printf("%s (%.4f, %.4f)\n", prefix.c_str(), v.x, v.y);
@@ -259,6 +253,11 @@ mkdir(const std::string& folder) {
   std::filesystem::create_directories(folder);
   return std::filesystem::absolute(
     std::filesystem::path(folder)).string();
+}
+
+inline std::string
+abspath(const std::string& p) {
+  return std::filesystem::absolute(std::filesystem::path(p)).string();
 }
 
 /**
@@ -643,6 +642,11 @@ inline T repeat_string(const T& in_string, const uint32_t count) {
   for (uint32_t i = 0; i < count; i++)
     string += in_string;
   return string;
+}
+
+template<typename T, typename ret_t = int> 
+inline const ret_t len(const std::vector<T>& v) {
+  return (ret_t)(v.size());
 }
 
 }; /* namespace sgl */
