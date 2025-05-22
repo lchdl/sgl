@@ -39,7 +39,7 @@ struct gjk_proxy
 };
 struct gjk_proxy_convex : public gjk_proxy
 {
-  convex* colLocal;        /* convex collision shape in object's local space */
+  Convex* colLocal;        /* convex collision shape in object's local space */
   Quat* q;                 /* rotation (local to world) */
   gjk_proxy_convex();
   virtual ~gjk_proxy_convex();

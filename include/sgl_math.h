@@ -116,6 +116,7 @@ struct Vec2 {
 #endif
   }
   double& operator[](const int& _idx) { return this->i[_idx]; }
+  bool is_zero() const { return x == 0.0 && y == 0.0; }
 };
 struct Vec3 {
   union {
@@ -177,6 +178,7 @@ struct Vec3 {
   Vec2 yz() const { return Vec2(y, z); }
   Vec2 xz() const { return Vec2(x, z); }
   double& operator[](const int& _idx) { return this->i[_idx]; }
+  bool is_zero() const { return x == 0.0 && y == 0.0 && z == 0.0; }
 };
 struct Vec4 {
   union {
@@ -278,6 +280,7 @@ struct Vec4 {
   Vec2 xy() const { return Vec2(x, y); }
   Vec2 zw() const { return Vec2(z, w); }
   double& operator[](const int& _idx) { return this->i[_idx]; }
+  bool is_zero() const { return x == 0.0 && y == 0.0 && z == 0.0 && w == 0.0; }
 };
 
 struct IVec2 {
@@ -421,6 +424,12 @@ struct Mat3x3 {
         0, 1, 0, 
         0, 0, 1);
   }
+  static Mat3x3 diag(double xx, double yy, double zz) {
+    return Mat3x3(
+      xx, 0, 0,
+      0, yy, 0,
+      0, 0, zz);
+  }
   inline Mat3x3 inverse() {
     double inv[9], det;
     inv[0] = (i[4] * i[8] - i[7] * i[5]);
@@ -465,6 +474,9 @@ struct Mat3x3 {
         return false;
     }
     return true;
+  }
+  inline bool is_zero() const {
+    return is_zero(0.0);
   }
   inline double at(int i, int j) { return this->i[i * 3 + j]; }
 };
@@ -621,6 +633,9 @@ struct Mat4x4 {
         return false;
     }
     return true;
+  }
+  inline bool is_zero() const {
+    return is_zero(0.0);
   }
 
 };

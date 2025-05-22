@@ -11,7 +11,9 @@ in vec2 TexCoord;
 void main()
 {
   vec3 textured = texture(tex0, TexCoord).xyz;
-  float falloff = (dot(WorldNormal, vec3(0.0, 1.0, 0.0)) + 1.0) * 0.5;
+  const float q = -0.8; /* -1.0 ~ +1.0 */
+  float dv = dot(WorldNormal, vec3(0.0, 1.0, 0.0));
+  float falloff = clamp((dv - q) / (1.0 - q), 0.0, 1.0);
   FragColor = vec4(textured * falloff, 1.0);
   FragNormal = vec4((WorldNormal + 1.0) * 0.5, 1.0);
 }

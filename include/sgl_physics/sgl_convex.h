@@ -22,7 +22,7 @@ namespace sgl {
 namespace Physics {
 
 /* definition of a 3D convex shape */
-class convex {
+class Convex {
 protected:
   std::vector<Vec3>  points; /* all vertices of the convex hull shape */
   std::vector<Vec3> normals; /* automatically generated when computing */
@@ -43,14 +43,14 @@ public:
   Mat3x3               inertia_tensor(double mass, const Vec3& CoM) const;
   double              bounding_sphere(const Vec3& center) const;
 public:
-  convex() {}
-  virtual ~convex() {}
+  Convex() {}
+  virtual ~Convex() {}
 };
 
-convex build_convex_3D(const std::vector<Vec3>& points); /* build convex shape from point cloud */
-convex build_convex_3D(const Model& model);
-convex build_convex_3D(const Mesh& mesh);
-convex build_convex_3D(const char * zip_file, const char* model_fname);
+Convex build_convex_3D(const std::vector<Vec3>& points); /* build convex shape from point cloud */
+Convex build_convex_3D(const Model& model);
+Convex build_convex_3D(const Mesh& mesh);
+Convex build_convex_3D(const char * zip_file, const char* model_fname);
 
 };
 };

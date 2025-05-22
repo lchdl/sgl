@@ -21,6 +21,7 @@ public:
   };
 protected:
   sgl::OpenGL::VertexBuffer<sgl::OpenGL::VertexFormat_3f3f2f> conv_hull_vbuf;
+  int n_vbuf_vertices; /* [optional] number of vertices in vertex buffer */
   sgl::OpenGL::AnimatedModelRenderer renderer;
   sgl::Model* model;
 public:
@@ -33,7 +34,7 @@ typedef void(*DebuggerBreakpointCallback_t)();
 class Debugger {
 protected:
   sgl::EyeParams* eye;
-  sgl::OpenGL::Shader shaders[2];
+  sgl::OpenGL::Shader shader;
   sgl::OpenGL::Font fonts[4]; /* regular, bold, italic, bold italic */
   /*
   For each draw call, we cache all necessary rendering data in a std::map,
@@ -42,7 +43,8 @@ protected:
   same object is rendered again, significantly reducing the time spent
   rebuilding GPU-required resources.
   */
-  std::map<uint64_t, std::unique_ptr<DebuggerCachedData>> cached_geometry;
+  std::map<uint64_t, std::unique_ptr<DebuggerCachedData>> cached_geometries;
+  std::vector<std::unique_ptr<DebuggerCachedData>> preset_geometries;
 
   std::vector<RigidBody*> bodies;
   std::vector<BaseConstraint*> constraints;
@@ -63,12 +65,12 @@ protected:
 
 protected:
 
-  DebuggerCachedData& _cache_and_fetch_geometry(const convex& object);
-  DebuggerCachedData& _cache_and_fetch_geometry(const RigidBody& entity);
+  DebuggerCachedData& _cache_and_fetch_geometry(const Convex& convex);
+  DebuggerCachedData& _cache_and_fetch_geometry(const RigidBody& body);
   void _delete_cached_geometry(const uint64_t id);
 
-  void _draw(const convex& object, const Vec3& position, const Quat& rotation, const Vec3& scale, const Vec3& color);
-  void _draw(const convex& object, const Mat4x4& model_matrix, const Vec3& color);
+  void _draw(const Convex& object, const Vec3& position, const Quat& rotation, const Vec3& scale, const Vec3& color);
+  void _draw(const Convex& object, const Mat4x4& model_matrix, const Vec3& color);
   void _draw(const RigidBody& entity);
   void _log_status();
 

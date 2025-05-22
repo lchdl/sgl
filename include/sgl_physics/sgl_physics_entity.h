@@ -32,6 +32,8 @@ struct Pose
 };
 
 enum ColliderType {
+  ColliderType_Undefined,
+  ColliderType_Sphere,
   ColliderType_ConvexMesh,
 };
 
@@ -41,13 +43,50 @@ struct Collider
   ColliderType colliderType; /* narrow phase */
   struct {
     /* ColliderType_ConvexMesh */
-    struct { gjk_proxy_convex gjkProxy; convex convexHull; } convexMeshCollider;
+    struct { gjk_proxy_convex gjkProxy; Convex convexHull; } convexMeshCollider;
+    /* ColliderType_Sphere */
+    struct { gjk_proxy_sphere gjkProxy; } sphereCollider;
   };
 
   Collider() {
-    colliderType = ColliderType_ConvexMesh;
+    colliderType = ColliderType_Undefined;
   }
   virtual ~Collider() {}
+};
+
+class InertiaTensorSolver {
+
+public:
+
+  /* https://en.wikipedia.org/wiki/List_of_moments_of_inertia */
+
+  static Mat3x3 cone(const double& r, const double& h, const double& mass) {
+    /* radius, height, mass, pointing upward */
+    /* https://www.physicsforums.com/threads/calculating-the-inertia-tensor-of-cone-with-uniform-density.749602/ */
+    double A = h / r; /* Cot(alpha) */
+    double A2 = A * A;
+    double B = (2.0 * A2 + 3.0) / (10.0 * A);
+    return mass * r * r * Mat3x3::diag(B, B, 0.6);
+  }
+
+  static Mat3x3 box(const double& x, const double& y, const double& z, const double& mass) {
+    double XY = x * x + y * y;
+    double XZ = x * x + z * z;
+    double YZ = y * y + z * z;
+    return mass / 12.0 * Mat3x3::diag(YZ, XZ, XY);
+  }
+
+  static Mat3x3 cube(const double& l, const double& mass) {
+    return InertiaTensorSolver::box(l, l, l, mass);
+  }
+
+  static Mat3x3 sphere(const double& r, const double& mass) {
+    return 0.4 * mass * r * r * Mat3x3::identity();
+  }
+
+  static Mat3x3 convex(const Convex& convex, const double& mass, const Vec3& center_of_mass) {
+    return convex.inertia_tensor(mass, center_of_mass);
+  }
 };
 
 struct RigidBody 
@@ -82,7 +121,7 @@ struct RigidBody
   NOTE: model's center of mass should be placed at the origin.
   */
   sgl::Model* model;      /* Not owned, can be NULL. */
-  Vec3 modelCoM;          /* Rigid body's actual center of mass in the object's local space.
+  Vec3 modelOffset;       /* Rigid body's actual center of mass in the object's local space.
                              Used to correct the model when the center of mass is not at the
                              local origin. This offset is automatically applied during
                              rendering, but must be computed manually by the user. */
@@ -109,23 +148,34 @@ struct RigidBody
     gravity = 1.0;
     staticFriction = 1.0;
     dynamicFriction = 1.0;
-    restitution = 0.3;
+    restitution = 0.5;
+    collider.colliderType = ColliderType_Undefined;
     collider.convexMeshCollider.gjkProxy.colLocal = &collider.convexMeshCollider.convexHull;
     collider.convexMeshCollider.gjkProxy.posWorld = &pose.p;
     collider.convexMeshCollider.gjkProxy.q = &pose.q;
+    collider.sphereCollider.gjkProxy.posWorld = &pose.p;
+    collider.sphereCollider.gjkProxy.radius = &collider.radius;
     isDynamic = true;
     canCollide = true;
     hasStableContact = false;
     canSleep = true;
     isSleeping = false;
     model = NULL;
-    modelCoM = Vec3(0.0, 0.0, 0.0);
+    modelOffset = Vec3(0.0, 0.0, 0.0);
     scale = 1.0;
     name = "<unnamed>";
   }
-  void build(
+  gjk_proxy* getGJKCollider() {
+    if (collider.colliderType == ColliderType_ConvexMesh)
+      return &collider.convexMeshCollider.gjkProxy;
+    else if (collider.colliderType == ColliderType_Sphere)
+      return &collider.sphereCollider.gjkProxy;
+    else
+      return NULL;
+  }
+  void buildConvex(
     int id,
-    const convex& convex_hull, 
+    const Convex& convex_hull, 
     double mass, 
     Vec3 CoM_position, 
     double scale = 1.0,
@@ -137,14 +187,38 @@ struct RigidBody
     std::vector<Vec3> convex_points = convex_hull.get_points();
     for (int i = 0; i < (int)convex_points.size(); i++)
       convex_points[i] = scale * (convex_points[i] - CoM_position);
+    this->collider.colliderType = ColliderType_ConvexMesh;
     this->collider.convexMeshCollider.convexHull = sgl::Physics::build_convex_3D(convex_points);
     this->collider.radius = collider.convexMeshCollider.convexHull.bounding_sphere(Vec3(0.0, 0.0, 0.0));
     this->model = model;
-    this->modelCoM = CoM_position;
+    this->modelOffset = CoM_position;
     this->scale = scale;
     /* now convex hull is placed at the origin */
     this->invMass = 1.0 / mass;
     Mat3x3 localInertia = this->collider.convexMeshCollider.convexHull.inertia_tensor(mass, Vec3(0.0, 0.0, 0.0));
+    this->invLocalInertia = inverse(localInertia);
+    this->setName(name);
+  }
+  void buildSphere(
+    int id,
+    double radius,
+    double mass,
+    double scale = 1.0,
+    sgl::Model* model = NULL,
+    const Vec3& model_offset = Vec3(0.0, 0.0, 0.0),
+    const std::string& name = "<unnamed>"
+  )
+  {
+    reset();
+    this->id = id;
+    this->collider.colliderType = ColliderType_Sphere;
+    this->collider.radius = radius * scale;
+    this->model = model;
+    this->modelOffset = model_offset;
+    this->scale = scale;
+    /* now convex hull is placed at the origin */
+    this->invMass = 1.0 / mass;
+    Mat3x3 localInertia = InertiaTensorSolver::sphere(this->collider.radius, mass);
     this->invLocalInertia = inverse(localInertia);
     this->setName(name);
   }
@@ -200,6 +274,11 @@ struct RigidBody
     if (!isDynamic) 
       return Vec3(0.0, 0.0, 0.0);
     return vel + cross(omega, posWorld - pose.p);
+  }
+  Vec3 getPrevVelocityAt(Vec3 posWorld) const {
+    if (!isDynamic)
+      return Vec3(0.0, 0.0, 0.0);
+    return prevVel + cross(prevOmega, posWorld - pose.p);
   }
   /*
   calculate generalized inverse mass in world space
@@ -398,20 +477,47 @@ struct Collision
 };
 
 /*
-if two bodies `A` and `B` collides, 
-returns true and fill in `cp`.
+If two bodies `A` and `B` collides, returns true and fill in `cp`.
 */
-inline bool solve_collision_RigidBody(
+inline bool _solve_collision_RigidBody_vs_RigidBody(
   RigidBody* A, RigidBody* B, Collision& cp) 
 {
   gjk_result r = sgl::Physics::gjk(
-    &A->collider.convexMeshCollider.gjkProxy, 
-    &B->collider.convexMeshCollider.gjkProxy
+    A->getGJKCollider(), 
+    B->getGJKCollider()
   );
   if (r.collided) {
     cp = Collision(A, B, normalize(r.pA - r.pB), r.pA, r.pB);
   }
   return r.collided;
+}
+
+inline bool _solve_collision_Sphere_vs_Sphere(
+  RigidBody* A, RigidBody* B, Collision& cp)
+{
+  /* 
+  Sphere-sphere collisions can be efficiently solved analytically, 
+  so GJK is unnecessary due to its slower speed and lower accuracy.
+  */
+  Vec3 d = B->pose.p - A->pose.p;
+  double d_AB = length(d);
+  if (d_AB == 0.0)
+    d = Vec3(1.0, 1.0, 1.0);
+  d = normalize(d);
+  Vec3 pA = A->pose.p + d * A->collider.radius;
+  Vec3 pB = B->pose.p - d * B->collider.radius;
+  /*
+  Note: While d points from A to B, the direction from pA to pB
+  is B to A, since in penetration, pA lies on A but inside B,
+  and pB lies on B but inside A.
+  */
+  if (d_AB < A->collider.radius + B->collider.radius) {
+    cp = Collision(A, B, d, pA, pB);
+    return true;
+  }
+  else {
+    return false;
+  }
 }
 
 }; /* namespace Physics */

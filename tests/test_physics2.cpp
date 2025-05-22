@@ -19,13 +19,13 @@ struct {
   OpenGL::Texture color_out0, color_out1;
   OpenGL::Font font;
   sgl::EyeParams eye;
-  sgl::Model wedge, box, teapot, cone, sphere;
+  sgl::Model box1, sphere;
 } gl;
 
 struct {
   const double dt = 0.016;
-  const int substeps = 4;
-  Physics::RigidBody wedges[2], boxes[2], teapots[2], cones[16], spheres[4];
+  const int substeps = 8;
+  Physics::RigidBody box1, sphere;
   Physics::Debugger debugger;
 } phys;
 
@@ -112,79 +112,26 @@ void init_render_and_physics() {
 
   sgl::Physics::Convex hull;
 
-  gl.teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
-  hull = sgl::Physics::build_convex_3D(SimpleOBJLoader::load_v("assets/common/models/teapot_lowpoly_convhull.obj"));
-  phys.teapots[0].buildConvex(1, hull, 1.0, hull.center_of_mass(), 1.0, &gl.teapot);
-  phys.teapots[0].setPos(Vec3(-4.5, 6, 0));
-  phys.teapots[0].setName("teapot0");
-  phys.teapots[1].buildConvex(2, hull, 1.0, hull.center_of_mass(), 1.0, &gl.teapot);
-  phys.teapots[1].setPos(Vec3(+4.5, 6, 0));
-  phys.teapots[1].setRotation(Quat::rot_y(PI));
-  phys.teapots[1].setName("teapot1");
-
-  gl.box.load_zip("assets/common/models/box.zip", "box.obj");
-  hull = sgl::Physics::build_convex_3D(gl.box);
-  phys.boxes[0].buildConvex(3, hull, 1.0, hull.center_of_mass(), 1.0, &gl.box);
-  phys.boxes[0].setPos(Vec3(-4.5, 4.5, 0));
-  phys.boxes[0].setName("box0");
-  phys.boxes[1].buildConvex(4, hull, 1.0, hull.center_of_mass(), 1.0, &gl.box);
-  phys.boxes[1].setPos(Vec3(+4.5, 4.5, 0));
-  phys.boxes[1].setRotation(Quat::rot_y(PI));
-  phys.boxes[1].setName("box1");
-
-  gl.wedge.load_zip("assets/common/models/wedge.zip", "wedge.obj");
-  hull = sgl::Physics::build_convex_3D(SimpleOBJLoader::load_v("assets/common/models/wedge_convhull.obj"));
-  phys.wedges[0].buildConvex(5, hull, 1.0, hull.center_of_mass(), 1.0, &gl.wedge);
-  phys.wedges[0].setPos(Vec3(-1.5, 0, 0));
-  phys.wedges[0].setStatic();
-  phys.wedges[0].setName("wedge0");
-  phys.wedges[1].buildConvex(5, hull, 1.0, hull.center_of_mass(), 1.0, &gl.wedge);
-  phys.wedges[1].setPos(Vec3(+1.5, 0, 0));
-  phys.wedges[1].setRotation(Quat::rot_y(PI));
-  phys.wedges[1].setStatic();
-  phys.wedges[1].setName("wedge1");
-
-  gl.cone.load_zip("assets/common/models/traffic_cone.zip", "traffic_cone.obj");
-  hull = sgl::Physics::build_convex_3D(gl.cone);
-  for (int i = 0; i < 8; i++) {
-    phys.cones[i].buildConvex(10 + i, hull, 0.5, hull.center_of_mass(), 1.0, &gl.cone);
-    phys.cones[i].setPos(Vec3(-3.5, 10 + i * 1.1, 2));
-    phys.cones[i].setName(std::string("cone") + std::to_string(i));
-    phys.debugger.add_rigid_body(&phys.cones[i]);
-  }
-  for (int i = 8; i < 16; i++) {
-    phys.cones[i].buildConvex(20 + i, hull, 0.5, hull.center_of_mass(), 1.0, &gl.cone);
-    phys.cones[i].setPos(Vec3(+3.5, 10 + (i - 8) * 1.1, -2));
-    phys.cones[i].setName(std::string("cone") + std::to_string(i));
-    phys.debugger.add_rigid_body(&phys.cones[i]);
-  }
+  gl.box1.load_zip("assets/common/models/box1.zip", "box1.obj");
+  hull = sgl::Physics::build_convex_3D(gl.box1);
+  phys.box1.buildConvex(0, hull, 1.0, hull.center_of_mass(), 1.0, &gl.box1);
+  phys.box1.setPos(Vec3(0, 0, 0));
+  phys.box1.setName("box1");
+  phys.box1.setStatic();
 
   gl.sphere.load_zip("assets/common/models/unit_sphere.zip", "unit_sphere.obj");
-  for (int i = 0; i < 4; i++) {
-    phys.spheres[i].buildSphere(30 + i, 1.0, 0.5, 0.3, &gl.sphere, Vec3(0.0, 0.0, 0.0));
-    phys.spheres[i].setPos(Vec3(-2, 10 + i * 1.1, 3));
-    phys.spheres[i].setName(std::string("sphere") + std::to_string(i));
-    phys.debugger.add_rigid_body(&phys.spheres[i]);
-  }
-
-
-
-  phys.debugger.set_breakpoint_callback(physics_debugger_callback);
-  phys.debugger.add_rigid_body(&phys.wedges[0]);
-  phys.debugger.add_rigid_body(&phys.wedges[1]);
-  phys.debugger.add_rigid_body(&phys.boxes[0]);
-  phys.debugger.add_rigid_body(&phys.boxes[1]);
-  phys.debugger.add_rigid_body(&phys.teapots[0]);
-  phys.debugger.add_rigid_body(&phys.teapots[1]);
+  phys.sphere.buildSphere(1, 1.0, 0.5, 1.0, &gl.sphere, Vec3(0.0, 0.0, 0.0));
+  phys.sphere.setPos(Vec3(0, 10, 0));
+  phys.sphere.setName("sphere");
 
   phys.debugger.initialize();
+  phys.debugger.add_rigid_body(&phys.box1);
+  phys.debugger.add_rigid_body(&phys.sphere);
+  phys.debugger.set_breakpoint_callback(physics_debugger_callback);
   phys.debugger.set_textbox(1, 1, 300, 300);
   phys.debugger.set_eye_params(&gl.eye);
-  phys.debugger.add_watch(&phys.boxes[0]);
-  phys.debugger.add_watch(&phys.teapots[0]);
-  
+  phys.debugger.add_watch(&phys.sphere);
   phys.debugger.step_n_frames(1000000);
-  //phys.debugger.load_all_bodies_states("states/frame_1000.zip");
 }
 
 void render_procedure(double T) {
@@ -198,8 +145,10 @@ void render_procedure(double T) {
   glEnable(GL_DEPTH_TEST);
 
   /* run debugger */
-  //phys.debugger.run_fixed_dt(phys.dt, phys.substeps);
-  phys.debugger.run_realtime(phys.substeps);
+  Vec3 vel = phys.sphere.vel;
+  phys.sphere.setVel(Vec3(0.0, vel.y, 0.0));
+  //phys.debugger.run_realtime(phys.substeps);
+  phys.debugger.run_fixed_dt(phys.dt, phys.substeps);
 }
 
 double render_frame(double T)

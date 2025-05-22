@@ -278,8 +278,7 @@ void _epa(
   faces[0].v[1] = b;
   faces[0].v[2] = c;
   q = cross(b.mink - a.mink, c.mink - a.mink);
-  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0) 
-    return;
+  if (q.is_zero()) return;
   faces[0].n = normalize(q);
   
   /* ACD */
@@ -287,8 +286,7 @@ void _epa(
   faces[1].v[1] = c;
   faces[1].v[2] = d;
   q = cross(c.mink - a.mink, d.mink - a.mink);
-  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0)
-    return;
+  if (q.is_zero()) return;
   faces[1].n = normalize(q);
   
   /* ADB */
@@ -296,8 +294,7 @@ void _epa(
   faces[2].v[1] = d;
   faces[2].v[2] = b;
   q = cross(d.mink - a.mink, b.mink - a.mink);
-  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0)
-    return;
+  if (q.is_zero()) return;
   faces[2].n = normalize(q);
   
   /* BDC */
@@ -305,8 +302,7 @@ void _epa(
   faces[3].v[1] = d;
   faces[3].v[2] = c;
   q = cross(d.mink - b.mink, c.mink - b.mink);
-  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0) 
-    return;
+  if (q.is_zero()) return;
   faces[3].n = normalize(q);
 
   /* 
@@ -459,6 +455,8 @@ gjk_result gjk(gjk_proxy* proxyA, gjk_proxy* proxyB) {
 
   /* calculate initial search direction between colliders */
   Vec3 search_dir = *(proxyA->posWorld) - *(proxyB->posWorld);
+  if (search_dir.is_zero())
+    search_dir = Vec3(1.0, 1.0, 1.0);
 
   /* initializing result assuming no collision (which is the most common case) */
   gjk_result result;

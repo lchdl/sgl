@@ -55,8 +55,14 @@ protected:
           continue;
 
         Collision cp(A, B, Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 0.0));
-        double max_relative_vel = max(length(A->vel), length(A->prevVel)) + max(length(B->vel), length(B->prevVel));
-        const double safe_distance = max(dt * max_relative_vel, 0.001);
+        
+        /* maximum relative velocity */
+        const double max_rvel = 
+          max(length(A->vel), length(A->prevVel)) + 
+          max(length(B->vel), length(B->prevVel));
+
+        const double safe_distance = max(dt * max_rvel, 0.001);
+        
         double d1 = length(A->pose.p - B->pose.p);
         double d2 = A->collider.radius + B->collider.radius;
         if (d1 < d2 + safe_distance) {
@@ -69,23 +75,63 @@ protected:
   }
 
   static std::vector<Collision> _detectCollision_NarrowPhase(
-    std::vector<Collision>& cps) 
+    std::vector<Collision>& cps)
   {
     std::vector<Collision> npcps; /* narrow-phase collisions */
     int n_cps = len(cps);
-    for (int i = 0; i < n_cps; i++) {
-      if (solve_collision_RigidBody(cps[i].A, cps[i].B, cps[i])) {
-        npcps.push_back(cps[i]);
+    for (int i = 0; i < n_cps; i++)
+    {
+      ColliderType colTypeA = cps[i].A->collider.colliderType;
+      ColliderType colTypeB = cps[i].B->collider.colliderType;
+
+      if (colTypeA == ColliderType_ConvexMesh && colTypeB == ColliderType_ConvexMesh) {
+        /*
+        Case 1: Solve collisions between two rigid bodies.
+        */
+        if (_solve_collision_RigidBody_vs_RigidBody(cps[i].A, cps[i].B, cps[i]))
+          npcps.push_back(cps[i]);
+      }
+      else if (colTypeA == ColliderType_Sphere && colTypeB == ColliderType_ConvexMesh) {
+        /*
+        Case 2: Sphere vs. RigidBody.
+
+        Since sphere collision can also be solved using GJK, we also use 
+        RigidBody collision detection algorithm.
+
+        Note: Collision detection between spheres and rigid bodies is not 
+        very accurate. You may notice that during simulation, these objects 
+        sometimes bounce off each other at high speeds, even when they are 
+        initially at rest.
+        */
+        if (_solve_collision_RigidBody_vs_RigidBody(cps[i].A, cps[i].B, cps[i]))
+          npcps.push_back(cps[i]);
+      }
+      else if (colTypeA == ColliderType_ConvexMesh && colTypeB == ColliderType_Sphere) {
+        /*
+        Case 3: RigidBody vs. Sphere.
+        The same with Case 2.
+        */
+        if (_solve_collision_RigidBody_vs_RigidBody(cps[i].A, cps[i].B, cps[i]))
+          npcps.push_back(cps[i]);
+      }
+      else if (colTypeA == ColliderType_Sphere && colTypeB == ColliderType_Sphere) {
+        /*
+        Case 4: Sphere vs. Sphere.
+        */
+        if (_solve_collision_Sphere_vs_Sphere(cps[i].A, cps[i].B, cps[i]))
+          npcps.push_back(cps[i]);
+      }
+      /* TODO: add other collisions. */
+      else {
+        /* Maybe I should print a warning here? */
       }
     }
     return npcps;
   }
   
-  /*
-  
-  XPBD solver
-  
-  */
+  /* * * * * * * */
+  /* XPBD solver */
+  /* * * * * * * */
 
   /*
   _applyBodyPairCorrection: 
@@ -265,9 +311,9 @@ protected:
       Note: `vn_tilde` is calculated in ContactSet before the position solve (Eq. 29)
       */
       double threshold = 2.0 * length(gravity) * h;
-      double e = (fabs(vn) <= threshold) ? 0.0 : contact.e;
+      double e = (fabs(contact.vn) <= threshold) ? 0.0 : contact.e;
       double vn_tilde = contact.vn;
-      double restitution = -vn + max(-e * vn_tilde, 0.0);
+      double restitution = -vn + min(-e * vn_tilde, 0.0);
       dv += contact.n * restitution;
 
       /* (33) Velocity update */
@@ -312,10 +358,41 @@ public:
 
     for (int i = 0; i < substeps; i++) {
 
-      std::vector<Collision> contacts = _detectCollision_NarrowPhase(collisions);
-
       for (int j = 0; j < n_bodies; j++)
         bodies[j]->integrate(h, gravity);
+
+      /*
+      
+      Important Note: narrow-phase collision detection should always 
+      be performed AFTER the body->integrate() process. To understand 
+      why, consider the following scenario:
+      
+      * A highly elastic "superball" falls toward the floor. 
+      
+      If collision detection is performed before integration, the 
+      following sequence occurs:
+      
+      1. Collision detected: The system registers a collision because 
+         the ball intersects the floor.
+      2. Integration step: The ball's position updates, causing it to 
+         sink further into the floor due to its downward velocity.
+      3. _solveVelocities() adjusts the ball¡¯s velocity, flipping it 
+         upward.
+
+      Which causes the problem:
+      Since the ball is still penetrating the floor, the next collision 
+      check immediately detects another collision (duplicate detection).
+      This creates a feedback loop: each frame, the ball collides 
+      repeatedly, appearing "stuck" to the ground despite its high 
+      bounciness. The simulation becomes unstable, as the ball fails to 
+      rebound cleanly.
+
+      So the solution is to perform narrow-phase collision detection 
+      AFTER body->integrate() and every thing will be fine.
+      
+      */
+
+      std::vector<Collision> contacts = _detectCollision_NarrowPhase(collisions);
 
       for (int j = 0; j < n_constraints; j++)
         constraints[j]->solvePos(h);

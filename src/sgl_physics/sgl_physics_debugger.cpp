@@ -6,46 +6,46 @@
 namespace sgl {
 namespace Physics {
 
-DebuggerCachedData & Debugger::_cache_and_fetch_geometry(const convex & object) {
-  uint64_t id = reinterpret_cast<uint64_t>(&object);
-  if (this->cached_geometry.find(id) == this->cached_geometry.end()) {
-    this->cached_geometry.emplace(id, std::make_unique<DebuggerCachedData>());
+DebuggerCachedData & Debugger::_cache_and_fetch_geometry(const Convex & convex) {
+  uint64_t id = reinterpret_cast<uint64_t>(&convex);
+  if (this->cached_geometries.find(id) == this->cached_geometries.end()) {
+    this->cached_geometries.emplace(id, std::make_unique<DebuggerCachedData>());
     /* setup convex hull data */
     std::vector<DebuggerCachedData::Vertex> vertices;
     DebuggerCachedData::Vertex v;
     v.texcoord[0] = 0.0f;
     v.texcoord[1] = 0.0f;
-    for (int i = 0; i < object.num_points(); i++) {
-      v.position[0] = float(object.get_point(i).x);
-      v.position[1] = float(object.get_point(i).y);
-      v.position[2] = float(object.get_point(i).z);
-      v.normal[0] = float(object.get_normal(i).x);
-      v.normal[1] = float(object.get_normal(i).y);
-      v.normal[2] = float(object.get_normal(i).z);
+    for (int i = 0; i < convex.num_points(); i++) {
+      v.position[0] = float(convex.get_point(i).x);
+      v.position[1] = float(convex.get_point(i).y);
+      v.position[2] = float(convex.get_point(i).z);
+      v.normal[0] = float(convex.get_normal(i).x);
+      v.normal[1] = float(convex.get_normal(i).y);
+      v.normal[2] = float(convex.get_normal(i).z);
       vertices.push_back(v);
     }
     std::vector<IVec3> faces;
-    for (int i = 0; i < object.num_faces(); i++) {
-      faces.push_back(object.get_triangle_indices(i));
+    for (int i = 0; i < convex.num_faces(); i++) {
+      faces.push_back(convex.get_triangle_indices(i));
     }
-    cached_geometry[id]->conv_hull_vbuf.create_and_fill(sizeof(DebuggerCachedData::Vertex) * object.num_points(),
-      vertices.data(), GL_STATIC_DRAW, sizeof(IVec3) * object.num_faces(), faces.data(), GL_STATIC_DRAW);
+    cached_geometries[id]->conv_hull_vbuf.create_and_fill(sizeof(DebuggerCachedData::Vertex) * convex.num_points(),
+      vertices.data(), GL_STATIC_DRAW, sizeof(IVec3) * convex.num_faces(), faces.data(), GL_STATIC_DRAW);
   }
-  return *(cached_geometry[id]);
+  return *(cached_geometries[id]);
 }
 
 DebuggerCachedData & Debugger::_cache_and_fetch_geometry(const RigidBody & body)
 {
   uint64_t id = reinterpret_cast<uint64_t>(&body);
-  if (this->cached_geometry.find(id) == this->cached_geometry.end()) {
-    this->cached_geometry.emplace(id, std::make_unique<DebuggerCachedData>());
+  if (this->cached_geometries.find(id) == this->cached_geometries.end()) {
+    this->cached_geometries.emplace(id, std::make_unique<DebuggerCachedData>());
 
     /* setup convex hull data */
     std::vector<DebuggerCachedData::Vertex> vertices;
     DebuggerCachedData::Vertex v;
     v.texcoord[0] = 0.0f;
     v.texcoord[1] = 0.0f;
-    const convex& convex_hull = body.collider.convexMeshCollider.convexHull;
+    const Convex& convex_hull = body.collider.convexMeshCollider.convexHull;
     for (int i = 0; i < convex_hull.num_points(); i++) {
       v.position[0] = float(convex_hull.get_point(i).x);
       v.position[1] = float(convex_hull.get_point(i).y);
@@ -59,25 +59,25 @@ DebuggerCachedData & Debugger::_cache_and_fetch_geometry(const RigidBody & body)
     for (int i = 0; i < convex_hull.num_faces(); i++) {
       faces.push_back(convex_hull.get_triangle_indices(i));
     }
-    cached_geometry[id]->conv_hull_vbuf.create_and_fill(sizeof(DebuggerCachedData::Vertex) * convex_hull.num_points(),
+    cached_geometries[id]->conv_hull_vbuf.create_and_fill(sizeof(DebuggerCachedData::Vertex) * convex_hull.num_points(),
       vertices.data(), GL_STATIC_DRAW, sizeof(IVec3) * convex_hull.num_faces(), faces.data(), GL_STATIC_DRAW);
 
     /* setup model data */
-    cached_geometry[id]->model = body.model;
+    cached_geometries[id]->model = body.model;
     if (body.model != NULL)
-      cached_geometry[id]->renderer.set_model(body.model, 1);
-    cached_geometry[id]->renderer.set_eye_params(this->eye);
+      cached_geometries[id]->renderer.set_model(body.model, 1);
+    cached_geometries[id]->renderer.set_eye_params(this->eye);
   }
-  return *(cached_geometry[id]);
+  return *(cached_geometries[id]);
 }
 
 void Debugger::_delete_cached_geometry(const uint64_t id) {
-  if (this->cached_geometry.find(id) != this->cached_geometry.end())
-    this->cached_geometry.erase(id);
+  if (this->cached_geometries.find(id) != this->cached_geometries.end())
+    this->cached_geometries.erase(id);
 }
 
 void Debugger::delete_cached_geometry() {
-  this->cached_geometry.clear();
+  this->cached_geometries.clear();
 }
 
 bool Debugger::initialize()
@@ -90,12 +90,7 @@ bool Debugger::initialize()
     {"FragColor", 0},
     {"FragNormal", 1},
   };
-  this->shaders[0].create(
-    sgl::read_file_as_string("assets/common/shaders/PhysicsDebugger/mesh.vert"),
-    sgl::read_file_as_string("assets/common/shaders/PhysicsDebugger/mesh_textured.frag"),
-    sizeof(fs_outs) / sizeof(FragDataLoc), fs_outs
-  );
-  this->shaders[1].create(
+  this->shader.create(
     sgl::read_file_as_string("assets/common/shaders/PhysicsDebugger/mesh.vert"),
     sgl::read_file_as_string("assets/common/shaders/PhysicsDebugger/mesh_wireframe.frag"),
     sizeof(fs_outs) / sizeof(FragDataLoc), fs_outs
@@ -104,6 +99,63 @@ bool Debugger::initialize()
   this->fonts[1].load("assets/common/fonts/Arial/11pt_Bold.fnt");
   this->fonts[2].load("assets/common/fonts/Arial/11pt_Italic.fnt");
   this->fonts[3].load("assets/common/fonts/Arial/11pt_BoldItalic.fnt");
+
+  /*
+  Create preset geometries
+  */
+
+  /* a unit sphere wireframe */
+  this->preset_geometries.push_back(std::make_unique<DebuggerCachedData>());
+  auto build_unit_sphere = []()-> std::vector<DebuggerCachedData::Vertex> {
+    std::vector<DebuggerCachedData::Vertex> vertices;
+    DebuggerCachedData::Vertex v[2];
+    v[0].texcoord[0] = 0.0f; v[0].texcoord[1] = 0.0f;
+    v[1].texcoord[0] = 0.0f; v[1].texcoord[1] = 0.0f;
+    const int resolution = 16; /* number of segments */
+    Vec3 vprev, vcur;
+    /* xy plane */
+    vprev.z = vcur.z = 0.0f;
+    for (int i = 0; i <= resolution; i++) {
+      float theta = float((2 * sgl::PI) / resolution * i);
+      vcur.x = cos(theta); vcur.y = sin(theta);
+      v[1].position[0] = float(vcur.x); v[1].position[1] = float(vcur.y); v[1].position[2] = float(vcur.z);
+      if (i > 0) {
+        vertices.push_back(v[0]);
+        vertices.push_back(v[1]);
+      }
+      v[0] = v[1];
+    }
+    /* xz plane */
+    vprev.y = vcur.y = 0.0f;
+    for (int i = 0; i <= resolution; i++) {
+      float theta = float((2 * sgl::PI) / resolution * i);
+      vcur.x = cos(theta); vcur.z = sin(theta);
+      v[1].position[0] = float(vcur.x); v[1].position[1] = float(vcur.y); v[1].position[2] = float(vcur.z);
+      if (i > 0) {
+        vertices.push_back(v[0]);
+        vertices.push_back(v[1]);
+      }
+      v[0] = v[1];
+    }
+    /* yz plane */
+    vprev.x = vcur.x = 0.0f;
+    for (int i = 0; i <= resolution; i++) {
+      float theta = float((2 * sgl::PI) / resolution * i);
+      vcur.y = cos(theta); vcur.z = sin(theta);
+      v[1].position[0] = float(vcur.x); v[1].position[1] = float(vcur.y); v[1].position[2] = float(vcur.z);
+      if (i > 0) {
+        vertices.push_back(v[0]);
+        vertices.push_back(v[1]);
+      }
+      v[0] = v[1];
+    }
+    return vertices;
+  };
+  std::vector<DebuggerCachedData::Vertex> vertices = build_unit_sphere();
+  this->preset_geometries[0]->n_vbuf_vertices = len(vertices);
+  this->preset_geometries[0]->conv_hull_vbuf.create_and_fill(
+    sizeof(DebuggerCachedData::Vertex) * len(vertices),
+    vertices.data(), GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
 
   return true;
 }
@@ -153,9 +205,9 @@ void Debugger::run_realtime(int subframes)
 {
   double dt_since_last_run = frame_timer.tick();
 
-  /* ensure dt stays between 5ms (minimum) and 16ms (60 fps cap) */
+  /* ensure h = dt / subframes stays in safe range [0.0001, 0.0050] */
   //dt_since_last_run = clamp(0.005, dt_since_last_run, 0.016);
-  dt_since_last_run = clamp(0.000, dt_since_last_run, 0.016);
+  dt_since_last_run = clamp(0.0001 * subframes, dt_since_last_run, 0.0050 * subframes);
 
   run_fixed_dt(dt_since_last_run, subframes);
 
@@ -163,7 +215,7 @@ void Debugger::run_realtime(int subframes)
 }
 
 
-void Debugger::_draw(const convex& object, const Vec3& position, const Quat& rotation, const Vec3& scale, const Vec3& color)
+void Debugger::_draw(const Convex& object, const Vec3& position, const Quat& rotation, const Vec3& scale, const Vec3& color)
 {
   if (this->eye == NULL)
     return;
@@ -172,7 +224,7 @@ void Debugger::_draw(const convex& object, const Vec3& position, const Quat& rot
   this->_draw(object, model_matrix, color);
 }
 
-void Debugger::_draw(const convex & object, const Mat4x4 & model_matrix, const Vec3& color)
+void Debugger::_draw(const Convex & object, const Mat4x4 & model_matrix, const Vec3& color)
 {
   if (this->eye == NULL)
     return;
@@ -183,28 +235,31 @@ void Debugger::_draw(const convex & object, const Mat4x4 & model_matrix, const V
   Mat4x4 view = this->eye->get_view_matrix();
   Mat4x4 proj = this->eye->get_projection_matrix(rsize.x, rsize.y);
 
-  this->shaders[1].use();
-  this->shaders[1].set_uniform_matrix_4fv("u_Model", 1, GL_TRUE, &model_matrix);
-  this->shaders[1].set_uniform_matrix_4fv("u_View", 1, GL_TRUE, &view);
-  this->shaders[1].set_uniform_matrix_4fv("u_Projection", 1, GL_TRUE, &proj);
-  this->shaders[1].set_uniform_3f("color", float(color.r), float(color.g), float(color.b));
-  this->shaders[1].set_uniform_1f("u_dz", -0.001f); /* avoid z-fighting between mesh and wireframe */
+  this->shader.use();
+  this->shader.set_uniform_matrix_4fv("u_Model", 1, GL_TRUE, &model_matrix);
+  this->shader.set_uniform_matrix_4fv("u_View", 1, GL_TRUE, &view);
+  this->shader.set_uniform_matrix_4fv("u_Projection", 1, GL_TRUE, &proj);
+  this->shader.set_uniform_3f("color", float(color.r), float(color.g), float(color.b));
+  this->shader.set_uniform_1f("u_dz", -0.001f); /* avoid z-fighting between mesh and wireframe */
   /* draw convex in wireframe mode, note that OpenGL ES does not support this */
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   cached_data.conv_hull_vbuf.draw_elements(GL_TRIANGLES, object.num_faces() * 3, GL_UNSIGNED_INT, NULL);
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
-void Debugger::_draw(const RigidBody& entity)
+void Debugger::_draw(const RigidBody& body)
 {
   if (this->eye == NULL)
     return;
 
-  DebuggerCachedData& cached_data = this->_cache_and_fetch_geometry(entity);
+  DebuggerCachedData& cached_data = this->_cache_and_fetch_geometry(body);
 
   const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
 
+  /* * * * * * * * * */
   /* draw mesh model */
+  /* * * * * * * * * */
+
   if (cached_data.model != NULL) {
     /*
     Note: The model mesh's center of mass may not be located at the origin.
@@ -212,36 +267,57 @@ void Debugger::_draw(const RigidBody& entity)
     for here. We use right multiplication here to ensure that the center of
     mass offset transform is applied before other transformations.
     */
-    Mat4x4 model_matrix0 = 
-      Mat4x4::translate(entity.pose.p.x, entity.pose.p.y, entity.pose.p.z) *
-      Mat4x4(quat_to_mat3x3(entity.pose.q)) * 
-      Mat4x4::scale(entity.scale, entity.scale, entity.scale) * 
-      Mat4x4::translate(-entity.modelCoM.x, -entity.modelCoM.y, -entity.modelCoM.z);
-    cached_data.renderer.set_model_transform(model_matrix0);
+    Mat4x4 model_matrix = 
+      Mat4x4::translate(body.pose.p.x, body.pose.p.y, body.pose.p.z) *
+      Mat4x4(quat_to_mat3x3(body.pose.q)) * 
+      Mat4x4::scale(body.scale, body.scale, body.scale) * 
+      Mat4x4::translate(-body.modelOffset.x, -body.modelOffset.y, -body.modelOffset.z);
+    /* view and projection matrix will be caluclated automatically by renderer */
+    cached_data.renderer.set_model_transform(model_matrix);
     cached_data.renderer.draw();
   }
 
-  /* draw convex in wireframe mode, note that OpenGL ES does not support this */
-
-  /* since we already scaled the convex mesh, we don't need to consider scaling */
-  Mat4x4 model_matrix = 
-    Mat4x4::translate(entity.pose.p.x, entity.pose.p.y, entity.pose.p.z) *
-    Mat4x4(quat_to_mat3x3(entity.pose.q)); 
+  /* * * * * * * * * */
+  /* draw wireframe  */
+  /* * * * * * * * * */
+  
   Mat4x4 view = this->eye->get_view_matrix();
   Mat4x4 proj = this->eye->get_projection_matrix(rsize.x, rsize.y);
+  this->shader.use();
+  this->shader.set_uniform_matrix_4fv("u_View", 1, GL_TRUE, &view);
+  this->shader.set_uniform_matrix_4fv("u_Projection", 1, GL_TRUE, &proj);
+  this->shader.set_uniform_3f("color", 1.0f, 0.0f, 0.0f);
+  this->shader.set_uniform_1f("u_dz", -0.0005f); /* avoid z-fighting between mesh and wireframe */
 
-  this->shaders[1].use();
-  this->shaders[1].set_uniform_matrix_4fv("u_Model", 1, GL_TRUE, &model_matrix);
-  this->shaders[1].set_uniform_matrix_4fv("u_View", 1, GL_TRUE, &view);
-  this->shaders[1].set_uniform_matrix_4fv("u_Projection", 1, GL_TRUE, &proj);
-  this->shaders[1].set_uniform_3f("color", 1.0f, 0.0f, 0.0f);
-  this->shaders[1].set_uniform_1f("u_dz", -0.0005f); /* avoid z-fighting between mesh and wireframe */
-  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-  glEnable(GL_CULL_FACE);
-  glCullFace(GL_BACK);
-  cached_data.conv_hull_vbuf.draw_elements(GL_TRIANGLES, entity.collider.convexMeshCollider.convexHull.num_faces() * 3, GL_UNSIGNED_INT, NULL);
-  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  glDisable(GL_CULL_FACE);
+  if (body.collider.colliderType == ColliderType_ConvexMesh) {
+
+    /* Ignore scaling (set as 1.0) since we already considered scaling before */
+    Mat4x4 model_matrix =
+      Mat4x4::translate(body.pose.p.x, body.pose.p.y, body.pose.p.z) *
+      Mat4x4(quat_to_mat3x3(body.pose.q));
+    this->shader.set_uniform_matrix_4fv("u_Model", 1, GL_TRUE, &model_matrix);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    cached_data.conv_hull_vbuf.draw_elements(GL_TRIANGLES, body.collider.convexMeshCollider.convexHull.num_faces() * 3, GL_UNSIGNED_INT, NULL);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glDisable(GL_CULL_FACE);
+  }
+  else if (body.collider.colliderType == ColliderType_Sphere) {
+
+    Mat4x4 model_matrix =
+      Mat4x4::translate(body.pose.p.x, body.pose.p.y, body.pose.p.z) *
+      Mat4x4(quat_to_mat3x3(body.pose.q)) * 
+      Mat4x4::scale(body.scale, body.scale, body.scale);
+    this->shader.set_uniform_matrix_4fv("u_Model", 1, GL_TRUE, &model_matrix);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    preset_geometries[0]->conv_hull_vbuf.draw_arrays(GL_LINES, 0, preset_geometries[0]->n_vbuf_vertices);
+    glDisable(GL_CULL_FACE);
+  }
+
 }
 
 void Debugger::_log_status()

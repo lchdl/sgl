@@ -1593,7 +1593,7 @@ void _convhull_delaunay_nd_mesh(
   free(visible);
 }
 
-bool convex::build_from_points(const std::vector<Vec3>& points, int precision)
+bool Convex::build_from_points(const std::vector<Vec3>& points, int precision)
 {
   this->destroy();
 
@@ -1708,14 +1708,14 @@ bool convex::build_from_points(const std::vector<Vec3>& points, int precision)
   return true;
 }
 
-convex build_convex_3D(const std::vector<Vec3>& points)
+Convex build_convex_3D(const std::vector<Vec3>& points)
 {
-  convex convobj;
+  Convex convobj;
   convobj.build_from_points(points);
   return convobj;
 }
 
-convex build_convex_3D(const Model & model)
+Convex build_convex_3D(const Model & model)
 {
   const std::vector<sgl::Mesh>& meshes = model.get_meshes();
   std::vector<sgl::Vec3> vertices;
@@ -1727,7 +1727,7 @@ convex build_convex_3D(const Model & model)
   return build_convex_3D(vertices);
 }
 
-convex build_convex_3D(const Mesh & mesh)
+Convex build_convex_3D(const Mesh & mesh)
 {
   std::vector<sgl::Vec3> vertices;
   for (size_t i_v = 0; i_v < mesh.vertices.size(); i_v++) {
@@ -1736,16 +1736,16 @@ convex build_convex_3D(const Mesh & mesh)
   return build_convex_3D(vertices);
 }
 
-convex build_convex_3D(const char * zip_file, const char* model_fname)
+Convex build_convex_3D(const char * zip_file, const char* model_fname)
 {
   Model model;
   if (!model.load_zip(zip_file, model_fname))
-    return convex();
+    return Convex();
   else
     return build_convex_3D(model);
 }
 
-triangle convex::get_triangle(const int & ind) const
+triangle Convex::get_triangle(const int & ind) const
 {
   triangle t;
   t.p[0] = this->points[faces[ind].x];
@@ -1754,7 +1754,7 @@ triangle convex::get_triangle(const int & ind) const
   return t;
 }
 
-Vec3 convex::center_of_mass() const
+Vec3 Convex::center_of_mass() const
 {
   /* http://melax.github.io/volint.html */
   Vec3 CoM(0, 0, 0); /* center of mass */
@@ -1775,7 +1775,7 @@ Vec3 convex::center_of_mass() const
   return CoM;
 }
 
-Mat3x3 convex::inertia_tensor(double mass, const Vec3 & CoM) const
+Mat3x3 Convex::inertia_tensor(double mass, const Vec3 & CoM) const
 {
   /*
   The moments are calculated based on the center of rotation com which you
@@ -1820,7 +1820,7 @@ Mat3x3 convex::inertia_tensor(double mass, const Vec3 & CoM) const
     -offd.y, -offd.x, diag.x + diag.y);
 }
 
-double convex::bounding_sphere(const Vec3 & center) const
+double Convex::bounding_sphere(const Vec3 & center) const
 {
   if (this->points.size() == 0)
     return 0.0;
@@ -1831,7 +1831,7 @@ double convex::bounding_sphere(const Vec3 & center) const
   return radius;
 }
 
-bool convex::export_obj(const char * file) const
+bool Convex::export_obj(const char * file) const
 {
   
   /* now vn holds all the averaged normals for all vertices */
@@ -1870,7 +1870,7 @@ bool convex::export_obj(const char * file) const
   return true;
 }
 
-bool convex::from_obj(const char* file)
+bool Convex::from_obj(const char* file)
 {
   destroy();
   sgl::SimpleOBJLoader loader;
@@ -1886,7 +1886,7 @@ bool convex::from_obj(const char* file)
   return true;
 }
 
-void convex::destroy() {
+void Convex::destroy() {
   this->points.clear();
   this->points.shrink_to_fit();
   this->normals.clear();
@@ -1895,31 +1895,31 @@ void convex::destroy() {
   this->faces.shrink_to_fit();
 }
 
-Vec3 convex::get_point(int index) const {
+Vec3 Convex::get_point(int index) const {
   return this->points[index];
 }
 
-const std::vector<Vec3>& convex::get_points() const
+const std::vector<Vec3>& Convex::get_points() const
 {
   return this->points;
 }
 
-Vec3 convex::get_normal(int index) const
+Vec3 Convex::get_normal(int index) const
 {
   return this->normals[index];
 }
 
-IVec3 convex::get_triangle_indices(int index) const
+IVec3 Convex::get_triangle_indices(int index) const
 {
   return this->faces[index];
 }
 
-int convex::num_points() const 
+int Convex::num_points() const 
 { 
   return (int)this->points.size();
 }
 
-int convex::num_faces() const
+int Convex::num_faces() const
 {
   return (int)this->faces.size();
 }
