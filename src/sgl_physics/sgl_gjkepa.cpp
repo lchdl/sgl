@@ -242,7 +242,7 @@ bool _gjk_update_S4(_gjk_mink &a, _gjk_mink &b, _gjk_mink &c, _gjk_mink &d, int 
 }
 
 /* Expanding Polytope Algorithm based on the result of GJK */
-void _gjk_epa(
+void _epa(
   /* in */
   _gjk_mink& a, _gjk_mink& b, _gjk_mink& c, _gjk_mink& d, gjk_proxy& proxyA, gjk_proxy& proxyB,
   /* out */
@@ -251,9 +251,9 @@ void _gjk_epa(
   /* Array of faces, each with 3 verts and a normal */
   _gjk_face faces[SGL_PHYSICS_EPA_MAX_NUM_FACES];
 
-  /* Init with final simplex from GJK */
-
   /*
+  
+  Now, initialize with final simplex from GJK.
 
   IMPORTANT NOTE (by lchdl):
 
@@ -270,43 +270,50 @@ void _gjk_epa(
 
   */
 
-  Vec3 q; /* stores vector before normalization */
-  bool degen = false; /* degenerated */
+  /* stores the vector before normalization */
+  Vec3 q; 
 
   /* ABC */
   faces[0].v[0] = a;
   faces[0].v[1] = b;
   faces[0].v[2] = c;
   q = cross(b.mink - a.mink, c.mink - a.mink);
-  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0) degen = true;
-  else faces[0].n = normalize(q);
+  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0) 
+    return;
+  faces[0].n = normalize(q);
+  
   /* ACD */
   faces[1].v[0] = a;
   faces[1].v[1] = c;
   faces[1].v[2] = d;
   q = cross(c.mink - a.mink, d.mink - a.mink);
-  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0) degen = true;
-  else faces[1].n = normalize(q);
+  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0)
+    return;
+  faces[1].n = normalize(q);
+  
   /* ADB */
   faces[2].v[0] = a;
   faces[2].v[1] = d;
   faces[2].v[2] = b;
   q = cross(d.mink - a.mink, b.mink - a.mink);
-  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0) degen = true;
-  else faces[2].n = normalize(q);
+  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0)
+    return;
+  faces[2].n = normalize(q);
+  
   /* BDC */
   faces[3].v[0] = b;
   faces[3].v[1] = d;
   faces[3].v[2] = c;
   q = cross(d.mink - b.mink, c.mink - b.mink);
-  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0) degen = true;
-  else faces[3].n = normalize(q);
-
-  if (degen) {
-    /* ignore this collision */
-    result.collided = false;
+  if (q.x == 0.0 && q.y == 0.0 && q.z == 0.0) 
     return;
-  }
+  faces[3].n = normalize(q);
+
+  /* 
+  now we can confirm that the case is not degenerated 
+  and we can solve for the actual collision here
+  */
+  result.collided = true; 
 
   int num_faces = 4;
   int closest_face;
@@ -491,8 +498,7 @@ gjk_result gjk(gjk_proxy* proxyA, gjk_proxy* proxyB) {
       _gjk_update_S3(a, b, c, d, simp_dim, search_dir);
     }
     else if (_gjk_update_S4(a, b, c, d, simp_dim, search_dir)) {
-      result.collided = true;
-      _gjk_epa(a, b, c, d, *proxyA, *proxyB, result);
+      _epa(a, b, c, d, *proxyA, *proxyB, result);
       return result;
     }
   }

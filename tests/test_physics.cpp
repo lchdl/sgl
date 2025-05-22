@@ -173,7 +173,7 @@ void init_render_and_physics() {
   phys.debugger.add_watch(&phys.boxes[0]);
   phys.debugger.add_watch(&phys.teapots[0]);
   
-  phys.debugger.step_n_frames(1000);
+  phys.debugger.step_n_frames(1000000);
   //phys.debugger.load_all_bodies_states("states/frame_1000.zip");
 }
 

@@ -31,7 +31,7 @@ elseif (COMPILER STREQUAL "GCC")
     else()
       # Debug
       set(CMAKE_CXX_FLAGS "-Wall -std=c++17 -O0 -g")
-	  add_compile_definitions(_DEBUG)
+      add_compile_definitions(_DEBUG)
     endif()
   endif()
 else()
