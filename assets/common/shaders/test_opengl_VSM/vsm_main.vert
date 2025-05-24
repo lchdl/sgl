@@ -9,7 +9,7 @@ out vec2 TexCoord;
 out vec4 LightSpacePos;
 void main()
 {
-	gl_Position = Projection * View * Model * vec4(inPosition, 1.0);
-	TexCoord = inTexCoord;
+  gl_Position = Projection * View * Model * vec4(inPosition, 1.0);
+  TexCoord = inTexCoord;
   LightSpacePos = LightTransform * Model * vec4(inPosition, 1.0);
 }

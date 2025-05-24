@@ -20,7 +20,7 @@ struct {
   OpenGL::FrameBuffer framebuffer;
   OpenGL::Texture color_out0, color_out1;
   OpenGL::Font font;
-  sgl::EyeParams eye;
+  sgl::View view;
 } gl;
 
 std::string dtos(double v, int precision) {
@@ -86,22 +86,22 @@ void init_render() {
   gl.animator.set_model(&gl.boblamp, 2);
   gl.animator.set_model_transform(0, Vec3(+1.5, 0, +0.5), Vec3(1, 1, 1), Vec3(0, 1, 0), 0.0);
   gl.animator.set_model_transform(1, Vec3(-1.5, 0, -0.5), Vec3(1, 1, 1), Vec3(0, 1, 0), sgl::PI);
-  gl.animator.set_eye_params(&gl.eye);
+  gl.animator.set_view_params(&gl.view);
 
-  gl.eye.eye.position = Vec3(0, 6, 8);
-  gl.eye.eye.look_at = Vec3(0, 3, 0);
-  gl.eye.eye.up_dir = Vec3(0, 1, 0);
+  gl.view.eye.position = Vec3(0, 6, 8);
+  gl.view.eye.look_at = Vec3(0, 3, 0);
+  gl.view.eye.up_dir = Vec3(0, 1, 0);
   /* perspective */
-  gl.eye.eye.perspective.enabled = true;
-  gl.eye.eye.perspective.near = 1.0;
-  gl.eye.eye.perspective.far = 50.0;
-  gl.eye.eye.perspective.field_of_view = degrees_to_radians(60.0);
+  gl.view.eye.perspective.enabled = true;
+  gl.view.eye.perspective.near = 1.0;
+  gl.view.eye.perspective.far = 50.0;
+  gl.view.eye.perspective.field_of_view = degrees_to_radians(60.0);
   /* orthographic */
-  gl.eye.eye.orthographic.enabled = false;
-  gl.eye.eye.orthographic.near = 1.0;
-  gl.eye.eye.orthographic.far = 50.0;
-  gl.eye.eye.orthographic.width = 12.0;
-  gl.eye.eye.orthographic.height = 9.0;
+  gl.view.eye.orthographic.enabled = false;
+  gl.view.eye.orthographic.near = 1.0;
+  gl.view.eye.orthographic.far = 50.0;
+  gl.view.eye.orthographic.width = 12.0;
+  gl.view.eye.orthographic.height = 9.0;
 }
 
 void render_procedure(double T) {
@@ -117,8 +117,8 @@ void render_procedure(double T) {
   const double radius = 8.0;
   gl.animator.play_animation(0, "", fmod(T, 6.0));
   gl.animator.play_animation(1, "", fmod(T + 3.0, 6.0));
-  gl.eye.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
-  gl.eye.eye.look_at = Vec3(0, 3.5, 0);
+  gl.view.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
+  gl.view.eye.look_at = Vec3(0, 3.5, 0);
   gl.animator.draw();
 }
 

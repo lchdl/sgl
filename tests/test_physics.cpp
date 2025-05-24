@@ -15,10 +15,7 @@ double T_frame = 0.0, T_global = 0.0;
 int frameid = 0;
 
 struct {
-  OpenGL::FrameBuffer framebuffer;
-  OpenGL::Texture color_out0, color_out1;
-  OpenGL::Font font;
-  sgl::EyeParams eye;
+  sgl::View view;
   sgl::Model wedge, box, teapot, cone, sphere;
 } gl;
 
@@ -29,14 +26,52 @@ struct {
   Physics::Debugger debugger;
 } phys;
 
-void physics_debugger_callback()
+void on_pause_callback()
 {
-  printf("A breakpoint was hit.\n");
-  phys.debugger.save_all_bodies_states(
+  //printf("A breakpoint was hit at frame %d.\n", phys.debugger.get_current_frame_id());
+  /*phys.debugger.save_all_bodies_states(
     sgl::abspath(
       std::string("states/frame_") + std::to_string(phys.debugger.get_current_frame_id()) + ".zip"
     )
-  );
+  );*/
+}
+
+void on_start_callback()
+{
+  phys.debugger.save_all_bodies_states("states/test_physics_initial.zip");
+}
+
+void reset_view() {
+  gl.view.eye.position = Vec3(0, 9, 12);
+  gl.view.eye.look_at = Vec3(0, 4, 0);
+  gl.view.eye.up_dir = Vec3(0, 1, 0);
+  gl.view.eye.perspective.enabled = true;
+  gl.view.eye.perspective.near = 0.1;
+  gl.view.eye.perspective.far = 30.0;
+  gl.view.eye.perspective.field_of_view = degrees_to_radians(60.0);
+}
+void do_camera_movement(double dt)
+{
+  const double translate_speed = 10.0;
+  const double rotate_speed = 80.0;
+
+  double translate_amount = dt * translate_speed;
+  double rotate_amount = dt * rotate_speed;
+
+  auto get_code = [](const std::string& key_name) -> int {
+    return (int)SDL_GetScancodeFromName(key_name.c_str());
+  };
+
+  if (keystate[get_code("Space")])      gl.view.move_up(translate_amount);
+  if (keystate[get_code("Left Shift")]) gl.view.move_down(translate_amount);
+  if (keystate[get_code("W")])          gl.view.move_forward(translate_amount);
+  if (keystate[get_code("A")])          gl.view.move_left(translate_amount);
+  if (keystate[get_code("S")])          gl.view.move_backward(translate_amount);
+  if (keystate[get_code("D")])          gl.view.move_right(translate_amount);
+  if (keystate[get_code("Up")])         gl.view.rotate_up(rotate_amount);
+  if (keystate[get_code("Down")])       gl.view.rotate_down(rotate_amount);
+  if (keystate[get_code("Left")])       gl.view.rotate_left(rotate_amount);
+  if (keystate[get_code("Right")])      gl.view.rotate_right(rotate_amount);
 }
 
 std::string dtos(double v, int precision) {
@@ -87,59 +122,95 @@ void process_key(SDL_KeyboardEvent *key) {
   keystate[scancode] = is_press ? true : false;
 
   /* custom key handling */
-  if (keyname == "Space" && is_press) {
-    phys.debugger.step_n_frames(1);
+  if (keyname == "F9" && is_press) {
+    phys.debugger.resume();
   }
+  else if (keyname == "F10" && is_press) {
+    phys.debugger.pause_after_n_frames(1);
+  }
+  else if (keyname == "F11" && is_press) {
+    phys.debugger.load_all_bodies_states("states/test_physics_initial.zip");
+  }
+  else if (keyname == "F1" && is_press) {
+    if (phys.debugger.can_cast_shadow())
+      phys.debugger.cast_shadow(false);
+    else
+      phys.debugger.cast_shadow(true);
+  }
+  else if (keyname == "F2" && is_press) {
+    if (phys.debugger.can_show_cage())
+      phys.debugger.show_cage(false);
+    else
+      phys.debugger.show_cage(true);
+  }
+  else if (keyname == "F3" && is_press) {
+    if (phys.debugger.can_show_velocities())
+      phys.debugger.show_velocities(false);
+    else
+      phys.debugger.show_velocities(true);
+  }
+  else if (keyname == "F4" && is_press) {
+    if (phys.debugger.can_show_mesh())
+      phys.debugger.show_mesh(false);
+    else
+      phys.debugger.show_mesh(true);
+  }
+  else if (keyname == "F5" && is_press) {
+    reset_view();
+  }
+
 }
 
 void init_render_and_physics() {
-  gl.color_out0.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  gl.color_out0.to_device(DeviceType_GPU);
-  gl.color_out1.create(w, h, PixelFormat_BGRA8888, TextureSampling_Nearest, TextureUsage_ColorComponents);
-  gl.color_out1.to_device(DeviceType_GPU);
-  gl.framebuffer.setup_attachment(&gl.color_out0, 0);
-  gl.framebuffer.setup_attachment(&gl.color_out1, 1);
-  gl.framebuffer.make();
-  gl.font.load("assets/common/fonts/Arial/11pt_Regular.fnt");
 
-  gl.eye.eye.position = Vec3(0, 9, 12);
-  gl.eye.eye.look_at = Vec3(0, 4, 0);
-  gl.eye.eye.up_dir = Vec3(0, 1, 0);
-  gl.eye.eye.perspective.enabled = true;
-  gl.eye.eye.perspective.near = 0.1;
-  gl.eye.eye.perspective.far = 30.0;
-  gl.eye.eye.perspective.field_of_view = degrees_to_radians(60.0);
+  printf("\n");
+  printf("F1: Toggle cast shadow.\n");
+  printf("F2: Toggle show body cage.\n");
+  printf("F3: Toggle show velocities.\n");
+  printf("F4: Toggle show mesh.\n");
+  printf("\n");
+  printf("F9: Continue.\n");
+  printf("F10: Step over.\n");
+  printf("F11: Reset simulation.\n");
+  printf("\n");
+  printf("F5: Reset camera.\n");
+  printf("W/A/S/D: Move camera.\n");
+  printf("Up/Down/Left/Right: Rotate camera.\n");
+  printf("Space/LShift: Raise/Lower the camera.\n");
+  printf("\n");
+
+  reset_view();
 
   sgl::Physics::Convex hull;
 
   gl.teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
   hull = sgl::Physics::build_convex_3D(SimpleOBJLoader::load_v("assets/common/models/teapot_lowpoly_convhull.obj"));
   phys.teapots[0].buildConvex(1, hull, 1.0, hull.center_of_mass(), 1.0, &gl.teapot);
-  phys.teapots[0].setPos(Vec3(-4.5, 6, 0));
+  phys.teapots[0].setPosition(Vec3(-4.5, 6, 0));
   phys.teapots[0].setName("teapot0");
   phys.teapots[1].buildConvex(2, hull, 1.0, hull.center_of_mass(), 1.0, &gl.teapot);
-  phys.teapots[1].setPos(Vec3(+4.5, 6, 0));
+  phys.teapots[1].setPosition(Vec3(+4.5, 6, 0));
   phys.teapots[1].setRotation(Quat::rot_y(PI));
   phys.teapots[1].setName("teapot1");
 
   gl.box.load_zip("assets/common/models/box.zip", "box.obj");
   hull = sgl::Physics::build_convex_3D(gl.box);
   phys.boxes[0].buildConvex(3, hull, 1.0, hull.center_of_mass(), 1.0, &gl.box);
-  phys.boxes[0].setPos(Vec3(-4.5, 4.5, 0));
+  phys.boxes[0].setPosition(Vec3(-4.5, 4.5, 0));
   phys.boxes[0].setName("box0");
   phys.boxes[1].buildConvex(4, hull, 1.0, hull.center_of_mass(), 1.0, &gl.box);
-  phys.boxes[1].setPos(Vec3(+4.5, 4.5, 0));
+  phys.boxes[1].setPosition(Vec3(+4.5, 4.5, 0));
   phys.boxes[1].setRotation(Quat::rot_y(PI));
   phys.boxes[1].setName("box1");
 
   gl.wedge.load_zip("assets/common/models/wedge.zip", "wedge.obj");
   hull = sgl::Physics::build_convex_3D(SimpleOBJLoader::load_v("assets/common/models/wedge_convhull.obj"));
   phys.wedges[0].buildConvex(5, hull, 1.0, hull.center_of_mass(), 1.0, &gl.wedge);
-  phys.wedges[0].setPos(Vec3(-1.5, 0, 0));
+  phys.wedges[0].setPosition(Vec3(-1.5, 0, 0));
   phys.wedges[0].setStatic();
   phys.wedges[0].setName("wedge0");
   phys.wedges[1].buildConvex(5, hull, 1.0, hull.center_of_mass(), 1.0, &gl.wedge);
-  phys.wedges[1].setPos(Vec3(+1.5, 0, 0));
+  phys.wedges[1].setPosition(Vec3(+1.5, 0, 0));
   phys.wedges[1].setRotation(Quat::rot_y(PI));
   phys.wedges[1].setStatic();
   phys.wedges[1].setName("wedge1");
@@ -148,58 +219,49 @@ void init_render_and_physics() {
   hull = sgl::Physics::build_convex_3D(gl.cone);
   for (int i = 0; i < 8; i++) {
     phys.cones[i].buildConvex(10 + i, hull, 0.5, hull.center_of_mass(), 1.0, &gl.cone);
-    phys.cones[i].setPos(Vec3(-3.5, 10 + i * 1.1, 2));
+    phys.cones[i].setPosition(Vec3(-3.5, 10 + i * 1.1, 2));
     phys.cones[i].setName(std::string("cone") + std::to_string(i));
     phys.debugger.add_rigid_body(&phys.cones[i]);
   }
   for (int i = 8; i < 16; i++) {
     phys.cones[i].buildConvex(20 + i, hull, 0.5, hull.center_of_mass(), 1.0, &gl.cone);
-    phys.cones[i].setPos(Vec3(+3.5, 10 + (i - 8) * 1.1, -2));
+    phys.cones[i].setPosition(Vec3(+3.5, 10 + (i - 8) * 1.1, -2));
     phys.cones[i].setName(std::string("cone") + std::to_string(i));
     phys.debugger.add_rigid_body(&phys.cones[i]);
   }
 
   gl.sphere.load_zip("assets/common/models/unit_sphere.zip", "unit_sphere.obj");
-  for (int i = 0; i < 4; i++) {
-    phys.spheres[i].buildSphere(30 + i, 1.0, 0.5, 0.3, &gl.sphere, Vec3(0.0, 0.0, 0.0));
-    phys.spheres[i].setPos(Vec3(-2, 10 + i * 1.1, 3));
-    phys.spheres[i].setName(std::string("sphere") + std::to_string(i));
-    phys.debugger.add_rigid_body(&phys.spheres[i]);
-  }
+  phys.spheres[0].buildSphere(30, 1.0, 0.5, 0.3, &gl.sphere, Vec3(0.0, 0.0, 0.0));
+  phys.spheres[0].setPosition(Vec3(-2, 10, 3));
+  phys.spheres[0].setName("sphere0");
+  phys.spheres[1].buildSphere(31, 1.0, 0.5, 0.3, &gl.sphere, Vec3(0.0, 0.0, 0.0));
+  phys.spheres[1].setPosition(Vec3(-2, 11, 3));
+  phys.spheres[1].setName("sphere1");
+  phys.spheres[2].buildSphere(32, 1.0, 0.5, 0.3, &gl.sphere, Vec3(0.0, 0.0, 0.0));
+  phys.spheres[2].setPosition(Vec3(2, 10, 3));
+  phys.spheres[2].setName("sphere2");
+  phys.spheres[3].buildSphere(33, 1.0, 0.5, 0.3, &gl.sphere, Vec3(0.0, 0.0, 0.0));
+  phys.spheres[3].setPosition(Vec3(2, 11, 3));
+  phys.spheres[3].setName("sphere3");
 
-
-
-  phys.debugger.set_breakpoint_callback(physics_debugger_callback);
+  phys.debugger.set_callbacks(on_start_callback, on_pause_callback);
   phys.debugger.add_rigid_body(&phys.wedges[0]);
   phys.debugger.add_rigid_body(&phys.wedges[1]);
   phys.debugger.add_rigid_body(&phys.boxes[0]);
   phys.debugger.add_rigid_body(&phys.boxes[1]);
   phys.debugger.add_rigid_body(&phys.teapots[0]);
   phys.debugger.add_rigid_body(&phys.teapots[1]);
+  for (int i = 0; i < 4; i++)
+    phys.debugger.add_rigid_body(&phys.spheres[i]);
 
   phys.debugger.initialize();
   phys.debugger.set_textbox(1, 1, 300, 300);
-  phys.debugger.set_eye_params(&gl.eye);
+  phys.debugger.set_view(&gl.view);
   phys.debugger.add_watch(&phys.boxes[0]);
   phys.debugger.add_watch(&phys.teapots[0]);
-  
-  phys.debugger.step_n_frames(1000000);
-  //phys.debugger.load_all_bodies_states("states/frame_1000.zip");
-}
-
-void render_procedure(double T) {
-
-  const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
-  const int w = rsize.x, h = rsize.y;
-  const double radius = 8.0;
-
-  glClearColor(0.36f, 0.36f, 0.36f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  glEnable(GL_DEPTH_TEST);
-
-  /* run debugger */
-  //phys.debugger.run_fixed_dt(phys.dt, phys.substeps);
-  phys.debugger.run_realtime(phys.substeps);
+    
+  phys.debugger.set_light(Vec3(0.0, 10.0, 0.0), Vec3(0.0, 0.0, 0.0), 0.001, 10.0, 8.0);
+  phys.debugger.cast_shadow(true);
 }
 
 double render_frame(double T)
@@ -207,34 +269,11 @@ double render_frame(double T)
   sgl::Timer timer;
   timer.tick();
 
-  gl.framebuffer.bind();
-  {
-    render_procedure(T);
-  }
-  gl.framebuffer.unbind();
-  gl.framebuffer.blit_attachment_to_main_framebuffer(0, 0, 0, w, h);
+  /* run debugger */
+  //phys.debugger.run(phys.dt, phys.substeps);
+  phys.debugger.run_realtime(phys.substeps);
 
   return timer.tick();
-}
-
-void math_tests() {
-  Quat q = normalize(Quat(1, 2, 3, 4));
-  print(q);
-  q = normalize(q);
-  print(q);
-  Quat q_inv = inverse(q);
-  print(q_inv);
-  Mat3x3 m = quat_to_mat3x3(q);
-  print(m * inverse(m));
-  Mat3x3 m_inv = quat_to_mat3x3(q_inv);
-  print(m * m_inv);
-
-  Quat r0 = Quat::rot_y(sgl::PI / 2);
-  Quat r1 = Quat::rot_y(sgl::PI / 2 + 0.001);
-  Vec3 v(0, 0, 1);
-  print(rotate(rotate(v, inverse(r0)), r1));
-  print(rotate(rotate(v, inverse(r0)), r0));
-
 }
 
 int main(int argc, char* argv[]) {
@@ -242,8 +281,6 @@ int main(int argc, char* argv[]) {
   /* initialization */
   init_env(argc, argv);
   init_render_and_physics();
-
-  math_tests();
 
   /* Start main loop */
   SDL_Event e;
@@ -258,7 +295,10 @@ int main(int argc, char* argv[]) {
       process_key(&e.key);
 
     /* render & timing */
-    T_global = timer.elapsed();
+    double dt = timer.tick();
+    do_camera_movement(dt);
+
+    T_global += dt;
     T_frame += render_frame(T_global);
     frameid++;
 

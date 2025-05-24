@@ -92,7 +92,7 @@ public:
 struct RigidBody 
 {
   /* basic properties */
-  int id;                 /* id: same ID indicates the same object, collisions between them are ignored */
+  int cid;                /* collision group id (objects with the same id will not collide with each other) */
   Pose pose;              /* position and rotation */
   Vec3 vel;               /* linear velocity (m/s) */
   Vec3 omega;             /* angular velocity (rad/s) */
@@ -133,7 +133,7 @@ struct RigidBody
   virtual ~RigidBody() {}
   /* reset rigid body states */
   void reset() {
-    id = -1;
+    cid = -1;
     pose.p = Vec3(0.0, 0.0, 0.0);
     pose.q = Quat::identity();
     prevPose = pose;
@@ -146,9 +146,9 @@ struct RigidBody
     force = Vec3(0.0, 0.0, 0.0);
     torque = Vec3(0.0, 0.0, 0.0);
     gravity = 1.0;
-    staticFriction = 1.0;
-    dynamicFriction = 1.0;
-    restitution = 0.5;
+    staticFriction = 1.00;
+    dynamicFriction = 0.99;
+    restitution = 0.9;
     collider.colliderType = ColliderType_Undefined;
     collider.convexMeshCollider.gjkProxy.colLocal = &collider.convexMeshCollider.convexHull;
     collider.convexMeshCollider.gjkProxy.posWorld = &pose.p;
@@ -183,7 +183,7 @@ struct RigidBody
     const std::string& name = "<unnamed>") 
   {
     reset();
-    this->id = id;
+    this->cid = id;
     std::vector<Vec3> convex_points = convex_hull.get_points();
     for (int i = 0; i < (int)convex_points.size(); i++)
       convex_points[i] = scale * (convex_points[i] - CoM_position);
@@ -207,10 +207,9 @@ struct RigidBody
     sgl::Model* model = NULL,
     const Vec3& model_offset = Vec3(0.0, 0.0, 0.0),
     const std::string& name = "<unnamed>"
-  )
-  {
+  ) {
     reset();
-    this->id = id;
+    this->cid = id;
     this->collider.colliderType = ColliderType_Sphere;
     this->collider.radius = radius * scale;
     this->model = model;
@@ -243,7 +242,7 @@ struct RigidBody
       inverse(this->invLocalInertia) *
       quat_to_mat3x3(this->pose.q);
   }
-  void setPos(Vec3 posWorld) {
+  void setPosition(Vec3 posWorld) {
     pose.p = posWorld;
     prevPose = pose;
   }
@@ -257,7 +256,7 @@ struct RigidBody
   void setOmega(Vec3 omega) {
     this->omega = omega;
   }
-  void setVel(Vec3 vel) {
+  void setVelocity(Vec3 vel) {
     this->vel = vel;
   }
   void setStatic() {
@@ -275,16 +274,11 @@ struct RigidBody
       return Vec3(0.0, 0.0, 0.0);
     return vel + cross(omega, posWorld - pose.p);
   }
-  Vec3 getPrevVelocityAt(Vec3 posWorld) const {
-    if (!isDynamic)
-      return Vec3(0.0, 0.0, 0.0);
-    return prevVel + cross(prevOmega, posWorld - pose.p);
-  }
   /*
   calculate generalized inverse mass in world space
   `normal` and `pos` (can be NULL) should all in world space
   */
-  double getInverseMass(Vec3 normal, Vec3* pos = NULL) const {
+  double getGeneralizedInverseMass(Vec3 normal, Vec3* pos = NULL) const {
     if (!isDynamic)
       return 0.0;
     Vec3 rxn = Vec3(0.0, 0.0, 0.0);
@@ -450,7 +444,7 @@ struct Collision
   {
     assert(A && B);
     assert(A != B);
-    assert(A->id != B->id);
+    assert(A->cid != B->cid);
 
     this->lambda = 0.0;
     this->lambda_n = 0.0;

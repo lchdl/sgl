@@ -151,7 +151,7 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
   glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &gl_vars.MAX_COLOR_ATTACHMENTS);
   gl_vars.major_version = major_version;
   gl_vars.minor_version = minor_version;
-  gl_vars.current_active_window = window;
+  gl_vars.window = window;
   gl_vars.sprite_renderer_RGBA.initialize();
   gl_vars.sprite_renderer_R32F.initialize("", R"(
     #version 330 core
@@ -181,7 +181,7 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
 
 bool is_OpenGL_initialized()
 {
-  return gl_vars.current_active_window != NULL;
+  return gl_vars.window != NULL;
 }
 
 IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment)
@@ -191,11 +191,11 @@ IVec2 get_OpenGL_framebuffer_size(GLuint fbo, GLenum attachment)
   
   if (fbo == 0) {
     /* default framebuffer */
-    if (gl_vars.current_active_window == NULL) {
+    if (gl_vars.window == NULL) {
       printf("Error, OpenGL is not initialized yet.\n");
       width = height = -1;
     }
-    SDL_GL_GetDrawableSize(gl_vars.current_active_window, &width, &height);
+    SDL_GL_GetDrawableSize(gl_vars.window, &width, &height);
   }
   else {
     /*
@@ -246,6 +246,11 @@ GLuint get_current_framebuffer()
   GLint current_fbo = -1;
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &current_fbo);
   return GLuint(current_fbo);
+}
+
+SDL_Window * get_SDL_window()
+{
+  return gl_vars.window;
 }
 
 Texture::Texture() {
@@ -634,9 +639,6 @@ GLuint Shader::get_GL_handle() const {
 
 GLint Shader::get_uniform_location(const std::string & name) const {
   GLint location = glGetUniformLocation(gl_handle, name.c_str());
-  if (location == -1) {
-    printf("Warning: Uniform '%s' not found or not active.\n", name.c_str());
-  }
   return location;
 }
 
@@ -1011,7 +1013,7 @@ bool Font::load(const char* path) {
     indices[i * 6 + 4] = 2 + i * 4;
     indices[i * 6 + 5] = 3 + i * 4;
   }
-  vbuf.create_and_fill(Font::BATCH_BUFSIZE, NULL, GL_DYNAMIC_DRAW, sizeof_indices, indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
+  vbuf.create_and_fill(Font::BATCH_SIZE, 16 * sizeof(float), NULL, GL_DYNAMIC_DRAW, 6 * Font::BATCH_SIZE, sizeof(int), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
   free(indices);
   
   Shader::FragDataLoc fs_outs[] = {
@@ -1391,7 +1393,7 @@ void SpriteRenderer::initialize(const std::string & vs, const std::string & fs, 
   int _n_outs = (fs_outs == NULL) ? sizeof(_fs_outs_default) / sizeof(Shader::FragDataLoc) : n_outs;
   shader.create(_vs, _fs, _n_outs, _fs_outs);  
   int indices[] = { 0, 1, 3, 1, 2, 3 };
-  vbuf.create_and_fill(16 * sizeof(float), NULL, GL_DYNAMIC_DRAW, 6 * sizeof(indices), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
+  vbuf.create_and_fill(4, 4 * sizeof(float), NULL, GL_DYNAMIC_DRAW, 6, sizeof(int), indices, GL_STATIC_DRAW); /* Index buffer will not be changed once set, so we set it to `GL_STATIC_DRAW`. */
 }
 
 void blit_texture(sgl::OpenGL::Texture* source, int target_w, int target_h,
@@ -1426,10 +1428,27 @@ void FrameBuffer::setup_attachment(sgl::OpenGL::Texture * tex, int slot) {
 }
 
 bool FrameBuffer::make() {
-  if (fbo != 0) {
-    printf("Error, framebuffer is already initialized, call destroy() before make().\n");
-    return false;
+
+  /* Perform necessary checks to ensure we don't mess up existing framebuffer bindings */
+  int active_fbo = sgl::OpenGL::get_current_framebuffer();
+  if (active_fbo != 0) {
+    /* there is a framebuffer bound to current target */
+    if (fbo != 0 && fbo == active_fbo) {
+      /* the user want to remake the current framebuffer */
+      this->destroy();
+      glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+    else {
+      printf("Error: Another framebuffer is already bound. Unbind it before making a new one.\n");
+      return false;
+    }
   }
+  else {
+    if (fbo != 0) {
+      this->destroy();
+    }
+  }
+
 
   glGenFramebuffers(1, &fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -1508,7 +1527,7 @@ bool FrameBuffer::make() {
     +1.0f, -1.0f,  1.0f, 0.0f,
     +1.0f, +1.0f,  1.0f, 1.0f,
   };
-  quad_vbuf.create_and_fill(sizeof(quad_verts), quad_verts, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
+  quad_vbuf.create_and_fill(6, 4 * sizeof(float), quad_verts, GL_STATIC_DRAW, 0, 0, NULL, GL_STATIC_DRAW);
 
   return fbo_status == GL_FRAMEBUFFER_COMPLETE && blit_shader.get_GL_handle() != 0 && quad_vbuf.get_VAO_GL_handle() != 0;
 }
@@ -1623,7 +1642,7 @@ AnimatedModelRenderer::AnimatedModelRenderer()
 {
   this->bone_matrices_SSBO = 0;
   this->model_matrices_SSBO = 0;
-  this->eye = NULL;
+  this->view = NULL;
 }
 
 AnimatedModelRenderer::~AnimatedModelRenderer()
@@ -1767,7 +1786,7 @@ bool AnimatedModelRenderer::set_model(sgl::Model* model, int num_instances)
       vbuf_cpu[i_vert] = _transform_vertex(vertices[i_vert]);
     /* load vertices and indices into GPU VRAM */
     VertexBuffer_t* vbuf_gpu = new VertexBuffer_t();
-    vbuf_gpu->create_and_fill(int(vertices.size() * sizeof(Vertex_t)), vbuf_cpu.data(), GL_STATIC_DRAW, int(sizeof(int) * indices.size()), indices.data(), GL_STATIC_DRAW);
+    vbuf_gpu->create_and_fill(int(vertices.size()), sizeof(Vertex_t), vbuf_cpu.data(), GL_STATIC_DRAW, int(indices.size()), sizeof(int), indices.data(), GL_STATIC_DRAW);
     this->vbufs.push_back(vbuf_gpu);
     /* load and transfer textures */
     void* tex_cpu_dptr = materials[mat_id].diffuse_texture.get_pixel_data();
@@ -1860,13 +1879,13 @@ int AnimatedModelRenderer::get_num_instances() const
 
 void AnimatedModelRenderer::draw()
 {
-  if (this->eye == NULL)
+  if (this->view == NULL)
     return;
 
   const IVec2 rsize = sgl::OpenGL::get_current_render_target_size();
 
-  Mat4x4 view = this->eye->get_view_matrix();
-  Mat4x4 proj = this->eye->get_projection_matrix(rsize.x, rsize.y);
+  Mat4x4 view = this->view->get_view_matrix();
+  Mat4x4 proj = this->view->get_projection_matrix(rsize.x, rsize.y);
   Mat4x4 bone_matrices[sgl::Model::MAX_NODES_PER_MODEL];
 
   /* Rendering all the mesh parts in model */
@@ -1899,9 +1918,9 @@ void AnimatedModelRenderer::draw()
   }
 }
 
-void AnimatedModelRenderer::set_eye_params(EyeParams* eye)
+void AnimatedModelRenderer::set_view_params(View* view)
 {
-  this->eye = eye;
+  this->view = view;
 }
 
 void AnimatedModelRenderer::unload()
@@ -1936,11 +1955,26 @@ void AnimatedModelRenderer::unload()
   this->inst_anims.clear();
 }
 
+const std::vector<AnimatedModelRenderer::VertexBuffer_t*>& AnimatedModelRenderer::get_vertex_buffers() const
+{
+  return this->vbufs;
+}
+
+const sgl::Model * AnimatedModelRenderer::get_model() const
+{
+  return this->model;
+}
+
+const std::map<void*, sgl::OpenGL::Texture*>& AnimatedModelRenderer::get_texmap() const
+{
+  return this->texmap;
+}
+
 GL_vars::GL_vars() {
   major_version = minor_version = -1;
   MAX_TEXTURE_IMAGE_UNITS = -1;
   MAX_COLOR_ATTACHMENTS = -1;
-  current_active_window = NULL;
+  window = NULL;
   ignore_minor_OpenGL_debug_messages = true;
 }
 

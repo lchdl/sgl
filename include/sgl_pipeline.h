@@ -225,13 +225,13 @@ protected:
 };
 
 inline Mat4x4 
-get_view_matrix(Vec3 eye, Vec3 look_at, Vec3 up)
+get_view_matrix(Vec3 pos, Vec3 look_at, Vec3 up)
 {
-  Vec3 front = normalize(eye - look_at);
+  Vec3 front = normalize(pos - look_at);
   Vec3 left = normalize(cross(up, front));
   Vec3 up0 = normalize(cross(front, left));
   Vec3 &F = front, &L = left, &U = up0;
-  const double &ex = eye.x, &ey = eye.y, &ez = eye.z;
+  const double &ex = pos.x, &ey = pos.y, &ez = pos.z;
   Mat4x4 rotation(
     L.x, L.y, L.z, 0.0,
     U.x, U.y, U.z, 0.0,

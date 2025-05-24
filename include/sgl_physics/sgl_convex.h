@@ -1,6 +1,6 @@
 /*
 
-convex.h : extract convex hull shape from a point cloud.
+sgl_convex.h : extract convex hull shape from a point cloud.
 Original source code is from:
 
 https://github.com/leomccormack/convhull_3d/blob/master/convhull_3d.h
@@ -28,7 +28,7 @@ protected:
   std::vector<Vec3> normals; /* automatically generated when computing */
   std::vector<IVec3>  faces; /* face indices, each INT3 represents all vertex indices of a triangle */
 public:
-  bool              build_from_points(const std::vector<Vec3>& points, int precision = 4);
+  bool              build_from_points(const std::vector<Vec3>& points, int precision = 4, bool verbose = false);
   bool                     export_obj(const char* file) const;
   bool                       from_obj(const char* file); /* you need to ensure to obj file's content represents a convex mesh */
   void                        destroy();

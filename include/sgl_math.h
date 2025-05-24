@@ -47,8 +47,7 @@ template <typename T> T min3(const T& a, const T& b, const T& c) {
   if (m > c) m = c;
   return m;
 }
-template <typename T>
-int argmin3(const T& a, const T& b, const T& c) {
+template <typename T> int argmin3(const T& a, const T& b, const T& c) {
   int arg = 0;
   if (a < b) {
     if (a < c) arg = 0;
@@ -74,7 +73,7 @@ debugging. In release mode, this feature is automatically
 disabled to maintain runtime performance.
 */
 template<typename T>
-void break_if_not_infinite(T v) {
+void break_if_infinite(T v) {
   if (std::isfinite(v) == false) {
     /* triggers a debug break if nan or inf is found */
     debugbreak();
@@ -87,10 +86,14 @@ struct Vec2 {
     struct { double i[2]; };
   };
 
+  bool is_finite() const {
+    return std::isfinite(x) && std::isfinite(y);
+  }
+
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-  void break_if_not_infinite() {
-    sgl::break_if_not_infinite(x);
-    sgl::break_if_not_infinite(y);
+  void break_if_infinite() {
+    if (!is_finite())
+      debugbreak();
   }
 #endif
 
@@ -98,21 +101,21 @@ struct Vec2 {
   Vec2(double _x, double _y) { 
     x = _x, y = _y; 
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec2& operator=(const Vec2& v) {
     this->x = v.x;
     this->y = v.y;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
     return (*this);
   }
   void operator*=(double _b) {
     x *= _b, y *= _b; 
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   double& operator[](const int& _idx) { return this->i[_idx]; }
@@ -125,11 +128,14 @@ struct Vec3 {
     struct { double i[3]; };
   };
 
+  bool is_finite() const {
+    return std::isfinite(x) && std::isfinite(y) && std::isfinite(z);
+  }
+
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-  void break_if_not_infinite() {
-    sgl::break_if_not_infinite(x);
-    sgl::break_if_not_infinite(y);
-    sgl::break_if_not_infinite(z);
+  void break_if_infinite() {
+    if (!is_finite())
+      debugbreak();
   }
 #endif
 
@@ -137,7 +143,7 @@ struct Vec3 {
   Vec3(double _x, double _y, double _z) {
     x = _x, y = _y, z = _z; 
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec3& operator=(const Vec3& v) {
@@ -145,33 +151,33 @@ struct Vec3 {
     this->y = v.y;
     this->z = v.z;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
     return (*this);
   }
   void operator+=(Vec3 v) {
     x += v.x, y += v.y, z += v.z;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator-=(Vec3 v) {
     x -= v.x, y -= v.y, z -= v.z;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator*=(double _b) {
     x *= _b, y *= _b, z *= _b;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator/=(double _b) {
     double inv_b = 1.0 / _b;
     x *= inv_b, y *= inv_b, z *= inv_b;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec2 xy() const { return Vec2(x, y); }
@@ -186,93 +192,96 @@ struct Vec4 {
     struct { double r, g, b, a; };
     struct { double i[4]; };
   };
+
+  bool is_finite() const {
+    return std::isfinite(x) && std::isfinite(y) && std::isfinite(z) && std::isfinite(w);
+  }
+
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-  void break_if_not_infinite() {
-    sgl::break_if_not_infinite(x);
-    sgl::break_if_not_infinite(y);
-    sgl::break_if_not_infinite(z);
-    sgl::break_if_not_infinite(w);
+  void break_if_infinite() {
+    if (!is_finite())
+      debugbreak();
   }
 #endif
   Vec4() { x = y = z = w = 0.0; }
   Vec4(double _x, double _y, double _z) { 
     x = _x, y = _y, z = _z, w = 0.0;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif  
   }
   Vec4(double _x, double _y, double _z, double _w) {
     x = _x, y = _y, z = _z, w = _w;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec4& operator=(const Vec4& v) {
     this->x = v.x; this->y = v.y; this->z = v.z; this->w = v.w;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
     return (*this);
   }
   Vec4(Vec2 _a, double _b, double _c) {
     x = _a.x, y = _a.y, z = _b, w = _c;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec4(double _a, Vec2 _b, double _c) {
     x = _a, y = _b.x, z = _b.y, w = _c;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec4(double _a, double _b, Vec2 _c) {
     x = _a, y = _b, z = _c.x, w = _c.y;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec4(Vec3 _a, double _b) { 
     x = _a.x, y = _a.y, z = _a.z, w = _b;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec4(double _a, Vec3 _b) {
     x = _a, y = _b.x, z = _b.y, w = _b.z;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec4(Vec2 _a, Vec2 _b) { 
     x = _a.x, y = _a.y, z = _b.x, w = _b.y;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator+=(double _b) {
     x += _b, y += _b, z += _b, w += _b;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator-=(double _b) {
     x -= _b, y -= _b, z -= _b, w -= _b;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator*=(double _b) {
     x *= _b, y *= _b, z *= _b, w *= _b;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator/=(double _b) {
     double inv_b = 1.0 / _b;
     x *= inv_b, y *= inv_b, z *= inv_b, w *= inv_b;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Vec3 xyz() const { return Vec3(x, y, z); }
@@ -637,7 +646,13 @@ struct Mat4x4 {
   inline bool is_zero() const {
     return is_zero(0.0);
   }
-
+  inline Mat3x3 to_3x3() const {
+    return Mat3x3(
+      i11, i12, i13,
+      i21, i22, i23,
+      i31, i32, i33
+    );
+  }
 };
 
 /* Defines a quaternion `q` with q = s + xi + yj + zk. */
@@ -646,37 +661,40 @@ struct Quat {
     double i[4];
     struct { double s, x, y, z; };
   };
+
+  bool is_finite() const {
+    return std::isfinite(s) && std::isfinite(x) && std::isfinite(y) && std::isfinite(z);
+  }
+
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-  void break_if_not_infinite() {
-    sgl::break_if_not_infinite(s);
-    sgl::break_if_not_infinite(x);
-    sgl::break_if_not_infinite(y);
-    sgl::break_if_not_infinite(z);
+  void break_if_infinite() {
+    if (!is_finite())
+      debugbreak();
   }
 #endif
   Quat() { x = y = z = s = 0.0;}
   Quat(double _s, double _x, double _y, double _z) {
     this->s = _s; this->x = _x; this->y = _y; this->z = _z;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   Quat(double _s, Vec3 _v) {
     this->s = _s; this->x = _v.x; this->y = _v.y; this->z = _v.z; 
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator+=(Quat q) {
     this->s += q.s, this->x += q.x, this->y += q.y, this->z += q.z;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
   void operator-=(Quat q) {
     this->s -= q.s, this->x -= q.x, this->y -= q.y, this->z -= q.z;
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
 
@@ -712,7 +730,7 @@ struct Quat {
     double cosy_cosp = 1 - 2 * (y * y + z * z);
     yaw = atan2(siny_cosp, cosy_cosp);
 #ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
-    break_if_not_infinite();
+    break_if_infinite();
 #endif
   }
 
@@ -1211,6 +1229,41 @@ inline Vec3 rotate(Vec3 v, Quat q) {
   return 2.0 * dot(u, v) * u
     + (s*s - dot(u, u)) * v
     + 2.0 * s * cross(u, v);
+}
+/*
+Find a 3x3 rotation matrix R that rotates unit vector a onto unit vector b.
+https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
+*/
+inline Mat3x3 compute_rotate(Vec3 a, Vec3 b) {
+  if ((a - b).is_zero()) {
+    /* identical */
+    return Mat3x3::identity();
+  }
+  if ((a + b).is_zero()) {
+    /* opposite (here not a rotation matrix) */
+    return Mat3x3::diag(-1.0, -1.0, -1.0);
+  }
+  Vec3 v = cross(a, b);
+  double s = length(v); /* sine of angle */
+  double c = dot(a, b); /* cosine of angle */
+  double v1 = v.x, v2 = v.y, v3 = v.z;
+  Mat3x3 V = Mat3x3(
+    0, -v3, v2,
+    v3, 0, -v1,
+    -v2, v1, 0
+  );
+  Mat3x3 I = Mat3x3::identity();
+  return I + V + 1.0 / (1.0 + c) * V * V;
+}
+/*
+Compute a 3x3 transform matrix that transforms non zero vector a to non zero vector b,
+*/
+inline Mat4x4 compute_transform(Vec3 a, Vec3 b) {
+  Vec3 na = normalize(a), nb = normalize(b);
+  Mat4x4 rotate = Mat4x4(compute_rotate(na, nb));
+  double s = length(b) / length(a);
+  Mat4x4 scale = Mat4x4::scale(s, s, s);
+  return rotate * scale;
 }
 
 }; /* namespace sgl */

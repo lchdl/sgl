@@ -17,7 +17,7 @@ struct {
   Texture normal;
 } frame_buffer;
 AnimatedModelRenderer renderer;
-EyeParams eye;
+View view;
 
 std::string dtos(double v, int precision) {
   std::stringstream stream;
@@ -64,14 +64,14 @@ void process_key(SDL_KeyboardEvent *key) {
 
   /* custom key handling */
   if (keycode == SDLK_SPACE && is_press) {
-    if (eye.eye.perspective.enabled) {
-      eye.eye.perspective.enabled = false;
-      eye.eye.orthographic.enabled = true;
+    if (view.eye.perspective.enabled) {
+      view.eye.perspective.enabled = false;
+      view.eye.orthographic.enabled = true;
       printf("Now enables orthographic projection.\n");
     }
     else {
-      eye.eye.perspective.enabled = true;
-      eye.eye.orthographic.enabled = false;
+      view.eye.perspective.enabled = true;
+      view.eye.orthographic.enabled = false;
       printf("Now enables perspective projection.\n");
     }
   }
@@ -122,22 +122,22 @@ void init_render() {
   /* setup render pass */
   renderer.bind_render_targets(&frame_buffer.color, &frame_buffer.depth, &frame_buffer.normal);
   renderer.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
-  renderer.set_eye_params(&eye);
+  renderer.set_view(&view);
 
-  eye.eye.position = Vec3(0, 6, 10);
-  eye.eye.look_at = Vec3(0, 3.5, 0);
-  eye.eye.up_dir = Vec3(0, 1, 0);
+  view.eye.position = Vec3(0, 6, 10);
+  view.eye.look_at = Vec3(0, 3.5, 0);
+  view.eye.up_dir = Vec3(0, 1, 0);
   /* perspective */
-  eye.eye.perspective.enabled = true;
-  eye.eye.perspective.near = 1.0;
-  eye.eye.perspective.far = 50.0;
-  eye.eye.perspective.field_of_view = degrees_to_radians(60.0);
+  view.eye.perspective.enabled = true;
+  view.eye.perspective.near = 1.0;
+  view.eye.perspective.far = 50.0;
+  view.eye.perspective.field_of_view = degrees_to_radians(60.0);
   /* orthographic */
-  eye.eye.orthographic.enabled = false;
-  eye.eye.orthographic.near = 1.0;
-  eye.eye.orthographic.far = 50.0;
-  eye.eye.orthographic.width = 12.0;
-  eye.eye.orthographic.height = 9.0;
+  view.eye.orthographic.enabled = false;
+  view.eye.orthographic.near = 1.0;
+  view.eye.orthographic.far = 50.0;
+  view.eye.orthographic.width = 12.0;
+  view.eye.orthographic.height = 9.0;
 
   /* setup model to be rendered */
   renderer.load_model_zip("assets/common/models/boblamp.zip", "model.md5mesh");
@@ -158,8 +158,8 @@ void init_render() {
 double render_frame(double T) {
   const double radius = 8.0;
   renderer.play_animation("", fmod(T, 6.0)); /* 6 seconds per loop */
-  eye.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
-  eye.eye.look_at = Vec3(0, 3.5, 0);
+  view.eye.position = Vec3(radius * sin(T / 3), 6, radius * cos(T / 3));
+  view.eye.look_at = Vec3(0, 3.5, 0);
   renderer.clear_render_targets(Vec4(0.5, 0.5, 0.5, 1.0));
   renderer.draw();
   return renderer.query_last_draw_time();

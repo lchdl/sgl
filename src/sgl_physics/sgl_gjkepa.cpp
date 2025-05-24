@@ -420,10 +420,15 @@ void _epa(
       faces[num_faces].v[0] = loose_edges[i][0];
       faces[num_faces].v[1] = loose_edges[i][1];
       faces[num_faces].v[2] = p;
-      faces[num_faces].n = normalize(cross(loose_edges[i][0].mink - loose_edges[i][1].mink, loose_edges[i][0].mink - p.mink));
+      Vec3 i10 = loose_edges[i][0].mink - loose_edges[i][1].mink;
+      Vec3 ip0 = loose_edges[i][0].mink - p.mink;
+      Vec3 ic = cross(i10, ip0);
+      if (ic.is_zero())
+        return; /* ignore this collision (collided still set to false) */
+      faces[num_faces].n = normalize(ic);
 
       /* Check for wrong normal to maintain CCW winding */
-      double bias = double(0.000001); /* in case dot result is only slightly < 0 (because origin is on face) */
+      double bias = 0.000001; /* in case dot result is only slightly < 0 (because origin is on face) */
       if (dot(faces[num_faces].v[0].mink, faces[num_faces].n) + bias < 0) {
         _gjk_mink temp = faces[num_faces].v[0];
         faces[num_faces].v[0] = faces[num_faces].v[1];

@@ -22,9 +22,8 @@ convenient when drawing something complex onto the screen.
 
 **/
 
-class EyeParams {
+class View {
 public:
-  /* camera/eye settings */
   struct {
     Vec3 position; /* eye position */
     Vec3 look_at;  /* view target */
@@ -38,13 +37,30 @@ public:
       double near, far, width, height;
     } orthographic;
   } eye;
+
+protected:
+  void _build_local_axis(Vec3 & front, Vec3 & up, Vec3 & left);
+
 public:
   /* utility functions */
   Mat4x4 get_view_matrix() const;
   Mat4x4 get_projection_matrix(int w, int h) const;
+
+  /* scene navigation */
+  void move_up(double amount);
+  void move_down(double amount);
+  void move_left(double amount);
+  void move_right(double amount);
+  void move_forward(double amount);
+  void move_backward(double amount);
+  void rotate_left(double degrees);
+  void rotate_right(double degrees);
+  void rotate_up(double degrees);
+  void rotate_down(double degrees);
+
   /* default ctor & dtor */
-  EyeParams();
-  virtual ~EyeParams() {}
+  View();
+  virtual ~View() {}
 };
 
 /**
@@ -53,7 +69,7 @@ TemplatePass:
 A standard template for fully utilizing the programmable pipeline feature
 of SGL. The implementation of this class can also serve as a tutorial.
 **/
-class TemplatePass : public EyeParams {
+class TemplatePass {
 public:
   struct Uniforms {
     /*
@@ -210,7 +226,7 @@ public:
   void       clear_pipeline_cache();
   void       clear_render_targets(const Vec4& clear_color);
   void        set_default_texture(const char* path);
-  void             set_eye_params(EyeParams* eye);
+  void                   set_view(View* view);
 
 public:
   AnimatedModelRenderer();
@@ -235,10 +251,10 @@ protected:
   /* some model does not have any texture, in this case the default texture is needed */
   sgl::Texture default_texture;
 
-  EyeParams* eye;
+  View* view;
 };
 
-class SpriteRenderer : public EyeParams {
+class SpriteRenderer {
 public:
   struct Uniforms {
     Vec3 color_mask;

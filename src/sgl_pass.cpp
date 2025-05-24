@@ -7,11 +7,11 @@ A global sprite renderer instance.
 */
 SpriteRenderer sprite_renderer;
 
-Mat4x4 EyeParams::get_view_matrix() const {
+Mat4x4 View::get_view_matrix() const {
   return sgl::get_view_matrix(eye.position, eye.look_at, eye.up_dir);
 }
 
-Mat4x4 EyeParams::get_projection_matrix(int w, int h) const {
+Mat4x4 View::get_projection_matrix(int w, int h) const {
   Mat4x4 projection_matrix;
   if (eye.perspective.enabled) {
     double aspect_ratio = double(w) / double(h);
@@ -23,7 +23,110 @@ Mat4x4 EyeParams::get_projection_matrix(int w, int h) const {
       eye.orthographic.width, eye.orthographic.height);
   }
 }
-EyeParams::EyeParams()
+
+/* scene navigation */
+
+void View::move_down(double amount) {
+  Vec3 y = Vec3(0, 1, 0);
+  Vec3 diff = y * amount;
+  this->eye.position -= diff;
+  this->eye.look_at -= diff;
+}
+
+void View::move_left(double amount) {
+  Vec3 front, up, left;
+  _build_local_axis(front, up, left);
+  this->eye.position += left * amount;
+  this->eye.look_at += left * amount;
+}
+
+void View::move_right(double amount) {
+  Vec3 front, up, left;
+  _build_local_axis(front, up, left);
+  this->eye.position -= left * amount;
+  this->eye.look_at -= left * amount;
+}
+
+void View::move_forward(double amount) {
+  Vec3 front, up, left;
+  _build_local_axis(front, up, left);
+  this->eye.position += front * amount;
+  this->eye.look_at += front * amount;
+}
+
+void View::move_backward(double amount) {
+  Vec3 front, up, left;
+  _build_local_axis(front, up, left);
+  this->eye.position -= front * amount;
+  this->eye.look_at -= front * amount;
+}
+
+void View::rotate_left(double degrees) {
+  Vec3 front, up, left;
+  Vec3 y = Vec3(0.0f, 1.0f, 0.0f);
+  _build_local_axis(front, up, left);
+  front = rotate(front, y, sgl::degrees_to_radians(degrees));
+  left = rotate(left, y, sgl::degrees_to_radians(degrees));
+  up = rotate(up, y, sgl::degrees_to_radians(degrees));
+  this->eye.look_at = this->eye.position + front;
+  this->eye.up_dir = up;
+}
+
+void View::move_up(double amount) {
+  Vec3 y = Vec3(0, 1, 0);
+  Vec3 diff = y * amount;
+  this->eye.position += diff;
+  this->eye.look_at += diff;
+}
+
+void View::rotate_right(double degrees) {
+  Vec3 front, up, left;
+  Vec3 y = Vec3(0, 1, 0);
+  _build_local_axis(front, up, left);
+  front = rotate(front, y, -sgl::degrees_to_radians(degrees));
+  left = rotate(left, y, -sgl::degrees_to_radians(degrees));
+  up = rotate(up, y, -sgl::degrees_to_radians(degrees));
+  this->eye.look_at = this->eye.position + front;
+  this->eye.up_dir = up;
+}
+
+void View::rotate_up(double degrees) {
+  Vec3 front, up, left;
+  _build_local_axis(front, up, left);
+  Vec3 y = Vec3(0, 1, 0);
+  double cosTheta = dot(front, y);
+  double yDeg = sgl::radians_to_degrees(acos(cosTheta));
+  if (yDeg - degrees < 0.01) return;
+  else {
+    front = rotate(front, left, -sgl::degrees_to_radians(degrees));
+    up = rotate(up, left, -sgl::degrees_to_radians(degrees));
+    this->eye.look_at = this->eye.position + front;
+    this->eye.up_dir = up;
+  }
+}
+
+void View::rotate_down(double degrees) {
+  Vec3 front, up, left;
+  _build_local_axis(front, up, left);
+  Vec3 y = Vec3(0, 1, 0);
+  double cosTheta = dot(front, y);
+  double yDeg = sgl::radians_to_degrees(acos(cosTheta));
+  if (yDeg + degrees > 179.9f) return;
+  else {
+    front = rotate(front, left, sgl::degrees_to_radians(degrees));
+    up = rotate(up, left, sgl::degrees_to_radians(degrees));
+    this->eye.look_at = this->eye.position + front;
+    this->eye.up_dir = up;
+  }
+}
+
+void View::_build_local_axis(Vec3 & front, Vec3 & up, Vec3 & left) {
+  front = normalize(this->eye.look_at - this->eye.position);
+  left = normalize(cross(this->eye.up_dir, front));
+  up = normalize(cross(front, left));
+}
+
+View::View()
 {
   eye.look_at = Vec3(0, 0, 0);
   eye.position = Vec3(10, 10, 10);
@@ -41,7 +144,7 @@ EyeParams::EyeParams()
 
 AnimatedModelRenderer::AnimatedModelRenderer() { 
   play_time = 0.0;
-  eye = NULL;
+  view = NULL;
 }
 
 AnimatedModelRenderer::VS_IN AnimatedModelRenderer::_convert_from_mesh_vertex(const Vertex_pnt_nm_bone & v) const
@@ -57,13 +160,13 @@ AnimatedModelRenderer::VS_IN AnimatedModelRenderer::_convert_from_mesh_vertex(co
 
 void AnimatedModelRenderer::draw() {
 
-  if (this->eye == NULL)
+  if (this->view == NULL)
     return;
 
   /* setup uniforms */
   this->uniforms.world = this->model.get_model_transform();
-  this->uniforms.view = this->eye->get_view_matrix();
-  this->uniforms.projection = this->eye->get_projection_matrix(this->pipeline.get_render_target(0)->get_width(), this->pipeline.get_render_target(0)->get_height());
+  this->uniforms.view = this->view->get_view_matrix();
+  this->uniforms.projection = this->view->get_projection_matrix(this->pipeline.get_render_target(0)->get_width(), this->pipeline.get_render_target(0)->get_height());
 
   /* Rendering all the mesh parts in model */
   const std::vector<Mesh>& mesh_data = model.get_meshes();
@@ -275,9 +378,9 @@ inline void AnimatedModelRenderer::Shader::FS(const Uniforms & uniforms, const F
   fs_outs[2] = Vec4((wn + 1.0)*0.5, 1.0);
 }
 
-void AnimatedModelRenderer::set_eye_params(EyeParams* eye)
+void AnimatedModelRenderer::set_view(View* view)
 {
-  this->eye = eye;
+  this->view = view;
 }
 
 

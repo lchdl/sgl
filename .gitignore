@@ -3,6 +3,7 @@ ext/
 build/
 build_deps/
 devlog/
+demo/
 temp/
 .cache/
 # [Vim] ignore vim files

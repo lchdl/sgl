@@ -26,13 +26,17 @@ appropriate friction.
 
 class XPBDSolver
 {
+
+  /* 
+  For simplicity, the solver is implemented as static member functions. 
+  It performs calculations only and maintains no internal state.
+  */
+
 protected:
   
-  /*
-  
-  Broad/Narrow phase collision detection
-  
-  */
+  /* * * * * * * * * * * * * * * * * * * * * */
+  /* Broad/Narrow phase collision detection  */
+  /* * * * * * * * * * * * * * * * * * * * * */
 
   static std::vector<Collision> _detectCollision_BroadPhase(
     std::vector<RigidBody*>& bodies, 
@@ -48,7 +52,7 @@ protected:
         if (!B->canCollide) 
           continue;
 
-        if (A->id == B->id)
+        if (A->cid == B->cid)
           continue;
 
         if ((!A->isDynamic || A->isSleeping) && (!B->isDynamic || B->isSleeping))
@@ -129,9 +133,9 @@ protected:
     return npcps;
   }
   
-  /* * * * * * * */
-  /* XPBD solver */
-  /* * * * * * * */
+  /* * * * * * * * * * */
+  /* XPBD core solver  */
+  /* * * * * * * * * * */
 
   /*
   _applyBodyPairCorrection: 
@@ -156,8 +160,8 @@ protected:
 
     Vec3 n = normalize(corr);
 
-    double w0 = body0 ? body0->getInverseMass(n, pos0) : 0.0;
-    double w1 = body1 ? body1->getInverseMass(n, pos1) : 0.0;
+    double w0 = body0 ? body0->getGeneralizedInverseMass(n, pos0) : 0.0;
+    double w1 = body1 ? body1->getGeneralizedInverseMass(n, pos1) : 0.0;
 
     double w = w0 + w1;
     if (w == 0.0)
@@ -298,17 +302,18 @@ protected:
       Vec3 vt = v - contact.n * vn;
       double vt_len = length(vt);
 
-      /* (30) Friction */
+      /*
+      (30) Friction
+      */
       if (vt_len > 0.000001) {
         double Fn = -contact.lambda_n / (h * h);
         double friction = min(h * contact.dynamicFriction * Fn, vt_len);
         dv -= normalize(vt) * friction;
       }
 
-      /* (34) Restitution
+      /* 
+      (34) Restitution
       To avoid jittering we set e = 0 if vn is small (`threshold`).
-      Note: min() was replaced with max() due to the flipped sign convention.
-      Note: `vn_tilde` is calculated in ContactSet before the position solve (Eq. 29)
       */
       double threshold = 2.0 * length(gravity) * h;
       double e = (fabs(contact.vn) <= threshold) ? 0.0 : contact.e;
@@ -331,6 +336,10 @@ protected:
   }
 
 public:
+
+  /* * * * * * * * * * */
+  /* XPBD entry point  */
+  /* * * * * * * * * * */
 
   static void update(
     std::vector<RigidBody*>& bodies,
@@ -376,7 +385,7 @@ public:
          the ball intersects the floor.
       2. Integration step: The ball's position updates, causing it to 
          sink further into the floor due to its downward velocity.
-      3. _solveVelocities() adjusts the ball¡¯s velocity, flipping it 
+      3. _solveVelocities() adjusts the ball's velocity, flipping it 
          upward.
 
       Which causes the problem:
@@ -384,8 +393,8 @@ public:
       check immediately detects another collision (duplicate detection).
       This creates a feedback loop: each frame, the ball collides 
       repeatedly, appearing "stuck" to the ground despite its high 
-      bounciness. The simulation becomes unstable, as the ball fails to 
-      rebound cleanly.
+      bounciness. The simulation becomes inaccurate, as the ball fails
+      to rebound cleanly.
 
       So the solution is to perform narrow-phase collision detection 
       AFTER body->integrate() and every thing will be fine.

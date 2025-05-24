@@ -121,7 +121,7 @@ void init_render() {
     -0.5f, +0.5f, -0.5f, 0.0f, 1.0f
   };
 
-  gl.vbuf.create_and_fill(sizeof(vertices), vertices, GL_STATIC_DRAW, 0, NULL, GL_STATIC_DRAW);
+  gl.vbuf.create_and_fill(36, 5 * sizeof(float), vertices, GL_STATIC_DRAW, 0, 0, NULL, GL_STATIC_DRAW);
 
   gl.shader.create(R"(
     #version 330 core

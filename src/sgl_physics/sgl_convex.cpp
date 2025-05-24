@@ -1593,7 +1593,7 @@ void _convhull_delaunay_nd_mesh(
   free(visible);
 }
 
-bool Convex::build_from_points(const std::vector<Vec3>& points, int precision)
+bool Convex::build_from_points(const std::vector<Vec3>& points, int precision, bool verbose)
 {
   this->destroy();
 
@@ -1620,8 +1620,9 @@ bool Convex::build_from_points(const std::vector<Vec3>& points, int precision)
       points_removed++;
     }
   }
-  if (points_removed > 0)
+  if (points_removed > 0 && verbose) {
     printf("%d points removed from point cloud when building the convex hull.\n", points_removed);
+  }
 
   /*
   build convex hull shape.
@@ -1629,8 +1630,13 @@ bool Convex::build_from_points(const std::vector<Vec3>& points, int precision)
   int* faceIdxs = NULL;
   int nFaces = 0;
   _convhull_3d_build(points_.data(), (int)points_.size(), &faceIdxs, &nFaces);
-  if (faceIdxs == NULL) /* cannot build convex hull, return empty shape */
+  if (faceIdxs == NULL) {
+    /* cannot build convex hull, return empty shape */
+    if (verbose) {
+      printf("Error: Cannot build convex hull from points.\n");
+    }
     return false;
+  }
 
   /* pack all vertices */
   std::vector<int> vMap; /* packed vertex index -> unpacked index */
@@ -1696,7 +1702,7 @@ bool Convex::build_from_points(const std::vector<Vec3>& points, int precision)
     Vec3 normal = Vec3(0, 0, 0);
     for (int i_n = 0; i_n < (int)vn_map[i_v].size(); i_n++) {
       Vec3 n = vn_map[i_v][i_n];
-      if (isnan(n.x) || isnan(n.y) || isnan(n.z))
+      if (!n.is_finite())
         continue;
       else
         normal += n;

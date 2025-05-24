@@ -94,9 +94,12 @@ void PrintMemLeakSummary() {
 void test_func_template() {
   /* 
 
-  Do tests here...
+  Just write some statements here.
+  If there is any memory leak, after the function returns
+  the corresponding leak test will automatically fail and
+  an error will be report to user.
+  
   If you want to force test to fail, do this
-
   >>> SetMemLeakChkFailed("write fail reason here.");
 
   */
@@ -104,17 +107,17 @@ void test_func_template() {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-//void test_convex() {
-//  sgl::Model teapot;
-//  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
-//  Physics::convex convex = Physics::build_convex_3D(teapot);
-//  Physics::convex convex0;
-//  convex0 = convex;
-//  convex.from_obj("assets/common/models/teapot_lowpoly_convhull.obj");
-//  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
-//  Vec3 teapot_CoM = sgl::Physics::build_convex_3D(teapot).center_of_mass();
-//
-//}
+
+void test_convex() {
+  sgl::Model teapot;
+  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
+  Physics::Convex convex = Physics::build_convex_3D(teapot);
+  Physics::Convex convex0;
+  convex0 = convex;
+  convex.from_obj("assets/common/models/teapot_lowpoly_convhull.obj");
+  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
+  Vec3 teapot_CoM = sgl::Physics::build_convex_3D(teapot).center_of_mass();
+}
 void test_audio() {
   sgl::Audio::Sound snd;
   snd.load("assets/audios/rain.mp4");
@@ -146,37 +149,34 @@ void test_texture_memory_leak() {
   tex3 = tex0;
 }
 #ifdef ENABLE_OPENGL
-//void test_OpenGL_PhysicsDebugger() {
-//  sgl::Physics::Debugger debugger;
-//  sgl::EyeParams eye;
-//  sgl::Model teapot;
-//  sgl::Physics::RigidBody body;
-//
-//  debugger.initialize();
-//  debugger.set_eye_params(&eye);
-//
-//  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
-//  body.convex_hull = sgl::Physics::build_convex_3D(teapot);
-//  body.model = &teapot;
-//  body.cur_states.x = Vec3(0, 0, 0);
-//  body.cur_states.q = Quat::identity();
-//
-//  /* draw twice to check object cache mechanism */
-//  debugger.draw(body);
-//  debugger.draw(body);
-//
-//  debugger.delete_cached_geometry();
-//  debugger.draw(body);
-//  debugger.draw(body);
-//
-//  body.model = NULL;
-//  debugger.draw(body);
-//  debugger.draw(body);
-//
-//  debugger.delete_cached_geometry();
-//  debugger.draw(body);
-//  debugger.draw(body);
-//}
+void test_OpenGL_PhysicsDebugger() {
+  sgl::Physics::Debugger debugger;
+  sgl::View view;
+  sgl::Model teapot;
+  sgl::Physics::RigidBody body;
+
+  debugger.initialize();
+  debugger.set_view(&view);
+
+  teapot.load_zip("assets/common/models/teapot_lowpoly.zip", "teapot_lowpoly.obj");
+  body.buildConvex(0, sgl::Physics::build_convex_3D(teapot), 1.0, Vec3(0, 0, 0), 1.0, &teapot, "teapot");
+  debugger.add_rigid_body(&body);
+
+  /* draw twice to check object cache mechanism */
+  debugger.run(0.016, 4);
+  debugger.run(0.016, 4);
+
+  debugger.delete_cached_geometry();
+  debugger.run(0.016, 4);
+  debugger.run(0.016, 4);
+
+  debugger.delete_cached_geometry();
+  debugger.run(0.016, 4);
+  debugger.run(0.016, 4);
+
+  debugger.initialize();
+  debugger.delete_cached_geometry();
+}
 void test_OpenGL_texture() {
   sgl::Texture tex = sgl::load_texture("assets/common/textures/checker_256.png", PixelFormat_BGRA8888);
   sgl::OpenGL::Texture gl_tex1 = sgl::OpenGL::Texture(tex);
@@ -259,7 +259,7 @@ int main(int argc, char* argv[]) {
   RunMemLeakTest(test_font_memory_leak, "test_font_memory_leak");
   RunMemLeakTest(test_texture_memory_leak, "test_texture_memory_leak");
   RunMemLeakTest(test_audio, "test_audio");
-  //RunMemLeakTest(test_convex, "test_convex");
+  RunMemLeakTest(test_convex, "test_convex");
 
 #ifdef ENABLE_OPENGL
   SDL_Window* pWindow = SDL_CreateWindow("Dummy Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 64, 64, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
@@ -268,7 +268,7 @@ int main(int argc, char* argv[]) {
   RunMemLeakTest(test_OpenGL_texture,"test_OpenGL_texture");
   RunMemLeakTest(test_OpenGL_texture_v2, "test_OpenGL_texture_v2");
   RunMemLeakTest(test_OpenGL_AnimatedModelRenderer, "test_OpenGL_AnimatedModelRenderer");
-  //RunMemLeakTest(test_OpenGL_PhysicsDebugger, "test_OpenGL_PhysicsDebugger");
+  RunMemLeakTest(test_OpenGL_PhysicsDebugger, "test_OpenGL_PhysicsDebugger");
 #endif
 
   /* TODO: add more memory leak tests here... */

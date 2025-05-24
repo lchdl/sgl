@@ -86,6 +86,8 @@ IVec2 get_current_render_target_size(GLenum attachment = GL_COLOR_ATTACHMENT0);
 
 GLuint get_current_framebuffer();
 
+SDL_Window* get_SDL_window();
+
 class Texture : protected sgl::Texture {
 protected:
   sgl::DeviceType device; /* where is the texture currently stored */
@@ -234,18 +236,50 @@ class VertexBuffer : public sgl::NonCopyable {
   template class, it can adapt to various vertex data layouts.
   */
 public:
-  void      create_and_reserve(const int vbuf_bytes, GLenum vbuf_usage, const int ibuf_bytes, GLenum ibuf_usage);
-  void         create_and_fill(const GLsizei vbuf_bytes, const void* vbuf_data, GLenum vbuf_usage, const GLsizei ibuf_bytes, const void* ibuf_data, GLenum ibuf_usage);
-  /* updates vertex array buffer (VBO) */
+  /*
+  create_and_reserve(): creates the vertex buffer and not filling it.
+  num_vertices: number of vertices of the vertex buffer being created.
+  vertex_bytes: size (int number of bytes) of the each vertex element.
+  vbuf_usage: vertex buffer usage (GL_STATIC_DRAW, GL_DYNAMIC_DRAW, or GL_STREAM_DRAW)
+  num_indices: number of indices
+  index_element_bytes: index element size (for example, if each element is an int, set it to 4)
+  ibuf_usage: index buffer usage (GL_STATIC_DRAW, GL_DYNAMIC_DRAW, or GL_STREAM_DRAW)
+  */
+  void      create_and_reserve(int num_vertices, int vertex_bytes, GLenum vbuf_usage, 
+                               int num_indices, int index_element_bytes, GLenum ibuf_usage);
+  /*
+  create_and_reserve(): creates the vertex buffer and not filling it.
+  num_vertices: number of vertices of the vertex buffer being created.
+  vertex_bytes: size (int number of bytes) of the each vertex element.
+  vbuf_data: vertex buffer data pointer
+  vbuf_usage: vertex buffer usage (GL_STATIC_DRAW, GL_DYNAMIC_DRAW, or GL_STREAM_DRAW)
+  num_indices: number of indices
+  index_element_bytes: index element size (for example, if each element is an int, set it to 4)
+  ibuf_data: index buffer data pointer
+  ibuf_usage: index buffer usage (GL_STATIC_DRAW, GL_DYNAMIC_DRAW, or GL_STREAM_DRAW)
+  */
+  void         create_and_fill(int num_vertices, int vertex_bytes, const void* vbuf_data, GLenum vbuf_usage, 
+                               int num_indices, int index_element_bytes, const void* ibuf_data, GLenum ibuf_usage);
+  /* 
+  subdata_VBO(): updates vertex array buffer (VBO)
+  offset: pointer offset (in bytes)
+  size: number of modified bytes
+  data: data pointer
+  */
   void             subdata_VBO(GLintptr offset, GLsizeiptr size, const void* data); 
-  /* updates element array buffer (IBO/EBO) */
+  /* 
+  subdata_IBO(): updates element array buffer (IBO/EBO)
+  offset: pointer offset (in bytes)
+  size: number of modified bytes
+  data: data pointer
+  */
   void             subdata_IBO(GLintptr offset, GLsizeiptr size, const void* data); 
   void                 destroy();
 
-  void           draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices);
-  void             draw_arrays(GLenum mode, GLint first, GLsizei count);
-  void draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void *indices, const int num_instances);
-  void   draw_arrays_instanced(GLenum mode, GLint first, GLsizei count, const int num_instances);
+  void           draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices) const;
+  void             draw_arrays(GLenum mode, GLint first, GLsizei count) const;
+  void draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void *indices, const int num_instances) const;
+  void   draw_arrays_instanced(GLenum mode, GLint first, GLsizei count, const int num_instances) const;
 
   VertexBuffer();
   virtual ~VertexBuffer();
@@ -259,16 +293,20 @@ protected:
     - If index_buffer_bytes is set to 0, index buffer filling will be skipped.
   **/
   void _realloc_and_fill(
-    const GLsizei vbuf_bytes, const void* vbuf_data, GLenum vbuf_usage,
-    const GLsizei ibuf_bytes, const void* ibuf_data, GLenum ibuf_usage);
+    int num_vertices, int vertex_bytes, const void* vbuf_data, GLenum vbuf_usage,
+    int num_indices, int index_element_bytes, const void* ibuf_data, GLenum ibuf_usage);
 
 public:
   GLuint get_VAO_GL_handle() const;
   GLuint get_VBO_GL_handle() const;
   GLuint get_IBO_GL_handle() const;
 
+  int get_num_vertices() const;
+  int get_num_indices() const;
+
 protected:
   GLuint VAO, VBO, IBO;
+  int num_vertices, num_indices;
 };
 
 class FrameBuffer : public sgl::NonCopyable {
@@ -393,8 +431,8 @@ public:
   - Excessive batch sizes waste heap memory without meaningful gains
   Therefore, 64 has been selected as the optimal batch size for this implementation.
   */
-  static const int BATCH_SIZE = 64;
-  static const int BATCH_BUFSIZE = Font::BATCH_SIZE * 16 * sizeof(float);
+  static const int BATCH_SIZE = 64; /* can be adjusted */
+  static const int BATCH_BUFSIZE = Font::BATCH_SIZE * 16 * sizeof(float); /* do not adjust this */
 public:
   bool load(const char* path);
   void unload();
@@ -481,7 +519,7 @@ public:
 
 protected:
   sgl::Model* model;
-  sgl::EyeParams* eye;
+  sgl::View* view;
   sgl::OpenGL::Shader shader;
   std::vector<VertexBuffer_t*> vbufs;
   std::map<void*, sgl::OpenGL::Texture*> texmap; /* Maps a texture's CPU memory pointer to its corresponding OpenGL texture. */
@@ -500,7 +538,7 @@ protected:
 
 public:
   bool              set_model(sgl::Model* model, int num_instances = 1);
-  void         set_eye_params(sgl::EyeParams* eye);
+  void        set_view_params(sgl::View* view);
   void      set_num_instances(int count);
   void    set_model_transform(const Mat4x4& transform);
   void    set_model_transform(int instance_ID, const Mat4x4& transform);
@@ -511,6 +549,13 @@ public:
   void                   draw(); /* draw all instances at once */
   int       get_num_instances() const;
   void                 unload();
+
+  /*
+  If you want to access detailed model members, use the following functions.
+  */
+  const std::vector<VertexBuffer_t*>& get_vertex_buffers() const;
+  const sgl::Model* get_model() const;
+  const std::map<void*, sgl::OpenGL::Texture*>& get_texmap() const;
 
 public:
   AnimatedModelRenderer();
@@ -524,7 +569,7 @@ struct GL_vars {
   GLint MAX_TEXTURE_IMAGE_UNITS;     /* maximum number of textures that can be bound to a fragment shader */
   GLint MAX_COLOR_ATTACHMENTS;
 
-  SDL_Window* current_active_window; /* an `active` window refers to the window that currently holds the active OpenGL context. */
+  SDL_Window* window; /* an `active` window refers to the window that currently holds the active OpenGL context. */
 
   SpriteRenderer sprite_renderer_RGBA;
   SpriteRenderer sprite_renderer_R32F;
@@ -556,42 +601,51 @@ inline void VertexBuffer<VertexFormat_t>::_create_empty() {
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::create_and_reserve(const int vbuf_bytes, GLenum vbuf_usage, const int ibuf_bytes, GLenum ibuf_usage)
+inline void VertexBuffer<VertexFormat_t>::create_and_reserve(
+  int num_vertices, int vertex_bytes, GLenum vbuf_usage,
+  int num_indices, int index_element_bytes, GLenum ibuf_usage)
 {
   destroy();
 
   this->_create_empty();
-  this->_realloc_and_fill(vbuf_bytes, NULL, vbuf_usage, ibuf_bytes, NULL, ibuf_usage);
+  this->_realloc_and_fill(num_vertices, vertex_bytes, NULL, vbuf_usage, num_indices * index_element_bytes, NULL, ibuf_usage);
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::create_and_fill(const GLsizei vbuf_bytes, const void * vbuf_data, GLenum vbuf_usage, const GLsizei ibuf_bytes, const void * ibuf_data, GLenum ibuf_usage)
+inline void VertexBuffer<VertexFormat_t>::create_and_fill(
+  int num_vertices, int vertex_bytes, const void* vbuf_data, GLenum vbuf_usage,
+  int num_indices, int index_element_bytes, const void* ibuf_data, GLenum ibuf_usage)
 {
   destroy();
   
   this->_create_empty();
-  this->_realloc_and_fill(vbuf_bytes, vbuf_data, vbuf_usage, ibuf_bytes, ibuf_data, ibuf_usage);
+  this->_realloc_and_fill(num_vertices, vertex_bytes, vbuf_data, vbuf_usage, num_indices, index_element_bytes, ibuf_data, ibuf_usage);
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::_realloc_and_fill(const GLsizei vbuf_bytes, const void * vbuf_data, GLenum vbuf_usage, const GLsizei ibuf_bytes, const void * ibuf_data, GLenum ibuf_usage)
+inline void VertexBuffer<VertexFormat_t>::_realloc_and_fill(
+  int num_vertices, int vertex_bytes, const void* vbuf_data, GLenum vbuf_usage,
+  int num_indices, int index_element_bytes, const void* ibuf_data, GLenum ibuf_usage)
 {
   if (VAO == 0) {
     printf("Error, vertex buffer is not initialized, cannot fill data.\n");
     return;
   }
   glBindVertexArray(VAO);
-  if (vbuf_bytes > 0) {
+  if (num_vertices * vertex_bytes > 0) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vbuf_bytes, vbuf_data, vbuf_usage);
+    glBufferData(GL_ARRAY_BUFFER, num_vertices * vertex_bytes, vbuf_data, vbuf_usage);
   }
-  if (ibuf_bytes > 0) {
+  if (num_indices * index_element_bytes > 0) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, ibuf_bytes, ibuf_data, ibuf_usage);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, num_indices * index_element_bytes, ibuf_data, ibuf_usage);
   }
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
+
+  this->num_vertices = num_vertices;
+  this->num_indices = num_indices;
 }
 
 template<typename VertexFormat_t>
@@ -611,7 +665,8 @@ inline void VertexBuffer<VertexFormat_t>::subdata_IBO(GLintptr offset, GLsizeipt
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::draw_elements(GLenum mode, GLsizei count, GLenum type, const void * indices) {
+inline void VertexBuffer<VertexFormat_t>::draw_elements(GLenum mode, GLsizei count, GLenum type, const void * indices) const
+{
   glBindVertexArray(VAO);
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
@@ -622,7 +677,7 @@ inline void VertexBuffer<VertexFormat_t>::draw_elements(GLenum mode, GLsizei cou
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::draw_arrays(GLenum mode, GLint first, GLsizei count)
+inline void VertexBuffer<VertexFormat_t>::draw_arrays(GLenum mode, GLint first, GLsizei count) const
 {
   glBindVertexArray(VAO);
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -634,7 +689,7 @@ inline void VertexBuffer<VertexFormat_t>::draw_arrays(GLenum mode, GLint first, 
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void * indices, const int num_instances)
+inline void VertexBuffer<VertexFormat_t>::draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void * indices, const int num_instances) const
 {
   glBindVertexArray(VAO);
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -646,7 +701,7 @@ inline void VertexBuffer<VertexFormat_t>::draw_elements_instanced(GLenum mode, G
 }
 
 template<typename VertexFormat_t>
-inline void VertexBuffer<VertexFormat_t>::draw_arrays_instanced(GLenum mode, GLint first, GLsizei count, const int num_instances)
+inline void VertexBuffer<VertexFormat_t>::draw_arrays_instanced(GLenum mode, GLint first, GLsizei count, const int num_instances) const
 {
   glBindVertexArray(VAO);
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -671,6 +726,8 @@ inline void VertexBuffer<VertexFormat_t>::destroy() {
     glDeleteBuffers(1, &IBO);
     IBO = 0;
   }
+  this->num_vertices = 0;
+  this->num_indices = 0;
 }
 
 template<typename VertexFormat_t>
@@ -693,6 +750,18 @@ inline GLuint VertexBuffer<VertexFormat_t>::get_VBO_GL_handle() const { return V
 
 template<typename VertexFormat_t>
 inline GLuint VertexBuffer<VertexFormat_t>::get_IBO_GL_handle() const { return IBO; }
+
+template<typename VertexFormat_t>
+inline int VertexBuffer<VertexFormat_t>::get_num_vertices() const
+{
+  return this->num_vertices;
+}
+
+template<typename VertexFormat_t>
+inline int VertexBuffer<VertexFormat_t>::get_num_indices() const
+{
+  return this->num_indices;
+}
 
 }; /* namespace sgl::OpenGL */
 }; /* namespace sgl */
