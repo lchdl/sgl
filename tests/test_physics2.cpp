@@ -22,7 +22,7 @@ struct {
 struct {
   const double dt = 0.016;
   const int substeps = 4;
-  Physics::RigidBody box1, sphere;
+  Physics::RigidBody box1, spheres[2];
   Physics::Debugger debugger;
 } phys;
 
@@ -110,18 +110,23 @@ void init_render_and_physics() {
   phys.box1.setStatic();
 
   gl.sphere.load_zip("assets/common/models/unit_sphere.zip", "unit_sphere.obj");
-  phys.sphere.buildSphere(1, 1.0, 0.5, 1.0, &gl.sphere, Vec3(0.0, 0.0, 0.0));
-  phys.sphere.setPosition(Vec3(0, 10, 0));
-  phys.sphere.setName("sphere");
+  phys.spheres[0].buildSphere(1, 1.0, 0.5, 1.0, &gl.sphere, Vec3(0.0, 0.0, 0.0));
+  phys.spheres[0].setPosition(Vec3(-0.5, 5, 0));
+  phys.spheres[0].setName("sphere0");
+  phys.spheres[1].buildSphere(2, 1.0, 0.5, 1.0, &gl.sphere, Vec3(0.0, 0.0, 0.0));
+  phys.spheres[1].setPosition(Vec3(0.5, 5, 0));
+  phys.spheres[1].setName("sphere1");
 
   phys.debugger.initialize();
   phys.debugger.add_rigid_body(&phys.box1);
-  phys.debugger.add_rigid_body(&phys.sphere);
+  phys.debugger.add_rigid_body(&phys.spheres[0]);
+  phys.debugger.add_rigid_body(&phys.spheres[1]);
   phys.debugger.set_callbacks(NULL, on_pause_callback);
   phys.debugger.set_textbox(1, 1, 300, 300);
   phys.debugger.set_view(&gl.view);
-  phys.debugger.add_watch(&phys.sphere);
-  phys.debugger.pause_after_n_frames(1000000);
+  phys.debugger.add_watch(&phys.spheres[0]);
+  phys.debugger.add_watch(&phys.spheres[1]);
+  phys.debugger.pause_after_n_frames(0); /* immediately pause when simulation starts */
 }
 
 double render_frame(double T)
@@ -130,9 +135,9 @@ double render_frame(double T)
   timer.tick();
 
   /* run debugger */
-  Vec3 vel = phys.sphere.vel;
+  //Vec3 vel = phys.sphere.vel;
   //phys.sphere.setVel(Vec3(0.0, vel.y, 0.0));
-  phys.debugger.run_realtime(phys.substeps);
+  phys.debugger.run(phys.dt, phys.substeps);
 
   return timer.tick();
 }

@@ -42,12 +42,11 @@ protected:
     std::vector<RigidBody*>& bodies, 
     double dt)
   {
-    std::vector<Collision> bpcps; /* broad-phase collisions */
-    int n_bodies = len(bodies);
+    std::vector<Collision> collisions; /* broad-phase collisions */
 
-    for (int i = 0; i < n_bodies; i++) {
+    for (int i = 0; i < len(bodies); i++) {
       RigidBody* A = bodies[i];
-      for (int j = i + 1; j < n_bodies; j++) {
+      for (int j = i + 1; j < len(bodies); j++) {
         RigidBody* B = bodies[j];
         if (!B->canCollide) 
           continue;
@@ -58,10 +57,9 @@ protected:
         if ((!A->isDynamic || A->isSleeping) && (!B->isDynamic || B->isSleeping))
           continue;
 
-        Collision cp(A, B, Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 0.0));
+        Collision cp(A, B);
         
-        /* maximum relative velocity */
-        const double max_rvel = 
+        const double max_rvel = /* maximum relative velocity */
           max(length(A->vel), length(A->prevVel)) + 
           max(length(B->vel), length(B->prevVel));
 
@@ -70,30 +68,30 @@ protected:
         double d1 = length(A->pose.p - B->pose.p);
         double d2 = A->collider.radius + B->collider.radius;
         if (d1 < d2 + safe_distance) {
-          bpcps.push_back(cp);
+          collisions.push_back(cp);
         }
       }
     }
 
-    return bpcps;
+    return collisions;
   }
 
   static std::vector<Collision> _detectCollision_NarrowPhase(
-    std::vector<Collision>& cps)
+    std::vector<Collision>& bp_collisions)
   {
-    std::vector<Collision> npcps; /* narrow-phase collisions */
-    int n_cps = len(cps);
-    for (int i = 0; i < n_cps; i++)
+    std::vector<Collision> collisions; /* narrow-phase collisions */
+    for (int i = 0; i < len(bp_collisions); i++)
     {
-      ColliderType colTypeA = cps[i].A->collider.colliderType;
-      ColliderType colTypeB = cps[i].B->collider.colliderType;
+      Collision& bpc = bp_collisions[i];
+      ColliderType colTypeA = bpc.A->collider.colliderType;
+      ColliderType colTypeB = bpc.B->collider.colliderType;
 
       if (colTypeA == ColliderType_ConvexMesh && colTypeB == ColliderType_ConvexMesh) {
         /*
         Case 1: Solve collisions between two rigid bodies.
         */
-        if (_solve_collision_RigidBody_vs_RigidBody(cps[i].A, cps[i].B, cps[i]))
-          npcps.push_back(cps[i]);
+        if (_solve_collision_RigidBody_vs_RigidBody(bpc.A, bpc.B, bpc))
+          collisions.push_back(bpc);
       }
       else if (colTypeA == ColliderType_Sphere && colTypeB == ColliderType_ConvexMesh) {
         /*
@@ -107,30 +105,30 @@ protected:
         sometimes bounce off each other at high speeds, even when they are 
         initially at rest.
         */
-        if (_solve_collision_RigidBody_vs_RigidBody(cps[i].A, cps[i].B, cps[i]))
-          npcps.push_back(cps[i]);
+        if (_solve_collision_RigidBody_vs_RigidBody(bpc.A, bpc.B, bpc))
+          collisions.push_back(bpc);
       }
       else if (colTypeA == ColliderType_ConvexMesh && colTypeB == ColliderType_Sphere) {
         /*
         Case 3: RigidBody vs. Sphere.
         The same with Case 2.
         */
-        if (_solve_collision_RigidBody_vs_RigidBody(cps[i].A, cps[i].B, cps[i]))
-          npcps.push_back(cps[i]);
+        if (_solve_collision_RigidBody_vs_RigidBody(bpc.A, bpc.B, bpc))
+          collisions.push_back(bpc);
       }
       else if (colTypeA == ColliderType_Sphere && colTypeB == ColliderType_Sphere) {
         /*
         Case 4: Sphere vs. Sphere.
         */
-        if (_solve_collision_Sphere_vs_Sphere(cps[i].A, cps[i].B, cps[i]))
-          npcps.push_back(cps[i]);
+        if (_solve_collision_Sphere_vs_Sphere(bpc.A, bpc.B, bpc))
+          collisions.push_back(bpc);
       }
       /* TODO: add other collisions. */
       else {
         /* Maybe I should print a warning here? */
       }
     }
-    return npcps;
+    return collisions;
   }
   
   /* * * * * * * * * * */
@@ -241,7 +239,7 @@ protected:
       This inequation was flipped because the lambda values are always negative!
       With 1 position iteration (XPBD), lambda_t is always zero!
      */
-    if (contact.lambda_t > contact.staticFriction * contact.lambda_n) {
+    if (contact.lambda_t > contact.mu_s * contact.lambda_n) {
 
       /* (26) Positions in current state and before the substep integration */
       Vec3 p1prev = contact.A->prevPose.p + rotate(contact.r1, contact.A->prevPose.q);
@@ -274,18 +272,16 @@ protected:
     std::vector<Collision>& contacts, 
     double h)
   {
-    int n_contacts = len(contacts);
-    for (int i = 0; i < n_contacts; i++)
+    for (int i = 0; i < len(contacts); i++)
       _solvePenetrationAndFriction(contacts[i], h);
   }
 
   static void _solveVelocities(
     std::vector<Collision>& contacts,
     double h,
-    Vec3 gravity)
+    Vec3 g_coeff)
   {
-    int n_contacts = len(contacts);
-    for (int i = 0; i < n_contacts; i++) {
+    for (int i = 0; i < len(contacts); i++) {
       Collision& contact = contacts[i];
 
       contact.update();
@@ -307,7 +303,7 @@ protected:
       */
       if (vt_len > 0.000001) {
         double Fn = -contact.lambda_n / (h * h);
-        double friction = min(h * contact.dynamicFriction * Fn, vt_len);
+        double friction = min(h * contact.mu_d * Fn, vt_len);
         dv -= normalize(vt) * friction;
       }
 
@@ -315,11 +311,10 @@ protected:
       (34) Restitution
       To avoid jittering we set e = 0 if vn is small (`threshold`).
       */
-      double threshold = 2.0 * length(gravity) * h;
+      double threshold = 2.0 * length(g_coeff) * h;
       double e = (fabs(contact.vn) <= threshold) ? 0.0 : contact.e;
-      double vn_tilde = contact.vn;
-      double restitution = -vn + min(-e * vn_tilde, 0.0);
-      dv += contact.n * restitution;
+      double vn_corr = -vn + min(-e * contact.vn, 0.0);
+      dv += contact.n * vn_corr;
 
       /* (33) Velocity update */
       _applyBodyPairCorrection(
@@ -345,7 +340,7 @@ public:
     std::vector<RigidBody*>& bodies,
     std::vector<BaseConstraint*>& constraints,
     double dt, int substeps,
-    Vec3 gravity)
+    Vec3 g_coeff)
   {
    
     /* TODO: add positional and rotation damping. */
@@ -362,13 +357,11 @@ public:
     /*
     XPBD main loop
     */
-    int n_bodies = len(bodies);
-    int n_constraints = len(constraints);
 
     for (int i = 0; i < substeps; i++) {
 
-      for (int j = 0; j < n_bodies; j++)
-        bodies[j]->integrate(h, gravity);
+      for (int j = 0; j < len(bodies); j++)
+        bodies[j]->integrate(h, g_coeff);
 
       /*
       
@@ -403,18 +396,18 @@ public:
 
       std::vector<Collision> contacts = _detectCollision_NarrowPhase(collisions);
 
-      for (int j = 0; j < n_constraints; j++)
+      for (int j = 0; j < len(constraints); j++)
         constraints[j]->solvePos(h);
 
       _solvePositions(contacts, h);
 
-      for (int j = 0; j < n_bodies; j++)
+      for (int j = 0; j < len(bodies); j++)
         bodies[j]->update(h);
 
-      for (int j = 0; j < n_constraints; j++)
+      for (int j = 0; j < len(constraints); j++)
         constraints[j]->solveVel(h);
 
-      _solveVelocities(contacts, h, gravity);
+      _solveVelocities(contacts, h, g_coeff);
     }
 
   }

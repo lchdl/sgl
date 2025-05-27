@@ -12,6 +12,7 @@ Defines and implements:
 #include "sgl_utils.h"
 #include "sgl_math.h"
 #include "sgl_texture.h"
+#include "sgl_pass.h"
 
 namespace sgl {
 
@@ -104,5 +105,26 @@ void draw_text(sgl::Texture* target, sgl::Font* font, const std::wstring& text, 
 IVec2 get_text_extent_point(sgl::Font* font, const std::wstring & text);
 IVec2 get_text_extent_point(sgl::Font* font, const std::wstring & text, int w, int h);
 
+/*
+
+Get window coordinates (x_pixel, y_pixel, depth) from a 3D position after rasterization.
+  - x_pixel: Horizontal pixel coordinate (0 = left edge)
+  - x_pixel: Vertical pixel coordinate (0 = bottom edge)
+  - depth: Depth buffer value [0,1] (0 = near, 1 = far)
+
+This function transforms a 3D world-space position to 2D screen-space coordinates by 
+applying the modelview and projection transformations, followed by perspective division 
+and viewport mapping.
+
+@param p            The 3D world-space position to transform (Vec3)
+@param model        Model matrix (object space -> world space)
+@param view         View matrix (world space -> eye space)
+@param projection   Projection matrix (eye space -> clip space)
+@param viewport_w   Viewport width in pixels
+@param viewport_h   Viewport height in pixels
+
+*/
+Vec3 get_raster_coords(const Vec3& p, const Mat4x4& view_matrix, const Mat4x4& proj_matrix, int viewport_w, int viewport_h);
+Vec3 get_raster_coords(const Vec3& p, const sgl::View& view, int viewport_w, int viewport_h);
 
 };

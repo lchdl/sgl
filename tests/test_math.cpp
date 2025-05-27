@@ -1,8 +1,11 @@
 #include "sgl_math.h"
 #include "sgl_utils.h"
+#include "sgl_primitives.h"
+
 using namespace sgl;
 
-void main() {
+void main()
+{
 
   Vec3 v1 = normalize(Vec3(1, 2, 3));
   Vec3 v2 = normalize(Vec3(3, 2, 1));
@@ -32,5 +35,18 @@ void main() {
   Vec3 v(0, 0, 1);
   print(rotate(rotate(v, inverse(r0)), r1));
   print(rotate(rotate(v, inverse(r0)), r0));
+
+
+  sgl::View view;
+  view.eye.position = Vec3(1, 0, 0);
+  view.eye.look_at = Vec3(0, 0, 0);
+  view.eye.up_dir = Vec3(0, 0, 1);
+  view.eye.perspective.enabled = true;
+  view.eye.orthographic.enabled = false;
+  view.eye.perspective.near = 0.001;
+  view.eye.perspective.far = 2.0;
+  view.eye.perspective.field_of_view = sgl::PI / 3.0;
+  print(sgl::get_raster_coords(Vec3(0, 0, 0.5), view, 800, 600));
+  
 }
 

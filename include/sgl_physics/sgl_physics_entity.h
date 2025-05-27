@@ -1,5 +1,51 @@
 #pragma once
 
+/*
+
+sgl_physics_entity.h: Defines entity objects used in our physics simulation system.
+
+This header includes:
+  1. Various entity types
+  2. Collision detection algorithms for these entities
+
+Since entities are always involved in collision handling, the collision detection
+algorithms are implemented directly in this header.
+
+Entity Types:
+
+  RigidBody:
+    
+    Represents a physically simulated object with linear and angular velocity, 
+    capable of both translation and rotation. Its collision shape is defined by a 
+    convex hull, and collision detection is handled using the GJK-EPA algorithm.
+
+  FixedMesh:
+
+    A special type of RigidBody that is static (non-movable). It is typically used 
+    to represent large-scale scenery or environment meshes that interact with dynamic 
+    objects in the game world.
+
+    We do not place any restrictions on the shape of FixedMesh; it can be either open 
+    or enclosed, as long as it is composed of triangles. We also do not assume 
+    convexity, since environmental geometry can be highly complex.
+
+    In this context, collision between a RigidBody and a FixedMesh cannot be resolved
+    using GJK-EPA, as that algorithm requires both shapes to be convex. Some games
+    use approximate methods instead. For instance, in "Re-Volt", each RigidBody is
+    approximated by a set of ~30 spheres. These spheres are then tested for collision
+    against the FixedMesh (i.e., sphere-triangle tests). The positions and radii of
+    these spheres are manually defined by developers through trial and error.
+
+    In SGL, we do not adopt this method due to its lack of automation and the
+    significant manual effort required to configure the spheres. Instead, we directly
+    use the convex vertices of the RigidBody to test for collisions with the FixedMesh.
+
+    However, this approach has limitations. For example, when a convex object collides
+    with a sharp spike in the mesh, the lack of edge-edge collision detection may lead
+    to significant inaccuracies. This is a deliberate trade-off for performance.
+
+*/
+
 #include "sgl_math.h"
 #include "sgl_model.h"
 #include "sgl_physics/sgl_gjkepa.h"
@@ -96,14 +142,14 @@ struct RigidBody
   Pose pose;              /* position and rotation */
   Vec3 vel;               /* linear velocity (m/s) */
   Vec3 omega;             /* angular velocity (rad/s) */
-  double invMass;         /* inverse mass (kg^-1) */
-  Mat3x3 invLocalInertia; /* inverse local inertia tensor */
+  double invMass;         /* inversed mass (kg^-1) */
+  Mat3x3 invLocalInertia; /* inversed local inertia tensor (inversed body-frame inertia tensor) */
   Vec3 force;             /* total external force (N) */
   Vec3 torque;            /* total external torque (N*m) */
-  double gravity;         /* coefficient applied to g = 9.80665 m/s^2, defaults to 1.0 */
-  double staticFriction;  /* static friction coefficient (0.0~1.0) */
-  double dynamicFriction; /* dynamic friction coefficient (0.0~1.0) */
-  double restitution;     /* restitution coefficient (0.0~1.0) */
+  double g_coeff;         /* coefficient applied to g = 9.80665 m/s^2, defaults to 1.0 */
+  double mu_s;            /* static friction coefficient (0.0~1.0) */
+  double mu_d;            /* dynamic friction coefficient (0.0~1.0) */
+  double e;               /* restitution coefficient (0.0~1.0) */
   Collider collider;      /* rigid body collider */
   /* prev states */
   Pose prevPose;          /* pose in previous state */
@@ -145,10 +191,10 @@ struct RigidBody
     invLocalInertia = Mat3x3::identity();
     force = Vec3(0.0, 0.0, 0.0);
     torque = Vec3(0.0, 0.0, 0.0);
-    gravity = 1.0;
-    staticFriction = 1.00;
-    dynamicFriction = 0.99;
-    restitution = 0.9;
+    g_coeff = 1.0;
+    mu_s = 1.00;
+    mu_d = 0.99;
+    e = 0.9;
     collider.colliderType = ColliderType_Undefined;
     collider.convexMeshCollider.gjkProxy.colLocal = &collider.convexMeshCollider.convexHull;
     collider.convexMeshCollider.gjkProxy.posWorld = &pose.p;
@@ -261,7 +307,7 @@ struct RigidBody
   }
   void setStatic() {
     isDynamic = false;
-    gravity = 0.0;
+    g_coeff = 0.0;
     invMass = 0.0;
     invLocalInertia = Mat3x3(
       0.0, 0.0, 0.0,
@@ -347,14 +393,14 @@ struct RigidBody
     pose.q = normalize(pose.q);
   }
   /* Euler integration of unconstrained object motion */
-  void integrate(double dt, Vec3 gravity) {
+  void integrate(double dt, Vec3 g_coeff) {
     if (!isDynamic)
       return;
     prevPose = pose;
     if (isSleeping)
       return;
     /* Euler step */
-    vel += gravity * this->gravity * dt;
+    vel += g_coeff * this->g_coeff * dt;
     vel += force * invMass * dt;
     pose.p += vel * dt;
     omega += invInertia() * torque * dt;
@@ -420,8 +466,8 @@ struct Collision
   Vec3 vrel;       /* Relative velocity */
   double vn;       /* Normal velocity */
   double e;        /* Coefficient of restitution */
-  double staticFriction;
-  double dynamicFriction;
+  double mu_s;
+  double mu_d;
   Vec3 F;          /* Current constraint force */
   double Fn;       /* Current constraint force (normal direction) == -contact.lambda_n / (h * h) */
 
@@ -440,7 +486,8 @@ struct Collision
   }
 
   Collision(RigidBody* A, RigidBody* B,
-    Vec3 normal, Vec3 p1, Vec3 p2, Vec3* r1 = NULL, Vec3* r2 = NULL)
+    Vec3* normal = NULL, Vec3* p1 = NULL, Vec3* p2 = NULL, 
+    Vec3* r1 = NULL, Vec3* r2 = NULL)
   {
     assert(A && B);
     assert(A != B);
@@ -454,16 +501,16 @@ struct Collision
 
     this->A = A;
     this->B = B;
-    this->p1 = p1;
-    this->p2 = p2;
-    this->r1 = r1 ? (*r1) : (A->worldToLocal(p1));
-    this->r2 = r2 ? (*r2) : (B->worldToLocal(p2));
-    this->n = normal;
-    this->vrel = A->getVelocityAt(p1) - B->getVelocityAt(p2);
+    this->p1 = p1 ? (*p1) : Vec3(0.0, 0.0, 0.0);
+    this->p2 = p2 ? (*p2) : Vec3(0.0, 0.0, 0.0);
+    this->r1 = r1 ? (*r1) : (A->worldToLocal(this->p1));
+    this->r2 = r2 ? (*r2) : (B->worldToLocal(this->p2));
+    this->n = normal ? (*normal) : Vec3(0.0, 0.0, 0.0);
+    this->vrel = A->getVelocityAt(this->p1) - B->getVelocityAt(this->p2);
     this->vn = dot(vrel, n);
-    this->e = (A->restitution + B->restitution) / 2.0;
-    this->staticFriction = (A->staticFriction + B->staticFriction) / 2.0;
-    this->dynamicFriction = (A->dynamicFriction + B->dynamicFriction) / 2.0;
+    this->e = (A->e + B->e) / 2.0;
+    this->mu_s = (A->mu_s + B->mu_s) / 2.0;
+    this->mu_d = (A->mu_d + B->mu_d) / 2.0;
 
     this->update();
   }
@@ -481,7 +528,8 @@ inline bool _solve_collision_RigidBody_vs_RigidBody(
     B->getGJKCollider()
   );
   if (r.collided) {
-    cp = Collision(A, B, normalize(r.pA - r.pB), r.pA, r.pB);
+    Vec3 d = normalize(r.pA - r.pB);
+    cp = Collision(A, B, &d, &r.pA, &r.pB);
   }
   return r.collided;
 }
@@ -506,7 +554,7 @@ inline bool _solve_collision_Sphere_vs_Sphere(
   and pB lies on B but inside A.
   */
   if (d_AB < A->collider.radius + B->collider.radius) {
-    cp = Collision(A, B, d, pA, pB);
+    cp = Collision(A, B, &d, &pA, &pB);
     return true;
   }
   else {

@@ -414,6 +414,29 @@ IVec2 get_text_extent_point(sgl::Font * font, const std::wstring & text, int w, 
   return font->get_text_extent_point(text, w, h);
 }
 
+Vec3 get_raster_coords(const Vec3 & p, const Mat4x4 & view_matrix, const Mat4x4 & proj_matrix, int viewport_w, int viewport_h)
+{
+  Mat4x4 transform_WVP = mul(proj_matrix, view_matrix);
+  Vec4 gl_Position = mul(transform_WVP, Vec4(p, 1.0));
+  Vec3 p_NDC = gl_Position.xyz() / gl_Position.w;
+  Vec2 scale_factor = Vec2(viewport_w, viewport_h);
+  Vec3 p_window = Vec3(
+    0.5 * (p_NDC.xy() + 1.0) * scale_factor, 
+    0.5 * (gl_Position.z / gl_Position.w + 1.0));
+  return p_window;
+}
+
+Vec3 get_raster_coords(const Vec3 & p, const sgl::View & view, int viewport_w, int viewport_h)
+{
+  return get_raster_coords(
+    p, 
+    view.get_view_matrix(), 
+    view.get_projection_matrix(viewport_w, viewport_h), 
+    viewport_w, 
+    viewport_h
+  );
+}
+
 bool Font::load(const char * path)
 {
   unload();

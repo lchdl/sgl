@@ -146,6 +146,12 @@ struct Vec3 {
     break_if_infinite();
 #endif
   }
+  Vec3(Vec2 _a, double _b) {
+    x = _a.x, y = _a.y, z = _b;
+#ifdef SGL_MATH_ENABLE_SAFE_VALUE_ASSIGNMENT
+    break_if_infinite();
+#endif
+  }
   Vec3& operator=(const Vec3& v) {
     this->x = v.x;
     this->y = v.y;
@@ -738,6 +744,12 @@ struct Quat {
 
 inline Vec2 operator+(Vec2 _a, Vec2 _b) {
   return Vec2(_a.x + _b.x, _a.y + _b.y);
+}
+inline Vec2 operator+(Vec2 _a, double _b) {
+  return Vec2(_a.x + _b, _a.y + _b);
+}
+inline Vec2 operator+(double _a, Vec2 _b) {
+  return Vec2(_a + _b.x, _a + _b.y);
 }
 inline Vec2 operator-(Vec2 _a, Vec2 _b) {
   return Vec2(_a.x - _b.x, _a.y - _b.y);
