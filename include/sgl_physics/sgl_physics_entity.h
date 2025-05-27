@@ -1,5 +1,51 @@
 #pragma once
 
+/*
+
+sgl_physics_entity.h: Defines entity objects used in our physics simulation system.
+
+This header includes:
+  1. Various entity types
+  2. Collision detection algorithms for these entities
+
+Since entities are always involved in collision handling, the collision detection
+algorithms are implemented directly in this header.
+
+Entity Types:
+
+  RigidBody:
+    
+    Represents a physically simulated object with linear and angular velocity, 
+    capable of both translation and rotation. Its collision shape is defined by a 
+    convex hull, and collision detection is handled using the GJK-EPA algorithm.
+
+  FixedMesh:
+
+    A special type of RigidBody that is static (non-movable). It is typically used 
+    to represent large-scale scenery or environment meshes that interact with dynamic 
+    objects in the game world.
+
+    We do not place any restrictions on the shape of FixedMesh; it can be either open 
+    or enclosed, as long as it is composed of triangles. We also do not assume 
+    convexity, since environmental geometry can be highly complex.
+
+    In this context, collision between a RigidBody and a FixedMesh cannot be resolved
+    using GJK-EPA, as that algorithm requires both shapes to be convex. Some games
+    use approximate methods instead. For instance, in "Re-Volt", each RigidBody is
+    approximated by a set of ~30 spheres. These spheres are then tested for collision
+    against the FixedMesh (i.e., sphere-triangle tests). The positions and radii of
+    these spheres are manually defined by developers through trial and error.
+
+    In SGL, we do not adopt this method due to its lack of automation and the
+    significant manual effort required to configure the spheres. Instead, we directly
+    use the convex vertices of the RigidBody to test for collisions with the FixedMesh.
+
+    However, this approach has limitations. For example, when a convex object collides
+    with a sharp spike in the mesh, the lack of edge-edge collision detection may lead
+    to significant inaccuracies. This is a deliberate trade-off for performance.
+
+*/
+
 #include "sgl_math.h"
 #include "sgl_model.h"
 #include "sgl_physics/sgl_gjkepa.h"
