@@ -1,5 +1,45 @@
 #pragma once
 
+/*
+
+sgl_physics_entity.h: Defines entity objects used in our physics simulation system.
+
+This header includes:
+  1. Various entity types
+  2. Collision detection algorithms for these entities
+
+Since entities are always involved in collision handling, the collision detection
+algorithms are implemented directly in this header.
+
+Entity Types:
+
+  RigidBody:
+    Represents an object with linear and angular velocity. It can move and rotate.
+    The collider for this type is a convex hull.
+
+  FixedMesh:
+    A special type of RigidBody that is static (non-movable).
+    It is typically used as the world mesh to represent large scenery in games.
+    There are no constraints on its shape¡ªit can be enclosed or open and made up
+    of arbitrary triangle sets. We do not assume the mesh is convex, as game
+    environments can be complex.
+
+    Because of this complexity, collisions between RigidBody and FixedMesh cannot
+    be resolved using GJK-EPA. Some games use approximation techniques instead.
+    For example, Re-Volt uses a set of ~30 spheres to loosely enclose a RigidBody
+    and tests collisions between these spheres and the FixedMesh (i.e., sphere-
+    triangle collisions). The positions and radii of these spheres are manually 
+    defined by developers through trial and error.
+
+    In SGL, we do not adopt this approach due to its lack of automation and heavy
+    reliance on manual labor. Instead, we directly use the convex vertices of the
+    RigidBody for collision testing with the FixedMesh. However, this method can
+    introduce inaccuracies. For example, if a convex shape collides with a spike
+    on the mesh, it may result in significant error due to the lack of edge 
+    collision detection for performance reasons.
+
+*/
+
 #include "sgl_math.h"
 #include "sgl_model.h"
 #include "sgl_physics/sgl_gjkepa.h"
