@@ -99,11 +99,12 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor_version);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   if (debug) {
-    if (major_version >= 4 && minor_version >= 3) {
-      SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+    if (major_version < 4 || (major_version == 4 && minor_version < 3)) {
+      printf("Warning: OpenGL debug context is only available in version 4.3 and above.\n");
+      printf("OpenGL debug context disabled.\n");
     }
     else {
-      printf("Warning: OpenGL debug context is only available in version 4.3 and above.\n");
+      SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
     }
   }
 
