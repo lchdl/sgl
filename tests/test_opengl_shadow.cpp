@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <sstream>
+#include <iostream>
 
 #ifdef ENABLE_OPENGL
 #include "sgl.h"
@@ -44,7 +45,7 @@ void init_env(int argc, char* argv[]) {
   pWindow = SDL_CreateWindow("SGL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
   if (pWindow == NULL)
     exit(1);
-  if (!sgl::OpenGL::initialize_OpenGL(pWindow, 3, 3, true))
+  if (!sgl::OpenGL::initialize_OpenGL(pWindow, 4, 3, true, true))
     exit(1);
   SDL_ShowWindow(pWindow);
   pWindowSurface = SDL_GetWindowSurface(pWindow);
@@ -128,27 +129,27 @@ void init_render() {
     {"FragDepth", 0},
   };
   gl.shader_shadow.create(R"(
-    #version 330 core
+    #version 430 core
     layout (location = 0) in vec3 inPosition;
     layout (location = 1) in vec2 inTexCoord;
     uniform mat4x4 Model;
     uniform mat4x4 LightTransform;
     void main()
     {
-	    gl_Position = LightTransform * Model * vec4(inPosition, 1.0);
+      gl_Position = LightTransform * Model * vec4(inPosition, 1.0);
     }
     )",R"(
-    #version 330 core
-    layout(location = 0) out float FragDepth;
+    #version 430 core
+    layout(location = 0) out vec4 FragDepth;
     void main()
     {
-	    FragDepth = gl_FragCoord.z;
+      float d = gl_FragCoord.z;
+      FragDepth = vec4(d, d, d, 1.0);
     }
-    )",
-    1, fs_outs
+    )", 1, fs_outs
   );
   gl.shader_main.create(R"(
-    #version 330 core
+    #version 430 core
     layout (location = 0) in vec3 inPosition;
     layout (location = 1) in vec2 inTexCoord;
     uniform mat4x4 Model;
@@ -159,12 +160,12 @@ void init_render() {
     out vec4 LightSpacePos;
     void main()
     {
-	    gl_Position = Projection * View * Model * vec4(inPosition, 1.0);
-	    TexCoord = inTexCoord;
+      gl_Position = Projection * View * Model * vec4(inPosition, 1.0);
+      TexCoord = inTexCoord;
       LightSpacePos = LightTransform * Model * vec4(inPosition, 1.0);
     }
     )", R"(
-    #version 330 core
+    #version 430 core
     layout(location = 0) out vec4 FragColor;
     in vec2 TexCoord;
     in vec4 LightSpacePos;
@@ -185,7 +186,7 @@ void init_render() {
     {
       float InShadow = shadow(LightSpacePos);
       vec4 ShadowCoeff = vec4(vec3(clamp(1.0 - InShadow, 0.5, 1.0)), 1.0);
-	    FragColor = ShadowCoeff * mix(texture(tex1, TexCoord), texture(tex2, TexCoord), 0.5);
+      FragColor = ShadowCoeff * mix(texture(tex1, TexCoord), texture(tex2, TexCoord), 0.5);
     }
     )"
   );
@@ -240,7 +241,7 @@ Mat4x4 shadow_pass(double T) {
   gl.fbuf_depth.bind();
   {
     /* depth buffer should set to farthest 1.0f */
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f); 
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 

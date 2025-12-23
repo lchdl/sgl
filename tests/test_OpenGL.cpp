@@ -43,7 +43,7 @@ void init_env(int argc, char* argv[]) {
   pWindow = SDL_CreateWindow("SGL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
   if (pWindow == NULL)
     exit(1);
-  if (!sgl::OpenGL::initialize_OpenGL(pWindow, 3, 3, true))
+  if (!sgl::OpenGL::initialize_OpenGL(pWindow, 4, 3, true, true))
     exit(1);
   SDL_ShowWindow(pWindow);
   pWindowSurface = SDL_GetWindowSurface(pWindow);
@@ -124,7 +124,7 @@ void init_render() {
   gl.vbuf.create_and_fill(36, 5 * sizeof(float), vertices, GL_STATIC_DRAW, 0, 0, NULL, GL_STATIC_DRAW);
 
   gl.shader.create(R"(
-    #version 330 core
+    #version 430 core
     layout (location = 0) in vec3 inPosition;
     layout (location = 1) in vec2 inTexCoord;
     uniform mat4x4 Model;
@@ -137,7 +137,7 @@ void init_render() {
 	    TexCoord = inTexCoord;
     }
     )", R"(
-    #version 330 core
+    #version 430 core
     layout(location = 0) out vec4 FragColor;
     in vec2 TexCoord;
     uniform sampler2D tex1;

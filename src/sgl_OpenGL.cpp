@@ -105,6 +105,7 @@ bool initialize_OpenGL(SDL_Window* window, int major_version, int minor_version,
     }
     else {
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+      printf("OpenGL debug context flag is set.\n");
     }
   }
 
@@ -761,64 +762,87 @@ bool Shader::set_uniform_4fv(const std::string& name, GLsizei count, const GLflo
 }
 bool Shader::set_uniform_matrix_2fv(const std::string & name, GLsizei count, GLboolean transpose, const GLfloat * v) const {
   GLint location;
-  if ((location = get_uniform_location(name)) < 0)
+  if ((location = get_uniform_location(name)) < 0) {
+    printf("Invalid uniform matrix variable name given: \"%s\"\n", name.c_str());
     return false;
+  }
   glUniformMatrix2fv(location, count, transpose, v);
   return true;
 }
 bool Shader::set_uniform_matrix_3fv(const std::string & name, GLsizei count, GLboolean transpose, const GLfloat * v) const {
   GLint location;
-  if ((location = get_uniform_location(name)) < 0)
+  if ((location = get_uniform_location(name)) < 0) {
+    printf("Invalid uniform matrix variable name given: \"%s\"\n", name.c_str());
     return false;
+  }
   glUniformMatrix3fv(location, count, transpose, v);
   return true;
 }
 bool Shader::set_uniform_matrix_4fv(const std::string & name, GLsizei count, GLboolean transpose, const GLfloat * v) const {
   GLint location;
-  if ((location = get_uniform_location(name)) < 0)
+  if ((location = get_uniform_location(name)) < 0) {
+    printf("Invalid uniform matrix variable name given: \"%s\"\n", name.c_str());
     return false;
+  }
   glUniformMatrix4fv(location, count, transpose, v);
   return true;
 }
 bool Shader::set_uniform_matrix_2fv(const std::string & name, GLsizei count, GLboolean transpose, const sgl::Mat2x2 * m) const {
   GLint location;
-  if ((location = get_uniform_location(name)) < 0)
+  if ((location = get_uniform_location(name)) < 0) {
+    printf("Invalid uniform matrix variable name given: \"%s\"\n", name.c_str());
     return false;
+  }
   float f[4];
   for (int n = 0; n < count; n++) {
     for (int j = 0; j < 4; j++) {
       f[j] = float(m[n].i[j]);
     }
-    if ((location = get_uniform_location(name + '[' + std::to_string(n) + ']')) < 0)
+    std::string matname = ((count > 1) ? (name + '[' + std::to_string(n) + ']') : (name));
+    if ((location = get_uniform_location(matname)) < 0) {
+      printf("Invalid uniform matrix variable name given: \"%s\"\n", matname.c_str());
       return false;
+    }
     glUniformMatrix2fv(location, 1, transpose, f);
   }
   return true;
 }
 bool Shader::set_uniform_matrix_3fv(const std::string & name, GLsizei count, GLboolean transpose, const sgl::Mat3x3 * m) const {
   GLint location;
-  if ((location = get_uniform_location(name)) < 0)
+  if ((location = get_uniform_location(name)) < 0) {
+    printf("Invalid uniform matrix variable name given: \"%s\"\n", name.c_str());
     return false;
+  }
   float f[9];
   for (int n = 0; n < count; n++) {
     for (int j = 0; j < 9; j++) {
       f[j] = float(m[n].i[j]);
     }
-    if ((location = get_uniform_location(name + '[' + std::to_string(n) + ']')) < 0)
+    std::string matname = ((count > 1) ? (name + '[' + std::to_string(n) + ']') : (name));
+    if ((location = get_uniform_location(matname)) < 0) {
+      printf("Invalid uniform matrix variable name given: \"%s\"\n", matname.c_str());
       return false;
+    }
     glUniformMatrix3fv(location, 1, transpose, f);
   }
   return true;
 }
 bool Shader::set_uniform_matrix_4fv(const std::string& name, GLsizei count, GLboolean transpose, const sgl::Mat4x4* m) const {
   GLint location;
+  if ((location = get_uniform_location(name)) < 0) {
+    printf("Invalid uniform matrix variable name given: \"%s\"\n", name.c_str());
+    return false;
+  }
   float f[16];
   for (int n = 0; n < count; n++) {
     for (int j = 0; j < 16; j++) {
       f[j] = float(m[n].i[j]);
     }
-    if ((location = get_uniform_location(name + '[' + std::to_string(n) + ']')) < 0)
+    std::string matname = ((count > 1) ? (name + '[' + std::to_string(n) + ']') : (name));
+    if ((location = get_uniform_location(matname)) < 0) {
+      printf("Invalid uniform matrix variable name given: \"%s\"\n", matname.c_str());
       return false;
+    }
     glUniformMatrix4fv(location, 1, transpose, f);
   }
   return true;
@@ -1488,13 +1512,14 @@ bool FrameBuffer::make() {
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depth_stencil_texid, 0);
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-  /* check framebuffer completeness and return */
+  /* check framebuffer completeness */
   GLenum fbo_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if (fbo_status != GL_FRAMEBUFFER_COMPLETE) {
     printf("Framebuffer not complete! Error code = %d\n", fbo_status);
   }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 
   /* compile shader for blit framebuffer */
   blit_shader.create(R"(

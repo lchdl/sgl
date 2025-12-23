@@ -1,5 +1,5 @@
 #version 330 core
-layout(location = 0) out vec2 FragVSM;
+layout(location = 0) out vec4 FragVSM;
 void main() {
   float depth = gl_FragCoord.z;
   /* 
@@ -12,5 +12,5 @@ void main() {
   /*
   Then write it back to depth texture.
   */
-	FragVSM = vec2(depth, moment2);
+  FragVSM = vec4(depth, moment2, 0.0, 1.0);
 }

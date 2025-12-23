@@ -61,7 +61,7 @@ void init_env(int argc, char* argv[]) {
   pWindow = SDL_CreateWindow("SGL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
   if (pWindow == NULL)
     exit(1);
-  if (!sgl::OpenGL::initialize_OpenGL(pWindow, 3, 3, true))
+  if (!sgl::OpenGL::initialize_OpenGL(pWindow, 4, 3, true, true))
     exit(1);
   SDL_ShowWindow(pWindow);
   pWindowSurface = SDL_GetWindowSurface(pWindow);
